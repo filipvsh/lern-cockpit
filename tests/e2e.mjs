@@ -1,0 +1,287 @@
+// Ende-zu-Ende-Tests im echten Browser (Chromium) gegen ein In-Memory-Supabase.
+// Ausführen: node tests/e2e.mjs   ·   Screenshots: SHOTS=/pfad node tests/e2e.mjs
+import { MockBackend, seed } from "./mock-backend.mjs";
+import { fileURLToPath } from "node:url";
+import assert from "node:assert/strict";
+import { mkdirSync } from "node:fs";
+
+let pw;
+try { pw = await import("playwright"); } catch (e) { pw = await import("/opt/node-tools/node_modules/playwright/index.mjs"); }
+const { chromium } = pw.default || pw;
+const APP = "file://" + fileURLToPath(new URL("../index.html", import.meta.url));
+const SHOTS = process.env.SHOTS || ""; if (SHOTS) mkdirSync(SHOTS, { recursive: true });
+const only = process.argv[2] || "";
+
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium" });
+let passed = 0, failed = 0;
+const errors = [];
+
+async function open(backend, o = {}) {
+  const ctx = await browser.newContext({ viewport: o.viewport || { width: 1280, height: 860 } });
+  const page = await ctx.newPage();
+  page.on("pageerror", e => errors.push("pageerror: " + e.message));
+  page.on("console", m => { if (m.type() === "error" && !/Failed to load resource|ERR_INTERNET_DISCONNECTED|ERR_FAILED/.test(m.text())) errors.push("console: " + m.text()); });
+  page.on("dialog", d => d.accept());
+  await page.route("**/*", r => backend.handle(r));
+  await page.goto(APP + (o.hash || "#/dashboard"));
+  return { ctx, page };
+}
+async function login(page) {
+  await page.waitForSelector("#auth_form");
+  await page.fill("#a_mail", "filip@example.org"); await page.fill("#a_pw", "geheim123");
+  await page.click("#a_go");
+  await page.waitForSelector(".dash", { timeout: 8000 });
+}
+const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: SHOTS + "/" + name + ".png", fullPage: true }); };
+const go = async (page, hash) => { await page.evaluate(h => { location.hash = h; }, hash); await page.waitForTimeout(250); };
+async function scenario(name, fn) {
+  if (only && !name.toLowerCase().includes(only.toLowerCase())) return;
+  const before = errors.length;
+  try { await fn(); if (errors.length > before) throw new Error(errors.slice(before).join("\n")); passed++; console.log("  ✓ " + name); }
+  catch (e) { failed++; console.log("  ✗ " + name + "\n    " + String(e.stack || e).split("\n").slice(0, 4).join("\n    ")); }
+}
+
+console.log("Ende-zu-Ende");
+
+await scenario("Anmeldung + Übernahme der Altdaten in das neue Modell", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b);
+  await login(page);
+  assert.ok(b.db.klausuren.every(k => k.user_id), "Altdaten übernommen");
+  assert.deepEqual(b.db.vocab_collections.map(c => c.name).sort(), ["Unit 1", "Unité 1"]);
+  assert.ok(b.db.vokabeln.every(v => v.collection_id), "jede Vokabel hat eine Sammlung");
+  assert.equal(b.db.vocab_collections.find(c => c.name === "Unit 1").source_language, "en");
+  const topic = b.db.topics.find(t => t.title === "Short Story Writing"); assert.ok(topic, "Thema aus alter Themenliste");
+  assert.deepEqual(b.db.subtopics.filter(s => s.topic_id === topic.id).map(s => s.title), ["Structure", "Narrative Perspective", "Characterisation"]);
+  assert.equal(b.db.learning_events.filter(e => e.type === "self_assessment").length, 1, "nur „erledigt“ wird als Selbsteinschätzung übernommen");
+  assert.ok(b.db.klausuren.every(k => k.topics_migrated), "Migration markiert");
+  // erneutes Laden erzeugt keine Duplikate
+  b.log.length = 0; await page.reload(); await page.waitForSelector(".dash"); await page.waitForTimeout(300);
+  assert.equal(b.db.topics.length, 1); assert.equal(b.db.vocab_collections.length, 2);
+  assert.deepEqual(b.log.filter(l => !l.startsWith("GET") && !l.includes("/rpc/")), [], "zweites Laden schreibt nichts");
+  await shot(page, "01-dashboard");
+  const text = await page.textContent(".dash");
+  assert.ok(/fällige Vokabel|neue Vokabel/.test(text), "Tagesplan enthält Vokabeln");
+  assert.ok(text.includes("Narrative Perspective") || text.includes("Characterisation"), "Tagesplan enthält Unterthema der nahen Prüfung");
+  assert.ok(!/NaN|undefined/.test(text), "keine kaputten Werte");
+  await ctx.close();
+});
+
+await scenario("Vokabeln: Sammlung anlegen, Vokabel anlegen, bearbeiten, löschen, suchen", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  await go(page, "#/vokabeln"); await page.click("#col_new");
+  await page.fill("#c_name", "Unité 4"); await page.selectOption("#c_src", "fr"); await page.click("#c_save");
+  await page.waitForSelector("text=Leere Sammlung");
+  const col = b.db.vocab_collections.find(c => c.name === "Unité 4"); assert.ok(col);
+  await page.click("#v_new");
+  await page.fill("#e_term", "le quartier"); await page.fill("#e_tr", "das Viertel"); await page.fill("#e_alt", "der Stadtteil"); await page.click("#e_save");
+  await page.waitForTimeout(300); await page.click("#e_cancel"); await page.waitForTimeout(200);
+  const v = b.db.vokabeln.find(x => x.begriff === "le quartier"); assert.ok(v, "gespeichert"); assert.equal(v.collection_id, col.id); assert.deepEqual(v.alternatives, ["der Stadtteil"]);
+  await page.click(`[data-editvo="${v.id}"]`); await page.fill("#e_tr", "das Stadtviertel"); await page.click("#e_save"); await page.waitForTimeout(300);
+  assert.equal(b.db.vokabeln.find(x => x.id === v.id).bedeutung, "das Stadtviertel");
+  await go(page, "#/vokabeln"); await page.fill("#v_filter", "stadt"); await page.waitForTimeout(450);
+  assert.ok(await page.isVisible(`[data-editvo="${v.id}"]`), "Suche findet über Übersetzung");
+  await page.click(`[data-editvo="${v.id}"]`); await page.click("#e_del"); await page.waitForTimeout(300);
+  assert.ok(!b.db.vokabeln.some(x => x.id === v.id), "gelöscht");
+  await shot(page, "02-vokabeln");
+  await ctx.close();
+});
+
+await scenario("Vokabeltraining: Richtung, richtig, falsch, Spaced Repetition, Lernereignisse", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  const col = b.db.vocab_collections.find(c => c.name === "Unité 1");
+  await go(page, "#/vokabeln/" + col.id);
+  await page.click('[data-vdir="reverse"]'); await page.click('[data-vstart="vocab"]');
+  await page.waitForSelector("#vs_go"); await page.click("#vs_go");
+  await page.waitForSelector("#va");
+  assert.ok(await page.textContent(".fx-ctx").then(t => t.includes("Deutsch → Französisch")), "Richtung Teil der Session");
+  const prompt = (await page.textContent(".term")).trim();
+  const card = b.db.vokabeln.find(v => v.bedeutung.split(",")[0].trim() === prompt || v.bedeutung === prompt);
+  assert.ok(card, "Abfrage zeigt die deutsche Seite: " + prompt);
+  await page.fill("#va", card.begriff.toUpperCase() + "  "); await page.click("#va_check");
+  await page.waitForSelector(".fb.ok");
+  let row = b.db.vokabeln.find(v => v.id === card.id);
+  assert.equal(row.correct_count, 1); assert.ok(row.next_review_at > new Date().toISOString(), "Intervall verlängert");
+  assert.ok(b.db.learning_events.some(e => e.type === "vocabulary_correct" && e.vocab_id === card.id && e.detail.direction === "reverse"));
+  await page.click("#va_next");
+  const prompt2 = (await page.textContent(".term")).trim();
+  await page.fill("#va", "völlig falsch"); await page.click("#va_check");
+  await page.waitForSelector(".fb.bad");
+  const wrong = b.db.learning_events.filter(e => e.type === "vocabulary_wrong"); assert.equal(wrong.length, 1);
+  const wcard = b.db.vokabeln.find(v => v.id === wrong[0].vocab_id); assert.equal(wcard.interval_days, 0); assert.equal(wcard.incorrect_count, 1);
+  // „Ich hatte recht“ korrigiert Ereignis und Planung
+  await page.click("#va_override"); await page.waitForTimeout(200);
+  const fixed = b.db.learning_events.find(e => e.id === wrong[0].id); assert.equal(fixed.type, "vocabulary_correct");
+  assert.ok(!b.db.vokabeln.find(v => v.id === wcard.id).alternatives.includes("völlig falsch"), "Richtung DE→FR: französische Antwort wird nicht als deutsche Übersetzung gespeichert");
+  assert.ok(b.db.vokabeln.find(v => v.id === wcard.id).interval_days > 0, "nach Korrektur wie „richtig“ geplant");
+  await shot(page, "03-vokabel-session");
+  assert.ok(prompt2);
+  await ctx.close();
+});
+
+await scenario("Trainer: Pause, Fortsetzen, Reload-sicherer Timer, Beenden", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  await go(page, "#/trainer"); await page.click('[data-mode="exam"]'); await page.waitForSelector("#xm_go");
+  await page.click('[data-xmin="15"]'); await page.click("#xm_go");
+  await page.waitForSelector(".timer.countdown");
+  const ts = b.db.training_sessions[0]; assert.equal(ts.mode, "exam"); assert.equal(ts.time_limit_s, 900);
+  // 5 Minuten zurückdatieren: wie wenn seit Start 5 Minuten vergangen sind
+  await page.evaluate(() => { TS.started_at -= 5 * 60000; tsSave(); });
+  await page.reload(); await page.waitForSelector(".timer.countdown");
+  const t1 = await page.textContent("[data-tstime]"); assert.ok(/^(9|10):\d\d$/.test(t1), "nach Reload ~10:00 statt 15:00: " + t1);
+  await page.click("#ts_pause"); await page.waitForSelector("text=Pausiert");
+  assert.equal(b.db.training_sessions[0].status, "paused");
+  const p1 = await page.textContent("[data-tstime]"); await page.waitForTimeout(1600);
+  assert.equal(await page.textContent("[data-tstime]"), p1, "Timer steht in der Pause");
+  await page.click("#ts_resume"); assert.equal(b.db.training_sessions[0].status, "active");
+  // Session-Pille außerhalb des Trainers
+  await go(page, "#/dashboard"); await page.waitForSelector(".session-pill");
+  assert.ok((await page.textContent(".dash")).includes("Weitermachen"));
+  await page.click(".session-pill .btn"); await page.waitForSelector("#oa");
+  await page.fill("#oa", "Meine Antwort unter Prüfungsbedingungen."); await page.click("#oa_check");
+  assert.equal(await page.$(".fb"), null, "keine Rückmeldung im Prüfungsmodus");
+  assert.equal(await page.$("#hint_btn"), null, "keine Hinweise im Prüfungsmodus");
+  await page.click("#ts_end"); await page.click("#ce_yes");
+  await page.waitForSelector("text=Auswertung");
+  await shot(page, "04-pruefung-auswertung");
+  await ctx.close();
+});
+
+await scenario("Lernplan: Prüfung, Thema, Unterthema, Übung anlegen, üben, Lernstand ändert sich", async () => {
+  const b = new MockBackend({ ai: false }); const { ctx, page } = await open(b); await login(page);
+  await go(page, "#/lernplan"); await page.click("#lp_new");
+  await page.selectOption("#k_fach", "Mathe"); await page.fill("#k_thema", "Funktionen");
+  await page.fill("#k_datum", new Date(Date.now() + 12 * 864e5).toISOString().slice(0, 10)); await page.click("#k_add");
+  await page.waitForSelector(".topic-head");
+  const exam = b.db.klausuren.find(k => k.thema === "Funktionen"); assert.ok(exam);
+  const topic = b.db.topics.find(t => t.exam_id === exam.id); assert.equal(topic.title, "Funktionen");
+  await page.fill(`[data-subadd="${topic.id}"]`, "Ableitungen"); await page.press(`[data-subadd="${topic.id}"]`, "Enter"); await page.waitForTimeout(250);
+  const st = b.db.subtopics.find(s => s.title === "Ableitungen"); assert.ok(st);
+  await page.click(`details[data-sid="${st.id}"] summary`); await page.click(`[data-exnew="${st.id}"]`);
+  await page.selectOption("#x_type", "multiple_choice"); await page.fill("#x_q", "Ableitung von x²?");
+  await page.fill("#x_opts", "x\n* 2x\nx³"); await page.click("#x_save"); await page.waitForTimeout(250);
+  const ex = b.db.exercises.find(e => e.subtopic_id === st.id); assert.equal(ex.correct_index, 1);
+  assert.ok((await page.textContent(`details[data-sid="${st.id}"]`)).includes("Noch kein Lernstand"));
+  await page.click(`[data-practice="${st.id}"]`); await page.waitForSelector(".choices");
+  await page.click('[data-pick="1"]'); await page.click("#ch_check"); await page.waitForSelector("#ch_next");
+  const ev = b.db.learning_events.find(e => e.exercise_id === ex.id); assert.equal(ev.type, "exercise_correct"); assert.equal(ev.subtopic_id, st.id);
+  // restliche Vorlagen ohne KI: Selbsteinschätzung
+  await page.click("#ch_next"); await page.waitForSelector("#oa");
+  await page.fill("#oa", "Die Ableitung beschreibt die Steigung."); await page.click("#oa_check");
+  await page.waitForSelector("[data-rate]"); await page.click('[data-rate="0.5"]'); await page.click("#oa_next");
+  await page.waitForSelector("#oa"); await page.click("#ts_end"); await page.click("#ce_yes");
+  await page.waitForSelector("text=Lernstand");
+  await shot(page, "05-session-ergebnis");
+  await page.click("#sm_close"); await page.waitForSelector(".topic-head");
+  const subText = await page.textContent(`details[data-sid="${st.id}"] summary`);
+  assert.ok(/\d+ %/.test(subText), "Lernstand angezeigt: " + subText);
+  assert.ok(b.db.subtopics.find(s => s.id === st.id).mastery_score > 0, "Lernstand-Cache gespeichert");
+  await page.click(`details[data-sid="${st.id}"] summary`);
+  await shot(page, "06-lernplan-detail");
+  await ctx.close();
+});
+
+await scenario("KI: Erklären, Übung erzeugen + lösen, Prüfen, Korrigieren, Sokratisch, Hinweise", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  const st = b.db.subtopics.find(s => s.title === "Narrative Perspective");
+  await go(page, "#/ki?sub=" + st.id + "&mode=erklaeren"); await page.waitForSelector("#ki_send");
+  await page.click("#ki_send"); await page.waitForSelector(".kq");
+  assert.equal(b.lastAi.subtopic_id, st.id, "Kontext-IDs werden mitgeschickt");
+  await page.click('[data-ki="ueben"]'); await page.click("#ki_send"); await page.waitForSelector("[data-kpick]");
+  const ex = b.db.exercises.find(e => e.source === "ai"); assert.ok(ex, "KI-Übung gespeichert");
+  await page.click('[data-kpick$=":0"]'); await page.waitForTimeout(200);
+  assert.ok(b.db.learning_events.some(e => e.exercise_id === ex.id && e.type === "exercise_correct"));
+  await page.click('[data-ki="pruefen"]'); await page.click("#ki_send"); await page.waitForSelector(".kq");
+  await page.fill("#ki_in", "Der personale Erzähler weiß alles."); await page.click("#ki_send"); await page.waitForSelector(".verdict.wrong");
+  assert.ok(b.db.learning_events.some(e => e.detail && e.detail.mistake === "Personal vs. auktorial verwechselt"), "Fehler gespeichert");
+  await page.click('[data-ki="korrigieren"]'); await page.fill("#ki_in", "I walked into the room. She looked at me."); await page.click("#ki_send");
+  await page.waitForSelector(".rubric"); assert.ok((await page.textContent(".rubric")).includes("Lernhilfe, keine Note"));
+  assert.ok(b.db.learning_events.some(e => e.type === "ai_feedback" && e.subtopic_id === st.id));
+  await shot(page, "07-ki-korrektur");
+  await page.click('[data-ki="sokratisch"]'); await page.click("#ki_send"); await page.waitForSelector(".kq");
+  // Hinweise im Trainer
+  await page.evaluate(id => startTraining({ mode: "topic", subtopic_id: id }), st.id);
+  await page.waitForSelector(".fx-card");
+  if (await page.$("#hint_btn")) { await page.click("#hint_btn"); await page.waitForSelector(".hint-it"); assert.equal(b.lastAi.level, 1); }
+  // Weakspots und Weiterlernen auf dem Dashboard
+  await page.click("#ts_end"); await page.click("#ce_yes"); await page.click("#sm_close");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
+  const dash = await page.textContent(".dash");
+  assert.ok(dash.includes("Narrative Perspective"), "Dashboard kennt das Unterthema");
+  await shot(page, "08-dashboard-nach-lernen");
+  await ctx.close();
+});
+
+await scenario("KI nicht eingerichtet: klare Meldung, Eingabe bleibt erhalten, Rest funktioniert", async () => {
+  const b = new MockBackend({ ai: false }); const { ctx, page } = await open(b); await login(page);
+  const st = b.db.subtopics.find(s => s.title === "Narrative Perspective");
+  await go(page, "#/ki?sub=" + st.id + "&mode=korrigieren"); await page.waitForSelector("#ki_in");
+  await page.fill("#ki_in", "Mein Text"); await page.click("#ki_send"); await page.waitForTimeout(400);
+  assert.ok((await page.textContent("#view")).includes("noch nicht eingerichtet"));
+  await page.reload(); await page.waitForSelector("#ki_in");
+  assert.equal(await page.inputValue("#ki_in"), "Mein Text", "Entwurf gespeichert");
+  await ctx.close();
+});
+
+await scenario("Offline: Antworten werden gepuffert und nach der Verbindung nachgereicht", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  await page.evaluate(() => startTraining({ mode: "vocab", count: 5 })); await page.waitForSelector("#va");
+  b.offline = true;
+  await page.fill("#va", "xyz"); await page.click("#va_check"); await page.waitForSelector(".fb");
+  const pending = await page.evaluate(() => Api.pending); assert.ok(pending > 0, "Schreibvorgänge gepuffert: " + pending);
+  assert.equal(b.db.learning_events.filter(e => e.type.startsWith("vocabulary")).length, 0);
+  b.offline = false; await page.evaluate(() => Api.flush()); await page.waitForTimeout(500);
+  assert.equal(await page.evaluate(() => Api.pending), 0);
+  assert.equal(b.db.learning_events.filter(e => e.type === "vocabulary_wrong").length, 1, "nachgereicht, ohne Duplikat");
+  // Offline-Start aus dem gespeicherten Stand
+  await page.evaluate(() => saveSnap());
+  b.offline = true; await page.reload(); await page.waitForSelector("#va");   // laufende Session offline wiederhergestellt
+  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
+  assert.ok((await page.textContent("#view")).includes("Offline"), "Offline-Hinweis statt leerer Seite");
+  b.offline = false; await ctx.close();
+});
+
+await scenario("Abmelden und erneut anmelden: Daten und aktive Session bleiben", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  await page.evaluate(() => startTraining({ mode: "free" })); await page.waitForSelector(".fx-big-time");
+  await page.reload(); await page.waitForSelector(".fx-big-time"); // Session nach Reload wieder offen
+  await go(page, "#/einstellungen"); await page.click("#s_logout"); await page.waitForSelector("#auth_form");
+  assert.equal(b.db.training_sessions[0].status, "abandoned", "Session beim Abmelden sauber beendet");
+  await login(page);
+  assert.ok((await page.textContent(".dash")).includes("Short Story Writing"));
+  await ctx.close();
+});
+
+await scenario("Ohne Migration: Einrichtungshinweis, Schulseiten funktionieren weiter", async () => {
+  const b = new MockBackend({ engine: false }); const { ctx, page } = await open(b);
+  await page.waitForSelector(".dash"); assert.ok((await page.textContent(".dash")).includes("Lern-Engine einrichten"));
+  await go(page, "#/aufgaben"); await page.waitForSelector("text=S. 42");
+  await go(page, "#/vokabeln"); assert.ok((await page.textContent("#view")).includes("003_learning_engine.sql"));
+  await ctx.close();
+});
+
+await scenario("Mobil: Dashboard, Trainer und Lernplan ohne horizontales Scrollen", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  for (const h of ["#/dashboard", "#/vokabeln", "#/lernplan/" + b.db.klausuren[0].id, "#/fortschritt", "#/ki", "#/trainer"]) {
+    await go(page, h); await page.waitForTimeout(300);
+    const w = await page.evaluate(() => document.documentElement.scrollWidth);
+    assert.ok(w <= 392, h + " zu breit: " + w);
+    await shot(page, "m-" + h.replace(/[#\/]/g, "_"));
+  }
+  await page.evaluate(() => startTraining({ mode: "mixed" })); await page.waitForSelector(".fx-card");
+  await shot(page, "m-trainer-session");
+  await ctx.close();
+});
+
+await scenario("Fortschritt zeigt nur echte Werte und sinnvolle Leerzustände", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  await go(page, "#/fortschritt"); await page.waitForSelector(".kpis");
+  const t = await page.textContent("#view");
+  assert.ok(!/NaN|undefined|Infinity/.test(t));
+  assert.ok(t.includes("Noch keine Lernzeit"), "ehrlicher Leerzustand");
+  await shot(page, "09-fortschritt");
+  await ctx.close();
+});
+
+await browser.close();
+console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
+process.exit(failed ? 1 : 0);

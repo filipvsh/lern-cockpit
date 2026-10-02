@@ -708,6 +708,84 @@ body.focus{background:var(--surface)}
  .two-col{grid-template-columns:1fr}
  .t{width:88px}
 }
+/* =====================================================================
+   LERN-ENGINE (Phase 2) · ergänzende Komponenten auf denselben Tokens
+   ===================================================================== */
+.spinner{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid var(--fill-3);border-top-color:var(--accent);animation:spin .7s linear infinite;vertical-align:-2px;flex:0 0 auto}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:var(--fill);padding:1px 5px;border-radius:5px}
+.steps{margin:0;padding-left:20px;line-height:1.8;font-size:14px}
+/* Rückmeldung */
+.fb{margin-top:var(--s5);border-radius:var(--r-md);padding:12px var(--s4);font-size:15px;animation:reveal .2s var(--ease-out)}
+.fb-t{display:flex;align-items:center;gap:8px}.fb-t svg{width:16px;height:16px;flex:0 0 auto}
+.fb-x{margin-top:4px;color:var(--text);line-height:1.5}
+.fb.ok{background:var(--green-weak);color:var(--green)}.fb.almost{background:var(--accent-weak);color:var(--accent)}.fb.bad{background:var(--red-weak);color:var(--red)}.fb.neutral{background:var(--fill);color:var(--text-2)}
+.answer-input{margin-top:var(--s6);height:52px;font-size:20px;text-align:center;background:var(--surface)}
+/* Auswahl & Zuordnung */
+.choices{display:grid;gap:var(--s2);margin-top:var(--s5)}
+.opt-choice{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid var(--line-2);background:var(--surface);border-radius:var(--r-md);padding:13px var(--s4);font:inherit;font-size:15px;cursor:pointer;color:var(--text);transition:border-color var(--dur),background var(--dur)}
+.opt-choice:hover:not([disabled]){border-color:var(--accent)}
+.opt-choice.on{border-color:var(--accent);background:var(--accent-weak);color:var(--accent)}
+.opt-choice.paired{background:var(--fill);border-color:transparent}
+.opt-choice.right{border-color:var(--green);background:var(--green-weak);color:var(--green)}
+.opt-choice.wrongpick{border-color:var(--red);background:var(--red-weak);color:var(--red)}
+.opt-choice[disabled]{cursor:default}
+.pairto{margin-left:auto;font-size:13px;color:var(--text-2)}
+.match{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin-top:var(--s5)}.match>div{display:grid;gap:var(--s2);align-content:start}
+/* Lösung, Hinweise, Rubrik */
+.solution{margin-top:var(--s4);padding:12px var(--s4);border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);font-size:14px;line-height:1.55}
+.kind{font-size:12px;font-weight:600;color:var(--text-3);letter-spacing:.02em;margin-bottom:4px}
+.hints{margin-top:var(--s4);display:grid;gap:var(--s2)}.hint-it{padding:10px var(--s4);border-radius:var(--r-md);background:var(--accent-weak);font-size:14px;line-height:1.5}
+.rubric{margin-top:var(--s5);padding:var(--s4) var(--s5);border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line)}
+.rubric-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:var(--s2)}
+.rb-sec{margin-top:var(--s3);font-size:14px}.rb-sec ul{margin:4px 0 0;padding-left:18px;line-height:1.55;color:var(--text)}
+.timer.low{color:var(--orange)}.timer.low i{background:var(--orange)}
+/* Anmeldung */
+.auth{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:var(--s5)}
+.auth-card{width:100%;max-width:400px}
+.auth-links{display:flex;justify-content:space-between;margin-top:var(--s4)}
+/* Dashboard */
+.plan-foot{display:flex;align-items:center;justify-content:space-between;gap:var(--s3)}
+.li.done .li-title{text-decoration:none;color:var(--text-2)}
+.weak{padding:12px 0}.weak+.weak{border-top:1px solid var(--sep)}
+.weak-meta{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin-top:8px;font-size:12px;color:var(--text-2)}
+.st-trail .prog{width:64px}.st-trail .pct{font-size:13px;color:var(--text-2);width:38px;text-align:right}
+/* Vokabeln */
+button.vrow{width:100%;border:none;background:none;font:inherit;text-align:left;cursor:pointer;color:inherit;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto;transition:background var(--dur)}
+button.vrow:hover{background:var(--surface-2)}
+.vstat{white-space:nowrap}
+.vstats{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--text-2);margin-bottom:var(--s4)}
+/* Lernplan: Ebenen */
+.topic{display:flex;flex-direction:column;gap:var(--s3)}
+.topic-h{display:flex;justify-content:space-between;align-items:flex-end;gap:var(--s4);padding:0 4px}
+.topic-h .level{font-size:12px;font-weight:600;color:var(--text-3);letter-spacing:.02em}
+.topic-h h3{font-family:var(--font-display);font-size:22px;font-weight:600;letter-spacing:-.02em;margin:2px 0 0;line-height:1.25}
+.topic-meta{display:flex;align-items:center;gap:var(--s2);flex:0 0 auto}
+.mastery-why{font-size:13px;color:var(--text-2);margin-bottom:var(--s4);line-height:1.6}.mastery-why b{color:var(--text);font-weight:600}
+.exlist{display:grid;gap:2px;margin-bottom:var(--s4)}
+.exrow{display:flex;align-items:center;gap:var(--s3);padding:8px 0}.exrow+.exrow{border-top:1px solid var(--sep)}
+.exrow .ico{width:30px;height:30px;border-radius:9px;background:var(--fill);color:var(--text-2);display:flex;align-items:center;justify-content:center;flex:0 0 auto}.exrow .ico svg{width:15px;height:15px}
+.exrow .li-title{font-size:14px}
+.ex-btn.primary-ex{background:var(--accent);color:#fff}.ex-btn.primary-ex svg{color:#fff}.ex-btn.primary-ex:hover{background:var(--accent-hover);color:#fff}
+/* KI */
+.ctx-sum{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--text-2);margin:-12px 0 var(--s6);padding:10px var(--s4);border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line)}
+.ki-card{padding:var(--s5)}
+.thread{display:flex;flex-direction:column;gap:var(--s3);margin-bottom:var(--s4)}
+.msg{padding:12px var(--s4);border-radius:var(--r-md);font-size:15px;line-height:1.55;max-width:100%}
+.msg.ai{background:var(--surface-2);border:1px solid var(--line)}
+.msg.me{background:var(--accent-weak);align-self:flex-end;max-width:85%}
+.msg ul{margin:6px 0 0;padding-left:18px}.md p{margin:6px 0}
+.kq{margin-top:var(--s3);padding:10px var(--s4);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--line)}
+.verdict{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;margin-bottom:6px}
+.verdict.correct{background:var(--green-weak);color:var(--green)}.verdict.partial{background:var(--accent-weak);color:var(--accent)}.verdict.wrong{background:var(--red-weak);color:var(--red)}
+.milestones{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4)}
+@media(max-width:720px){
+ .match{grid-template-columns:1fr 1fr;gap:var(--s2)}.opt-choice{padding:11px 12px;font-size:14px}
+ .answer-input{font-size:18px}
+ button.vrow{grid-template-columns:1fr auto}.vrow .vstat{display:none}
+ .topic-h{flex-direction:column;align-items:flex-start}
+ .weak-meta{flex-direction:column;align-items:flex-start}
+ .plan-foot{flex-direction:column;align-items:stretch}
+}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -727,22 +805,24 @@ body.focus{background:var(--surface)}
 <nav class="mnav" id="mnav" aria-label="Navigation"></nav>
 <div id="sessionPill"></div>
 <div id="overlay"></div>
+<script src="js/engine.js"></script>
+<script src="js/api.js"></script>
 <script>
 /* =====================================================================
-   LERN-COCKPIT v2 · Core
+   LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="2.0";
+const APP_VERSION="3.0";
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
-const SBH={apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"application/json"};
-async function sbGet(tbl,qs){const r=await fetch(SB_URL+"/rest/v1/"+tbl+"?"+(qs||"select=*"),{headers:SBH});if(!r.ok)throw new Error(r.status+" "+await r.text());return r.json();}
-async function sbInsert(tbl,obj){const r=await fetch(SB_URL+"/rest/v1/"+tbl,{method:"POST",headers:{...SBH,Prefer:"return=representation"},body:JSON.stringify(obj)});if(!r.ok)throw new Error(r.status+" "+await r.text());const j=await r.json();return Array.isArray(obj)?j:j[0];}
-async function sbPatch(tbl,id,obj){const r=await fetch(SB_URL+"/rest/v1/"+tbl+"?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:{...SBH,Prefer:"return=representation"},body:JSON.stringify(obj)});if(!r.ok)throw new Error(r.status+" "+await r.text());return r.json();}
-async function sbUpsert(tbl,obj,onConflict){const r=await fetch(SB_URL+"/rest/v1/"+tbl+(onConflict?"?on_conflict="+onConflict:""),{method:"POST",headers:{...SBH,Prefer:"return=representation,resolution=merge-duplicates"},body:JSON.stringify(obj)});if(!r.ok)throw new Error(r.status+" "+await r.text());return r.json();}
-async function sbDelete(tbl,id){const r=await fetch(SB_URL+"/rest/v1/"+tbl+"?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:SBH});if(!r.ok)throw new Error(r.status+" "+await r.text());}
-async function sbGetAll(tbl,qs){let out=[],from=0;const page=1000;for(let i=0;i<10;i++){const r=await fetch(SB_URL+"/rest/v1/"+tbl+"?"+qs,{headers:{...SBH,Range:from+"-"+(from+page-1)}});if(!r.ok)throw new Error(r.status+" "+await r.text());const j=await r.json();out=out.concat(j);if(j.length<page)break;from+=page;}return out;}
-async function sbCount(tbl,qs){const r=await fetch(SB_URL+"/rest/v1/"+tbl+"?"+qs,{headers:{...SBH,Prefer:"count=exact",Range:"0-0"}});if(!r.ok)throw new Error(r.status);const cr=r.headers.get("content-range")||"0-0/0";return +cr.split("/")[1]||0;}
+Api.configure(SB_URL,SB_KEY);
+/* Bestehende Helfer laufen über die Datenschicht (js/api.js): Token des Nutzers, Erneuerung, Fehlerobjekte */
+const sbGet=(tbl,qs)=>Api.get(tbl,qs);
+const sbInsert=(tbl,obj)=>Api.insert(tbl,obj);
+const sbPatch=(tbl,id,obj)=>Api.patch(tbl,"id=eq."+encodeURIComponent(id),obj);
+const sbUpsert=(tbl,obj,onConflict)=>Api.request("POST","/rest/v1/"+tbl+(onConflict?"?on_conflict="+onConflict:""),{body:obj,prefer:"return=representation,resolution=merge-duplicates"});
+const sbDelete=(tbl,id)=>Api.del(tbl,"id=eq."+encodeURIComponent(id));
+const sbGetAll=(tbl,qs)=>Api.getAll(tbl,qs);
 
 /* ---------- BASICS ---------- */
 const two=n=>String(n).padStart(2,"0");
@@ -825,11 +905,11 @@ function freeWindows(day,iso){const o=occ(day);const w=[];let c=null;const ent=i
 const STATE={hw:[],kl:[],vo:[],news:[],noten:[],log:[],settings:{},termine:[],aend:[],loaded:false,error:null,v2:{},dbReady:false};
 const V2TABLES=["noten","lernlog","einstellungen","termine","stundenplan_aenderungen"];
 const normHW=r=>({id:r.id,aufgabe:r.aufgabe||"",fach:r.fach||"",faellig:r.faellig||"",dauer:r.dauer||0,prio:r.prio||"Mittel",done:!!r.done,typ:r.typ||((r.fach&&r.fach!=="")?"hausaufgabe":"todo"),notiz:r.notiz||"",klausur_id:r.klausur_id||null,done_at:r.done_at||null,created:r.created||""});
-const normKL=r=>({id:r.id,fach:r.fach||"",thema:r.thema||"",datum:r.datum||"",prep:r.prep||"Nicht begonnen",nr:r.nr||null,kurs:r.kurs||KURSE[r.fach]||"",lehrer:r.lehrer||LEHRER[r.fach]||"",uhrzeit:r.uhrzeit||"",dauer:r.dauer||null,raum:r.raum||"",themen:Array.isArray(r.themen)?r.themen:[],material:Array.isArray(r.material)?r.material:[],notizen:r.notizen||"",mitnehmen:Array.isArray(r.mitnehmen)?r.mitnehmen:[],punkte:(r.punkte===0||r.punkte)?r.punkte:null,halbjahr:r.halbjahr||hjOf(r.datum||todayISO()),vokabel_lektionen:Array.isArray(r.vokabel_lektionen)?r.vokabel_lektionen:[],cal_event_id:r.cal_event_id||""});
+const normKL=r=>({id:r.id,fach:r.fach||"",thema:r.thema||"",datum:r.datum||"",prep:r.prep||"Nicht begonnen",nr:r.nr||null,kurs:r.kurs||KURSE[r.fach]||"",lehrer:r.lehrer||LEHRER[r.fach]||"",uhrzeit:r.uhrzeit||"",dauer:r.dauer||null,raum:r.raum||"",themen:Array.isArray(r.themen)?r.themen:[],material:Array.isArray(r.material)?r.material:[],notizen:r.notizen||"",mitnehmen:Array.isArray(r.mitnehmen)?r.mitnehmen:[],punkte:(r.punkte===0||r.punkte)?r.punkte:null,halbjahr:r.halbjahr||hjOf(r.datum||todayISO()),vokabel_lektionen:Array.isArray(r.vokabel_lektionen)?r.vokabel_lektionen:[],cal_event_id:r.cal_event_id||"",description:r.description||"",subject_id:r.subject_id||null,topics_migrated:!!r.topics_migrated});
 async function loadAll(){
- const [hw,kl,vo]=await Promise.all([sbGet("hausaufgaben","select=*&order=faellig.asc"),sbGet("klausuren","select=*&order=datum.asc"),sbGetAll("vokabeln","select=*&order=next.asc,id.asc")]);
+ const [hw,kl,vo]=await Promise.all([sbGet("hausaufgaben","select=*&order=faellig.asc"),sbGet("klausuren","select=*&order=datum.asc"),sbGetAll("vokabeln","select=*&order=id.asc")]);
  STATE.hw=hw.map(normHW);STATE.kl=kl.map(normKL);
- STATE.vo=vo.map(r=>({id:r.id,begriff:r.begriff,bedeutung:r.bedeutung||"",sprache:r.sprache||"",level:r.level||0,next:r.next||""}));
+ STATE.vo=vo.map(normVO);
  try{const news=await sbGet("neuigkeiten","select=*&order=created.desc&limit=60");STATE.news=news.map(r=>({id:r.id,quelle:r.quelle||"",titel:r.titel||"",info:r.info||"",datum:r.datum||"",link:r.link||"",gelesen:!!r.gelesen,created:r.created||""}));}catch(e){STATE.news=[];}
  // v2-Tabellen (tolerant: fehlen sie, läuft alles mit lokalem Fallback)
  const since=addDays(todayISO(),-120);
@@ -884,11 +964,12 @@ function klFor(fach){return upcomingKL().find(k=>k.fach===fach)}
 function unreadNews(){return STATE.news.filter(n=>!n.gelesen)}
 
 /* ---------- KLAUSUR-LERNPLAN ---------- */
-function klPlan(k){const d=daysUntil(k.datum),t=todayISO(),steps=[];const open=k.themen.filter(x=>!x.done);const hasT=k.themen.length>0;
+function klThemen(k){if(typeof subsOfExam==="function"&&STATE.engine==="ready"){const subs=subsOfExam(k.id);if(subs.length)return subs.map(st=>{const m=masteryOf(st.id).score;return {id:st.id,text:st.title,done:m!=null&&m>=80};});}return k.themen||[];}
+function klPlan(k){const d=daysUntil(k.datum),t=todayISO(),steps=[];const th=klThemen(k);const open=th.filter(x=>!x.done);const hasT=th.length>0;
  const D=n=>addDays(k.datum,-n);
  if(d>14){steps.push({date:t,label:hasT?"Themen gesammelt — ab "+fmtD(D(14))+" geht's los":"Themen eintragen (was kommt dran?)",sub:"Noch "+d+" Tage. Frag im Unterricht nach den Klausurthemen und trag sie unten ein.",kind:"info"});}
  steps.push({date:D(14),label:"Überblick: Themen & Material komplett",sub:"Hefter ordnen, Aufgabenblätter sammeln, Themenliste fertig",kind:"a"});
- steps.push({date:D(10),label:"Üben startet",sub:hasT?"Pro Tag ein Thema abhaken":"Erst Themen eintragen",kind:"a"});
+ steps.push({date:D(10),label:"Üben startet",sub:hasT?"Pro Tag ein Unterthema im Trainer üben":"Erst Unterthemen eintragen",kind:"a"});
  if(hasT){const from=Math.max(1,Math.min(d,10));const days=[];for(let i=from;i>=3;i--)days.push(D(i));const per=Math.max(1,Math.ceil(open.length/Math.max(1,days.length)));let idx=0;for(const dd of days){const chunk=open.slice(idx,idx+per);if(!chunk.length)break;steps.push({date:dd,label:chunk.map(x=>x.text).join(" · "),sub:"Üben",kind:"t",themen:chunk});idx+=per;}}
  steps.push({date:D(2),label:"Wiederholen: alles einmal durch",sub:"Zusammenfassung schreiben, Übungsklausur / alte Aufgaben unter Zeit",kind:"a"});
  steps.push({date:D(1),label:"Locker wiederholen + Tasche packen",sub:"Nur noch Karteikarten/Formeln, früh schlafen"+(k.vokabel_lektionen.length?", Vokabeln der gekoppelten Leçons":""),kind:"a"});
@@ -982,45 +1063,6 @@ function dbBanner(){if(STATE.dbReady)return "";return '<div class="notice"><span
 const klTitle=k=>(k.thema&&!/^Klausur Nr/.test(k.thema))?k.thema:("Klausur"+(k.nr?" Nr. "+k.nr:""));
 const daysLabel=d=>d===0?"Heute":d===1?"Morgen":d+" Tage";
 
-/* ---------- Lernstand: Bereitschaft, Schwachstellen, Weiterlernen ---------- */
-// Sicherheit eines Unterthemas 0–100: erledigt = 100, sonst Selbsteinschätzung aus dem Trainer
-const subScore=t=>t.done?100:(t.score!=null?+t.score:0);
-function readiness(k){if(!k||!k.themen.length)return null;return Math.round(k.themen.reduce((s,t)=>s+subScore(t),0)/k.themen.length);}
-function deckMastery(cards){if(!cards.length)return 0;return Math.round(cards.reduce((s,v)=>s+Math.min(5,v.level||0),0)/(cards.length*5)*100);}
-function weakSpots(limit){limit=limit||5;const out=[],decks=[];
- upcomingKL().forEach(k=>k.themen.forEach(t=>{if(!t.done&&t.score!=null)out.push({label:t.text,sub:k.fach+" · "+klTitle(k),pct:Math.round(t.score),href:"#/trainer/thema?kl="+k.id+"&t="+t.id});}));
- const byDeck={};STATE.vo.forEach(v=>{(byDeck[v.sprache||"—"]=byDeck[v.sprache||"—"]||[]).push(v);});
- Object.entries(byDeck).forEach(([d,cards])=>{if(cards.length<5)return;const m=deckMastery(cards);if(m<80)decks.push({label:d,sub:"Vokabeln · "+langOf(d),pct:m,href:"#/vokabeln/"+encodeURIComponent(d)});});
- out.sort((a,b)=>a.pct-b.pct);decks.sort((a,b)=>a.pct-b.pct);
- // Prüfungsthemen zuerst, Vokabel-Sammlungen ergänzen — beides soll sichtbar sein
- const topics=out.slice(0,Math.max(limit-Math.min(2,decks.length),Math.ceil(limit/2)));return topics.concat(decks.slice(0,limit-topics.length));}
-function meterRow(w){return '<a class="meter'+(w.pct<60?" weak":"")+'" href="'+w.href+'" style="text-decoration:none;color:inherit;display:grid"><span class="mt-l">'+esc(w.label)+'<span class="mt-s">'+esc(w.sub)+'</span></span><span class="mt-v">'+w.pct+' %</span>'+progBar(w.pct,w.pct<60?"o":"")+'</a>';}
-function setLast(o){lsSet("lc_last",{...o,ts:Date.now()});}
-// Was ist der sinnvollste nächste Lernschritt?
-function continueItem(){const last=lsGet("lc_last",null);
- if(last&&last.kind==="thema"){const k=klById(last.kl);const t=k&&k.themen.find(x=>x.id===last.t);if(k&&t&&!t.done&&daysUntil(k.datum)>=0&&k.punkte==null)return {k,t,pct:subScore(t),href:"#/trainer/thema?kl="+k.id+"&t="+t.id,resumed:true};}
- for(const k of upcomingKL()){const open=k.themen.filter(t=>!t.done);if(open.length){const t=open.slice().sort((a,b)=>(a.score==null?-1:a.score)-(b.score==null?-1:b.score))[0];return {k,t,pct:subScore(t),href:"#/trainer/thema?kl="+k.id+"&t="+t.id,resumed:false};}}
- return null;}
-
-/* ---------- Trainings-Session (Timer, persistent über Reloads) ---------- */
-function sess(){return lsGet("lc_session",null);}
-function sessElapsed(s){s=s||sess();if(!s)return 0;return s.acc+(s.runFrom?Date.now()-s.runFrom:0);}
-function fmtClock(ms){const t=Math.floor(ms/1000),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return (h?h+":"+two(m):m)+":"+two(s);}
-function sessStart(meta){const s=sess();if(s){const n={...s,...meta};if(!n.runFrom)n.runFrom=Date.now();lsSet("lc_session",n);return n;}const n={start:Date.now(),acc:0,runFrom:Date.now(),notified:0,...meta};lsSet("lc_session",n);return n;}
-function sessToggle(){const s=sess();if(!s)return;if(s.runFrom){s.acc+=Date.now()-s.runFrom;s.runFrom=null;}else s.runFrom=Date.now();lsSet("lc_session",s);sessTick();}
-async function sessEnd(silent){const s=sess();if(!s)return 0;const mins=Math.round(sessElapsed(s)/60000);localStorage.removeItem("lc_session");
- if(mins>=1)await logAdd("fokus",1,mins,s.ref||"");if(!silent)toast(mins>=1?"Session beendet · "+mins+" Min. gelernt":"Session beendet");sessTick();return mins;}
-function sessTick(){const s=sess();const el=sessElapsed(s);
- document.querySelectorAll("[data-sesstime]").forEach(e=>{e.textContent=fmtClock(el);});
- document.querySelectorAll("[data-sessstate]").forEach(e=>{e.classList.toggle("paused",!!(s&&!s.runFrom));});
- document.querySelectorAll("[data-sesspause]").forEach(e=>{e.textContent=s&&!s.runFrom?"Fortsetzen":"Pause";});
- const pill=document.getElementById("sessionPill");if(pill){const show=s&&ROUTE.name!=="trainer";
-  if(!show){if(pill.innerHTML)pill.innerHTML="";}
-  else if(!pill.firstChild)pill.innerHTML='<div class="session-pill'+(s.runFrom?"":" paused")+'" data-sessstate><i></i><b data-sesstime>'+fmtClock(el)+'</b><span class="lbl">'+esc(s.label||"Training")+'</span><a class="btn primary sm" href="'+esc(s.href||"#/trainer")+'">Fortsetzen</a></div>';}
- // sanfte Pausen-Erinnerung alle 25 Minuten
- if(s&&s.runFrom){const blocks=Math.floor(el/(25*60000));if(blocks>(s.notified||0)){s.notified=blocks;lsSet("lc_session",s);notify(blocks*25+" Minuten konzentriert","Gönn dir 5 Minuten Pause.","lc-sess");}}}
-setInterval(sessTick,1000);
-
 /* ---------- Zeit & Status ---------- */
 function greeting(){const h=new Date().getHours();return h<5?"Gute Nacht":h<11?"Guten Morgen":h<18?"Guten Tag":"Guten Abend";}
 function nowStatus(){const now=new Date(),day=now.getDay(),m=now.getHours()*60+now.getMinutes(),iso=todayISO();
@@ -1033,43 +1075,10 @@ function nowStatus(){const now=new Date(),day=now.getDay(),m=now.getHours()*60+n
  if(nx)return "Freistunde bis "+lStart(nx)+" · danach "+nx.subj;
  return "Schule für heute vorbei";}
 
-/* =====================================================================
-   DASHBOARD · „Was ist für mich jetzt wichtig?“
-   ===================================================================== */
-function todayItems(){const items=[];const vd=vokDoneToday(),vt=dailyTarget(),rem=Math.max(0,vt-vd);const t=todayISO();
- if(rem>0){const tr=getTrainer();items.push({ico:"vokabeln",accent:true,title:plural(rem,"Vokabel","Vokabeln")+" wiederholen",sub:"Tagesziel "+Math.min(vd,vt)+" von "+vt+(tr.on&&tr.lessons.length?" · Prüfungsfokus: "+tr.lessons.join(", "):""),href:"#/trainer/vok?deck=daily",trail:"≈ "+Math.max(3,Math.round(rem*0.7))+" Min."});}
- upcomingKL().filter(k=>daysUntil(k.datum)<=14).forEach(k=>{const st=klToday(k);if(st&&st.kind!=="k")items.push({ico:"lernplan",title:k.fach+" – "+klTitle(k),sub:st.label,href:"#/lernplan/"+k.id,trail:daysLabel(daysUntil(k.datum))});else if(daysUntil(k.datum)===0)items.push({ico:"flag",title:k.fach+"-Klausur heute",sub:(k.uhrzeit?k.uhrzeit+" · ":"")+(k.raum||""),href:"#/lernplan/"+k.id});});
- openHW().filter(h=>h.faellig&&h.faellig<=addDays(t,1)).forEach(h=>{const d=daysUntil(h.faellig);items.push({hw:h,title:h.aufgabe,sub:(h.typ==="todo"?"To-do":h.fach)+" · "+(d<0?'<span class="over">überfällig</span>':d===0?"heute fällig":"morgen fällig")+(h.dauer?" · "+h.dauer+" Min.":"")});});
- return items;}
-function todayRow(it){if(it.hw)return '<div class="li" style="--li-inset:66px"><span style="width:34px;display:flex;justify-content:center;flex:0 0 auto"><button class="check" data-done="'+it.hw.id+'" aria-label="Erledigt"></button></span><div class="li-main"><div class="li-title">'+esc(it.title)+'</div><div class="li-sub">'+it.sub+'</div></div><span class="dot" style="background:'+(it.hw.typ==="todo"?"var(--text-3)":fcol(it.hw.fach))+'"></span></div>';
- return '<a class="li" href="'+it.href+'" style="--li-inset:66px"><span class="ico'+(it.accent?" accent":"")+'">'+ICO[it.ico]+'</span><div class="li-main"><div class="li-title">'+esc(it.title)+'</div><div class="li-sub">'+esc(it.sub)+'</div></div><span class="li-trail">'+(it.trail?esc(it.trail):"")+'<span class="chev">'+ICO.chev+'</span></span></a>';}
 function lessonsToday(){const day=new Date().getDay(),iso=todayISO();if(isFerien()||!SCHEDULE[day])return "";const m=new Date().getHours()*60+new Date().getMinutes();
  const rows=(SCHEDULE[day]||[]).map(l=>{const ent=aendFor(iso,l.s).some(a=>a.art==="entfall");const now=m>=toMin(lStart(l))&&m<toMin(lEnd(l));const past=m>=toMin(lEnd(l));
   return '<div class="lr'+(now&&!ent?" now":"")+(past?" past":"")+(ent?" ent":"")+'" data-lesson="'+day+':'+l.s+'"><span class="tm">'+lStart(l)+'–'+lEnd(l)+'</span><span class="dot" style="background:'+fcol(l.subj)+'"></span><span class="nm">'+esc(l.subj)+(ent?' <span class="pill p-red">entfällt</span>':'')+'</span><span class="rm">'+esc(l.room)+'</span></div>';}).join("");
  return '<div class="a-plan">'+sectionHead("Stundenplan",'<a class="shl" href="#/stundenplan">Woche</a>')+'<div class="card tight lessons">'+rows+'</div></div>';}
-V.dashboard=()=>{const items=todayItems();const kl=upcomingKL();const next=kl[0];const r=next?readiness(next):null;const cont=continueItem();
- // Zusammenfassung in einem Satz
- const n=items.length;let sum=n?("Heute "+(n===1?"steht eine Sache":"stehen "+n+" Dinge")+" an."):"Heute ist nichts mehr offen.";
- if(next){const d=daysUntil(next.datum);sum+=" Deine nächste Prüfung ist "+next.fach+" "+(d===0?"heute":d===1?"morgen":"in "+d+" Tagen")+(r!=null?" — du bist zu "+r+" % vorbereitet.":".");}
- const head='<header class="ph"><div><div class="eyebrow">'+esc(new Date().toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"}))+' · '+esc(nowStatus())+'</div><h1 class="t-large">'+greeting()+', '+USER_NAME+'.</h1><p class="lead">'+esc(sum)+'</p></div></header>';
- // Weiterlernen
- let contHtml;
- if(cont){contHtml='<div class="card cont"><div><div class="label">'+ICO.play+(cont.resumed?"Weitermachen":"Empfohlen als Nächstes")+'</div><div class="cont-top"><div style="min-width:0"><div class="crumb"><b>'+esc(cont.k.fach)+'</b> · '+esc(klTitle(cont.k))+'</div><h3>'+esc(cont.t.text)+'</h3></div>'+ring(cont.pct/100,76,7,cont.t.score==null&&!cont.t.done?"Neu":cont.pct+"%")+'</div></div><div class="cont-foot"><a class="btn primary lg" href="'+cont.href+'">Weiterlernen</a><span class="t-sub">'+(cont.resumed?"Hier hast du zuletzt aufgehört.":"Dein unsicherstes offenes Thema für die nächste Prüfung.")+'</span></div></div>';}
- else if(next&&!next.themen.length){contHtml='<div class="card cont"><div><div class="label">'+ICO.play+'Als Nächstes</div><div class="crumb"><b>'+esc(next.fach)+'</b> · '+esc(klTitle(next))+'</div><h3>Themen für die Prüfung eintragen</h3></div><div class="cont-foot"><a class="btn primary lg" href="#/lernplan/'+next.id+'">Lernplan öffnen</a><span class="t-sub">Aus den Themen entsteht dein Lernplan.</span></div></div>';}
- else{const vt=dailyTarget(),vd=Math.min(vokDoneToday(),vt);contHtml='<div class="card cont"><div><div class="label">'+ICO.play+'Als Nächstes</div><div class="cont-top"><div><div class="crumb"><b>Vokabeln</b> · Tägliche Wiederholung</div><h3>'+(vd>=vt?"Tagesziel erreicht":"Noch "+(vt-vd)+" Karten bis zum Tagesziel")+'</h3></div>'+ring(vt?vd/vt:0,76,7,vd+"/"+vt)+'</div></div><div class="cont-foot"><a class="btn primary lg" href="#/trainer/vok?deck=daily">'+(vd>=vt?"Bonusrunde":"Weiterlernen")+'</a></div></div>';}
- // Nächste Prüfung
- let examHtml;
- if(next){const d=daysUntil(next.datum);examHtml='<a class="card exam link" href="#/lernplan/'+next.id+'"><div class="eyebrow">Deine nächste Prüfung</div><div><div class="t-sub"><span class="dot" style="background:'+fcol(next.fach)+';margin-right:6px"></span>'+esc(next.fach)+'</div><h3>'+esc(klTitle(next))+'</h3><div class="meta">'+esc(fmtDL(next.datum))+(next.uhrzeit?" · "+esc(next.uhrzeit):"")+'</div></div><div class="exam-days"><div><div class="t-sub" style="margin-bottom:6px">Noch</div><span class="num xl">'+d+'</span><span class="unit">'+(d===1?"Tag":"Tage")+'</span></div>'+(r!=null?ring(r/100,84,7,r+"%","bereit"):'<span class="pill p-amber">Themen fehlen</span>')+'</div>'+(kl.length>1?'<div class="others">'+kl.slice(1,3).map(k=>'<span style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-2)"><span><b style="font-weight:500;color:var(--text)">'+esc(k.fach)+'</b> · '+esc(klTitle(k))+'</span><span>'+daysLabel(daysUntil(k.datum))+'</span></span>').join("")+'</div>':'')+'</a>';}
- else examHtml='<div class="card exam">'+emptyState("flag","Keine Prüfung geplant","Trag die nächste ein, sobald der Klausurplan hängt.",'<a class="btn sm" href="#/lernplan">Zum Lernplan</a>')+'</div>';
- // Heute
- const todayHtml='<div class="a-today">'+sectionHead("Heute",'<a class="shl" href="#/aufgaben">Alle Aufgaben</a>')+(items.length?'<div class="list">'+items.slice(0,7).map(todayRow).join("")+(items.length>7?'<div class="list-foot"><a href="#/aufgaben">'+(items.length-7)+' weitere</a></div>':'')+'</div>':'<div class="card">'+emptyState("check","Alles erledigt","Für heute ist nichts mehr fällig. Eine kurze Vokabelrunde hält dich in Form.",'<a class="btn sm" href="#/trainer">Trainer öffnen</a>')+'</div>')+laterHW()+'</div>';
- // Schwachstellen
- const ws=weakSpots(4);
- const weakHtml='<div class="a-weak">'+sectionHead("Deine Schwachstellen",'<a class="shl" href="#/fortschritt">Fortschritt</a>')+'<div class="card tight">'+(ws.length?ws.map(meterRow).join(""):emptyState("target","Noch keine Daten","Sobald du im Trainer übst, siehst du hier, wo du noch unsicher bist.").replace('class="empty"','class="empty sm"'))+'</div></div>';
- // Hinweise
- const un=unreadNews();const t=todayISO();const term=STATE.termine.filter(x=>x.datum>=t&&x.datum<=addDays(t,10)).slice(0,3);
- const infoHtml=(un.length||term.length)?'<div class="a-info">'+sectionHead("Hinweise",'<a class="shl" href="#/info">Alle</a>')+'<div class="list">'+un.slice(0,2).map(nw=>'<a class="li" href="#/info" style="--li-inset:20px"><div class="li-main"><div class="li-title">'+esc(nw.titel)+'</div><div class="li-sub">'+esc(nw.quelle||"Info")+(nw.info?" · "+esc(nw.info):"")+'</div></div><span class="dot" style="background:var(--accent)"></span></a>').join("")+term.map(x=>'<a class="li" href="#/info" style="--li-inset:20px"><div class="li-main"><div class="li-title">'+esc(x.titel)+'</div><div class="li-sub">'+esc(relDay(x.datum))+(x.uhrzeit?" · "+esc(x.uhrzeit):"")+'</div></div>'+((x.art==="pflicht"||x.art==="frist")?'<span class="pill p-red">'+(x.art==="pflicht"?"Pflicht":"Frist")+'</span>':'')+'</a>').join("")+'</div></div>':'';
- return dbBanner()+head+'<div class="dash"><div class="a-cont">'+contHtml+'</div><div class="a-exam">'+examHtml+'</div>'+todayHtml+weakHtml+lessonsToday()+infoHtml+'</div>';};
 function laterHW(){const t=todayISO();const n=openHW().filter(h=>!h.faellig||h.faellig>addDays(t,1)).length;return n?'<div class="t-sub" style="padding:12px 4px 0">Später fällig: <a class="hlink" href="#/aufgaben">'+plural(n,"weitere Aufgabe","weitere Aufgaben")+'</a></div>':'';}
 function newsRow(n){const col=/untis/i.test(n.quelle)?"#DC2626":/iserv/i.test(n.quelle)?"#2563EB":"#64748B";const dd=n.datum?fmtD(n.datum,{day:"2-digit",month:"2-digit"}):"";
  return '<div class="row"><span class="pill" style="background:'+col+'22;color:'+col+'">'+esc(n.quelle||"Info")+'</span><span style="flex:1;min-width:0"><span class="title">'+esc(n.titel)+'</span>'+((n.info||dd)?'<div class="sm">'+esc(n.info)+(n.info&&dd?" · ":"")+dd+(n.link?' · <a href="'+esc(n.link)+'" target="_blank" rel="noopener">Link</a>':'')+'</div>':'')+'</span><button class="check'+(n.gelesen?" done":"")+'" data-readnews="'+n.id+'" title="als gelesen">'+CHECK_SVG+'</button></div>';}
@@ -1171,271 +1180,6 @@ function bindNoten(){document.querySelectorAll("[data-hj]").forEach(b=>b.onclick
   try{if(STATE.v2.noten){const r=await sbInsert("noten",row);STATE.noten.push({...row,id:r.id,datum:row.datum||"",notiz:row.notiz||""});}else{STATE.noten.push({...row,id:uid(),datum:row.datum||"",notiz:row.notiz||""});lsSet("lc_noten",STATE.noten);}toast("Note gespeichert");route();}catch(e){btn.disabled=false;toast("Speichern fehlgeschlagen",true);}};
  document.querySelectorAll("[data-delnote]").forEach(b=>b.onclick=async()=>{const id=b.dataset.delnote;if(!confirm("Eintrag löschen?"))return;STATE.noten=STATE.noten.filter(n=>n.id!==id);route();if(STATE.v2.noten){try{await sbDelete("noten",id);}catch(e){toast("Löschen fehlgeschlagen",true);}}else lsSet("lc_noten",STATE.noten);});}
 /* =====================================================================
-   VOKABELN · Tagespflicht, Streak (Server), Trainer, Klausur-Kopplung
-   ===================================================================== */
-let VOK=[],VOKi=0,VOKrev=false,VOKMODE="daily",VOK_FILTER="",VOK_SESSION_OK=0,VOK_SESSION_NO=0;
-const deckColor=s=>(/le[çc]on/i.test(s||"")||s==="Französisch")?"#DB2777":s==="Englisch"?"#0891B2":s==="Latein"?"#CA8A04":"#64748B";
-function deckStats(){const m={};STATE.vo.forEach(v=>{const k=v.sprache||"—";if(!m[k])m[k]={total:0,due:0,l0:0};m[k].total++;if(!v.next||v.next<=todayISO())m[k].due++;if(!v.level)m[k].l0++;});return m;}
-function deckOrder(keys){return keys.sort((a,b)=>{const ra=/^Le[çc]on\s*(\d+)/i.exec(a),rb=/^Le[çc]on\s*(\d+)/i.exec(b);if(ra&&rb)return +ra[1]-+rb[1];if(ra)return -1;if(rb)return 1;return a<b?-1:1;});}
-function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const x=a[i];a[i]=a[j];a[j]=x;}return a;}
-function dailyPool(){const tr=getTrainer();if(tr.on&&tr.lessons.length)return STATE.vo.filter(v=>tr.lessons.includes(v.sprache));return STATE.vo.slice();}
-function buildDaily(){const target=dailyTarget();const rem=Math.max(0,target-vokDoneToday());if(rem<=0)return [];const t=todayISO();const pool=dailyPool();const due=shuffle(pool.filter(v=>!v.next||v.next<=t));const notdue=shuffle(pool.filter(v=>v.next&&v.next>t));return due.concat(notdue).slice(0,rem);}
-function buildSession(){if(VOKMODE==="daily")return buildDaily();if(VOKMODE==="__hard")return shuffle(STATE.vo.filter(v=>!v.level&&(!v.next||v.next<=todayISO()))).slice(0,30);return shuffle(STATE.vo.filter(v=>v.sprache===VOKMODE));}
-/* =====================================================================
-   VOKABELN · Sammlungen wie Ordner, Sprachrichtung, Prüfungsfokus
-   ===================================================================== */
-
-const LANGS=["Französisch","Englisch","Latein","Spanisch"];
-function langOf(deck){const s=deck||"";if(/le[çc]on|unit[ée]\b|fran/i.test(s))return "Französisch";if(/^unit\b|engl/i.test(s))return "Englisch";if(/latein|lectio/i.test(s))return "Latein";if(/span|lecci/i.test(s))return "Spanisch";return "Weitere";}
-const LANG_TO={"Französisch":"Deutsch","Englisch":"Deutsch","Latein":"Deutsch","Spanisch":"Deutsch"};
-function vokDir(lang){return (lsGet("lc_vokdir",{})||{})[lang]||"fwd";}
-function setVokDir(lang,d){const m=lsGet("lc_vokdir",{})||{};m[lang]=d;lsSet("lc_vokdir",m);}
-function dirLabels(lang){if(lang==="Weitere")return ["Begriff → Bedeutung","Bedeutung → Begriff"];return [lang+" → Deutsch","Deutsch → "+lang];}
-function dirSwitch(lang){const d=vokDir(lang);const L=dirLabels(lang);return '<div class="seg" role="tablist" aria-label="Abfragerichtung"><button class="'+(d==="fwd"?"on":"")+'" data-vdir="fwd" data-vlang="'+esc(lang)+'">'+esc(L[0])+'</button><button class="'+(d==="rev"?"on":"")+'" data-vdir="rev" data-vlang="'+esc(lang)+'">'+esc(L[1])+'</button></div>';}
-function lvlDots(l){l=Math.min(5,Math.max(0,l||0));let h='<span class="lvl" title="Level '+l+' von 5">';for(let i=1;i<=5;i++)h+='<i class="'+(i<=l?"on":"")+'"></i>';return h+'</span>';}
-function vokGroups(){const stats=deckStats();const decks=deckOrder(Object.keys(stats));const g={};decks.forEach(d=>{const L=langOf(d);(g[L]=g[L]||[]).push(d);});return {g,stats};}
-V.vokabeln=()=>{if(ROUTE.sub)return vokCollection(decodeURIComponent(ROUTE.sub));
- const {g,stats}=vokGroups();const target=dailyTarget(),done=Math.min(vokDoneToday(),target),st=vokStreak();const hard=STATE.vo.filter(v=>!v.level&&(!v.next||v.next<=todayISO())).length;const due=dueVok().length;const tr=getTrainer();const trKl=tr.klausur_id?klById(tr.klausur_id):null;
- const head=pageHead("Vokabeln",{sub:STATE.vo.length?STATE.vo.length+" Karten in "+Object.keys(stats).length+" Sammlungen · "+due+" fällig":"Leg deine erste Sammlung an.",actions:'<button class="btn" id="v_cfg">Prüfungsfokus</button><button class="btn primary" id="v_new">'+ICO.plus+'Neue Vokabel</button>'});
- const daily='<div class="card daily">'+ring(target?done/target:0,64,6,done,"von "+target,done>=target?"var(--green)":null)+'<div class="dm"><div class="t-headline">'+(done>=target?"Tagesziel erreicht":"Tägliche Wiederholung")+'</div><div class="t-sub">'+(done>=target?"Alles Weitere ist Bonus.":"Noch "+(target-done)+" Karten · etwa "+Math.max(3,Math.round((target-done)*.7))+" Minuten")+(st?" · "+st+(st===1?" Tag":" Tage")+" in Folge":"")+'</div></div><div class="dact">'+(hard?'<a class="btn" href="#/trainer/vok?deck=__hard">Wackelkandidaten · '+hard+'</a>':'')+'<a class="btn primary" href="#/trainer/vok?deck=daily">'+(done>=target?"Bonusrunde":"Starten")+'</a></div></div>';
- const focus=tr.on?'<div class="banner info" style="margin:var(--s4) 0 0">'+ICO.target.replace('<svg','<svg style="width:16px;height:16px;flex:0 0 auto"')+'<span>Prüfungsfokus aktiv'+(trKl?" · "+esc(trKl.fach)+" in "+daysUntil(trKl.datum)+" Tagen":"")+' · '+target+' pro Tag'+(tr.lessons.length?" · "+esc(tr.lessons.join(", ")):"")+'</span><button class="btn sm" id="v_cfg2">Ändern</button></div>':'';
- const order=LANGS.filter(l=>g[l]).concat(Object.keys(g).filter(l=>!LANGS.includes(l)));
- const groups=order.map(L=>{const decks=g[L];const cards=STATE.vo.filter(v=>decks.includes(v.sprache));
-  return '<div class="section"><div class="lang-h"><h2>'+esc(L)+'</h2><span class="t-sub">'+cards.length+' Karten · '+deckMastery(cards)+' % sicher</span></div><div class="tiles">'+decks.map(d=>{const s=stats[d];const m=deckMastery(STATE.vo.filter(v=>v.sprache===d));return '<a class="tile" href="#/vokabeln/'+encodeURIComponent(d)+'">'+(s.due?'<span class="due">'+s.due+'</span>':'')+'<div><div class="tn">'+esc(d)+'</div><div class="tm">'+plural(s.total,"Karte","Karten")+'</div></div><div class="tf">'+progBar(m,"thin")+'<span>'+m+' %</span></div></a>';}).join("")+'</div></div>';}).join("");
- return head+daily+focus+(STATE.vo.length?groups:'<div class="section"><div class="card">'+emptyState("vokabeln","Noch keine Vokabeln","Lege eine Karte an und gib ihr eine Sammlung, z. B. „Unité 1“.",'<button class="btn primary sm" id="v_new2">Erste Vokabel anlegen</button>')+'</div></div>');};
-function vokCollection(deck){const cards=STATE.vo.filter(v=>v.sprache===deck);const lang=langOf(deck);const due=cards.filter(v=>!v.next||v.next<=todayISO()).length;const m=deckMastery(cards);const f=VOK_FILTER.toLowerCase();
- const list=cards.filter(v=>!f||(v.begriff||"").toLowerCase().includes(f)||(v.bedeutung||"").toLowerCase().includes(f));const rev=vokDir(lang)==="rev";
- const head=pageHead(esc(deck),{back:["#/vokabeln","Vokabeln"],eyebrow:esc(lang),sub:plural(cards.length,"Karte","Karten")+" · "+due+" fällig · "+m+" % sicher",actions:'<button class="btn" id="v_new">'+ICO.plus+'Karte</button><a class="btn primary" href="#/trainer/vok?deck='+encodeURIComponent(deck)+'">'+ICO.play+'Lernen</a>'});
- const tools='<div class="coll-tools"><div class="dirsw">'+dirSwitch(lang)+'</div><label class="search"><span>'+ICO.search+'</span><input id="v_filter" placeholder="In '+esc(deck)+' suchen" value="'+esc(VOK_FILTER)+'"></label></div>';
- const rows=list.length?'<div class="list">'+list.slice(0,200).map(v=>'<div class="vrow"><span class="vt">'+esc(rev?v.bedeutung:v.begriff)+'</span><span class="vb">'+esc(rev?v.begriff:v.bedeutung)+'</span>'+lvlDots(v.level)+'<button class="iconbtn" data-delvo="'+v.id+'" aria-label="Löschen">'+ICO.trash+'</button></div>').join("")+'</div>'+(list.length>200?'<div class="t-sub" style="padding:12px 4px">… und '+(list.length-200)+' weitere. Nutze die Suche.</div>':''):'<div class="card">'+(cards.length?emptyState("search","Nichts gefunden","Keine Karte passt zu „"+esc(VOK_FILTER)+"“."):emptyState("vokabeln","Leere Sammlung","Füge die erste Karte hinzu."))+'</div>';
- return head+tools+rows;}
-function addVokModal(deck){const decks=deckOrder(Object.keys(deckStats()));deck=deck||decks[0]||"";
- openModal("Neue Vokabel",'<div class="form"><label class="fld">Begriff<input id="v_begr" placeholder="l\'avenir"></label><label class="fld">Bedeutung<input id="v_bed" placeholder="die Zukunft"></label><label class="fld">Sammlung<select id="v_spr">'+decks.map(d=>'<option'+(d===deck?' selected':'')+'>'+esc(d)+'</option>').join("")+'<option value="__new">Neue Sammlung …</option></select></label><label class="fld" id="v_newwrap" style="display:'+(decks.length?"none":"flex")+'">Name der Sammlung<input id="v_newdeck" placeholder="z. B. Unité 5"></label></div>','<button class="btn" id="v_cancel">Fertig</button><button class="btn primary" id="v_add">Hinzufügen</button>',()=>{
- const q=id=>document.getElementById(id);q("v_cancel").onclick=()=>{closeModal();route();};if(!decks.length)q("v_spr").value="__new";
- q("v_spr").onchange=()=>{q("v_newwrap").style.display=q("v_spr").value==="__new"?"flex":"none";};
- const add=async()=>{const b=val("v_begr"),m=val("v_bed");if(!b||!m){q(b?"v_bed":"v_begr").focus();return;}let sp=val("v_spr");if(sp==="__new")sp=val("v_newdeck");if(!sp){toast("Bitte eine Sammlung angeben",true);return;}const btn=q("v_add");btn.classList.add("loading");
-  try{const r=await sbInsert("vokabeln",{begriff:b,bedeutung:m,sprache:sp,level:0,next:todayISO()});STATE.vo.push({id:r.id,begriff:r.begriff||b,bedeutung:r.bedeutung||m,sprache:r.sprache||sp,level:0,next:r.next||todayISO()});toast("Karte gespeichert");q("v_begr").value="";q("v_bed").value="";q("v_begr").focus();}catch(e){toast("Speichern fehlgeschlagen",true);}btn.classList.remove("loading");};
- q("v_add").onclick=add;q("v_bed").onkeydown=e=>{if(e.key==="Enter")add()};});}
-function focusModal(){const tr=getTrainer();const decks=deckOrder(Object.keys(deckStats()));const langKl=upcomingKL().filter(k=>/Französisch|Englisch/.test(k.fach));
- openModal("Prüfungsfokus",'<div class="hint" style="margin-bottom:var(--s4)">Vor einer Sprachprüfung übst du gezielt die passenden Sammlungen — mit höherem Tagesziel.</div><label class="switch"><input type="checkbox" id="tr_on"'+(tr.on?' checked':'')+'><span>Prüfungsfokus aktiv</span></label><div id="trcfg" style="margin-top:var(--s4)'+(tr.on?'':';display:none')+'"><div class="form c2"><label class="fld">Prüfung<select id="tr_kl"><option value="">— keine —</option>'+langKl.map(k=>'<option value="'+k.id+'"'+(tr.klausur_id===k.id?' selected':'')+'>'+esc(k.fach)+' · '+fmtD(k.datum)+'</option>').join("")+'</select></label><label class="fld">Karten pro Tag<input id="tr_daily" type="number" min="5" step="5" value="'+tr.daily+'"></label></div><div class="sub2" style="margin-top:var(--s4)">Diese Sammlungen üben</div><div class="trlist">'+(decks.map(d=>'<label class="trck"><input type="checkbox" class="trles" value="'+esc(d)+'"'+(tr.lessons.includes(d)?' checked':'')+'> '+esc(d)+'</label>').join("")||'<span class="t-sub">Noch keine Sammlungen.</span>')+'</div></div>','<button class="btn" id="tr_cancel">Abbrechen</button><button class="btn primary" id="tr_save">Speichern</button>',()=>{
- const q=id=>document.getElementById(id);q("tr_cancel").onclick=closeModal;q("tr_on").onchange=()=>{q("trcfg").style.display=q("tr_on").checked?"":"none";};
- q("tr_save").onclick=async()=>{if(!q("tr_on").checked){await setSetting("trainer",{...tr,on:false});closeModal();toast("Prüfungsfokus aus");route();return;}const les=[...document.querySelectorAll(".trles:checked")].map(x=>x.value);const t={on:true,klausur_id:val("tr_kl"),daily:+val("tr_daily")||30,lessons:les};await setSetting("trainer",t);if(t.klausur_id){const k=klById(t.klausur_id);if(k)saveKL(k,{vokabel_lektionen:les});}closeModal();toast("Prüfungsfokus gespeichert");route();};});}
-function bindVokabeln(){const q=id=>document.getElementById(id);
- ["v_new","v_new2"].forEach(id=>{const b=q(id);if(b)b.onclick=()=>addVokModal(ROUTE.sub?decodeURIComponent(ROUTE.sub):"");});
- ["v_cfg","v_cfg2"].forEach(id=>{const b=q(id);if(b)b.onclick=focusModal;});
- document.querySelectorAll("[data-vdir]").forEach(b=>b.onclick=()=>{setVokDir(b.dataset.vlang,b.dataset.vdir);route();});
- const vf=q("v_filter");if(vf){vf.oninput=debounce(()=>{VOK_FILTER=vf.value;const pos=vf.selectionStart;route();const nf=q("v_filter");if(nf){nf.focus();nf.setSelectionRange(pos,pos);}},200);}}
-/* =====================================================================
-   LERNPLAN · Ebene 1 Thema → Ebene 2 Unterthemen → Ebene 3 Übungen
-   ===================================================================== */
-let LP_TAB="up";const LP_OPEN=new Set();
-const EXERCISES=[["aufgabe","Aufgabe bearbeiten","doc"],["text","Text schreiben","pen"],["ki","KI-Übung","ki"],["sim","Prüfungssimulation","clock"]];
-function exHref(k,t,m){return m==="ki"?"#/ki?kl="+k.id+"&t="+t.id:"#/trainer/thema?kl="+k.id+"&t="+t.id+"&m="+m;}
-function planCard(k){const d=daysUntil(k.datum);const r=readiness(k);const done=k.themen.filter(t=>t.done).length;
- return '<a class="card link plan-card" href="#/lernplan/'+k.id+'"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:'+fcol(k.fach)+';margin-right:6px"></span>'+esc(k.fach)+(k.nr?" · Klausur "+k.nr:"")+(LAUFBAHN[k.fach]&&LAUFBAHN[k.fach].abi?" · Abiturfach":"")+'</div><h3>'+esc(klTitle(k))+'</h3><div class="t-sub">'+esc(fmtDL(k.datum))+(k.uhrzeit?" · "+esc(k.uhrzeit):"")+(k.raum?" · Raum "+esc(k.raum):"")+'</div>'+(k.themen.length?'<div class="subchips">'+k.themen.slice(0,6).map(t=>'<span class="subchip'+(t.done?" done":"")+'"><i></i>'+esc(t.text)+'</span>').join("")+(k.themen.length>6?'<span class="subchip">+'+(k.themen.length-6)+'</span>':'')+'</div>':'')+'</div><div class="days'+(d<=7?" soon":"")+'"><div class="num">'+d+'</div><small>'+(d===1?"Tag":"Tage")+'</small></div><div class="pc-foot">'+(r!=null?progBar(r)+'<span class="t-sub">'+r+' % vorbereitet · '+done+' von '+k.themen.length+' Themen</span>':'<span class="t-sub" style="color:var(--orange)">Noch keine Unterthemen — damit startet der Lernplan.</span>')+'</div></a>';}
-V.lernplan=()=>{if(ROUTE.sub)return lpDetail();
- const up=upcomingKL(),past=pastKL();const hj=currentHJ();
- const schr=Object.keys(LAUFBAHN).filter(f=>isSchriftlich(f,hj));const missing=schr.filter(f=>!up.some(k=>k.fach===f));
- const head=pageHead("Lernplan",{sub:"Deine Prüfungen, ihre Themen und wie gut du vorbereitet bist.",actions:'<button class="btn primary" id="lp_new">'+ICO.plus+'Neue Prüfung</button>'});
- const seg='<div class="seg" style="margin-bottom:var(--s5)"><button class="'+(LP_TAB==="up"?"on":"")+'" data-lptab="up">Anstehend<b>'+up.length+'</b></button><button class="'+(LP_TAB==="past"?"on":"")+'" data-lptab="past">Geschrieben<b>'+past.length+'</b></button></div>';
- let body;
- if(LP_TAB==="up")body=(up.length?'<div class="stack">'+up.map(planCard).join("")+'</div>':'<div class="card">'+emptyState("flag","Keine Prüfung geplant","Trag die nächste ein, sobald der Klausurplan hängt.",'<button class="btn primary sm" data-lpnew="">Prüfung eintragen</button>')+'</div>')+
-  (missing.length?'<div class="section">'+sectionHead("Noch ohne Termin",'<span class="sub">laut Laufbahn '+hj+'</span>')+'<div class="list">'+missing.map(f=>'<button class="li tap" data-lpnew="'+esc(f)+'" style="width:100%;border:none;background:none;font:inherit;text-align:left"><span class="dot" style="background:'+fcol(f)+'"></span><div class="li-main"><div class="li-title">'+esc(f)+'</div></div><span class="li-trail" style="color:var(--accent)">Termin eintragen</span></button>').join("")+'</div></div>':'');
- else body=past.length?'<div class="list">'+past.map(k=>'<a class="li" href="#/lernplan/'+k.id+'">'+(k.punkte!=null?'<span class="pt '+ptClass(k.punkte)+'">'+k.punkte+'</span>':'<span class="pt n">—</span>')+'<div class="li-main"><div class="li-title">'+esc(k.fach)+' · '+esc(klTitle(k))+'</div><div class="li-sub">'+esc(fmtD(k.datum))+(k.punkte!=null?" · Note "+PT_NOTE[k.punkte]:" · Ergebnis eintragen")+'</div></div><span class="chev">'+ICO.chev+'</span></a>').join("")+'</div>':'<div class="card">'+emptyState("doc","Noch nichts geschrieben","Hier landen deine Prüfungen mit Ergebnis.")+'</div>';
- return dbBanner()+head+seg+body;};
-function bindLernplan(){if(ROUTE.sub)return bindLpDetail();
- document.querySelectorAll("[data-lptab]").forEach(b=>b.onclick=()=>{LP_TAB=b.dataset.lptab;route();});
- const nb=document.getElementById("lp_new");if(nb)nb.onclick=()=>newKLModal("");
- document.querySelectorAll("[data-lpnew]").forEach(b=>b.onclick=()=>newKLModal(b.dataset.lpnew));}
-function newKLModal(fach){fach=fach||lsGet("lc_kprefill","")||"Deutsch";
- openModal("Neue Prüfung",'<div class="form"><div class="form c2"><label class="fld">Fach<select id="k_fach">'+fachOpts(fach)+'</select></label><label class="fld">Nr.<input id="k_nr" type="number" min="1" max="4" value="1"></label></div><label class="fld">Thema<input id="k_thema" placeholder="z. B. Short Story Writing"></label><div class="form c3"><label class="fld">Datum<input id="k_datum" type="date"></label><label class="fld">Uhrzeit<input id="k_zeit" type="time"></label><label class="fld">Raum<input id="k_raum" placeholder="B11"></label></div><label class="fld">Lehrkraft<input id="k_lehrer" value="'+esc(LEHRER[fach]||"")+'"></label></div>','<button class="btn" id="k_cancel">Abbrechen</button><button class="btn primary" id="k_add">Speichern</button>',()=>{
- const q=id=>document.getElementById(id);q("k_cancel").onclick=closeModal;
- q("k_fach").onchange=()=>{q("k_lehrer").value=LEHRER[q("k_fach").value]||"";lsSet("lc_kprefill",q("k_fach").value);};
- q("k_add").onclick=async()=>{const dt=val("k_datum");if(!dt){toast("Bitte Datum wählen",true);return;}const fa=val("k_fach");const nr=+val("k_nr")||1;const th=val("k_thema")||("Klausur Nr. "+nr+" ("+(KURSE[fa]||fa)+(LEHRER[fa]?", "+LEHRER[fa]:"")+")");const btn=q("k_add");btn.classList.add("loading");
-  const base={fach:fa,thema:th,datum:dt,prep:"Nicht begonnen"};const ext={nr,kurs:KURSE[fa]||null,lehrer:val("k_lehrer")||LEHRER[fa]||null,uhrzeit:val("k_zeit")||null,raum:val("k_raum")||null,halbjahr:hjOf(dt),dauer:90};
-  try{let r;try{r=await sbInsert("klausuren",{...base,...ext});}catch(e){r=await sbInsert("klausuren",base);toast("Gespeichert – Details erst nach DB-Update");}STATE.kl.push(normKL({...r,...ext}));closeModal();toast("Prüfung gespeichert");location.hash="#/lernplan/"+r.id;}
-  catch(e){btn.classList.remove("loading");toast("Speichern fehlgeschlagen",true);}};});}
-
-/* ---------- Detail ---------- */
-function lpDetail(){const k=klById(ROUTE.sub);if(!k)return pageHead("Lernplan",{back:["#/lernplan","Lernplan"]})+'<div class="card">'+emptyState("doc","Prüfung nicht gefunden","Vielleicht wurde sie gelöscht.",'<a class="btn sm" href="#/lernplan">Zur Übersicht</a>')+'</div>';
- const loc=lsGet("lc_kl_"+k.id,null);if(loc)Object.assign(k,loc);
- const d=daysUntil(k.datum),past=d<0||k.punkte!=null;const r=readiness(k);const lb=LAUFBAHN[k.fach]||{};const plan=klPlan(k);
- const linked=STATE.hw.filter(h=>h.klausur_id===k.id);const mins=STATE.log.filter(l=>l.art==="fokus"&&l.ref===k.id).reduce((s,l)=>s+(l.minuten||0),0);
- const cont=k.themen.filter(t=>!t.done).sort((a,b)=>(a.score==null?-1:a.score)-(b.score==null?-1:b.score))[0];
- // Ebene 1 · Thema
- const head='<a class="backlink" href="#/lernplan">'+ICO.back+'Lernplan</a><div class="topic-head"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:'+fcol(k.fach)+';margin-right:6px"></span>'+esc(k.fach)+(k.nr?" · Klausur "+k.nr:"")+(k.lehrer?" · "+esc(k.lehrer):"")+(lb.abi?" · Abiturfach "+lb.abi:"")+'</div><h1 class="t-large">'+esc(klTitle(k))+'</h1><div class="meta">'+esc(fmtDL(k.datum))+(k.uhrzeit?" · "+esc(k.uhrzeit)+(k.dauer?" ("+k.dauer+" Min.)":""):"")+(k.raum?" · Raum "+esc(k.raum):"")+'</div><div class="ph-actions">'+(cont&&!past?'<a class="btn primary" href="#/trainer/thema?kl='+k.id+'&t='+cont.id+'">'+ICO.play+'Trainer starten</a>':'')+'<button class="btn" id="kd_edit">Bearbeiten</button>'+(k.cal_event_id?'':'<a class="btn plain" href="'+gcalLink(k)+'" target="_blank" rel="noopener">In Kalender</a>')+'</div></div><div class="topic-stats">'+(past?'<div class="stat"><div class="num">'+(k.punkte!=null?k.punkte:"—")+'</div><small>Punkte</small></div>':'<div class="stat"><div class="num">'+d+'</div><small>'+(d===1?"Tag":"Tage")+' bis zur Prüfung</small></div>'+(r!=null?'<div class="stat">'+ring(r/100,88,7,r+"%","bereit")+'</div>':''))+'</div></div>';
- // Ebene 2 · Unterthemen (+ Ebene 3 · Übungen)
- const subs='<div class="section">'+sectionHead("Unterthemen",k.themen.length?'<span class="sub">'+k.themen.filter(t=>t.done).length+' von '+k.themen.length+' sicher</span>':'')+'<div class="subs">'+k.themen.map((t,i)=>{const p=subScore(t);return '<details class="sub-it'+(t.done?" done":"")+'" data-sid="'+t.id+'"'+(LP_OPEN.has(t.id)||ROUTE.query.open===t.id?" open":"")+'><summary><span class="idx">'+two(i+1)+'</span><span class="nm">'+esc(t.text)+'</span><span class="st">'+(t.done?'<span class="pill p-green">Sicher</span>':(t.score!=null?progBar(p,p<60?"o":"")+'<span class="pct">'+p+' %</span>':'<span class="t-sub">Neu</span>'))+'<span class="tg">'+ICO.chev+'</span></span></summary><div class="ex"><div class="ex-label">Übungen</div><div class="ex-row">'+EXERCISES.map(e=>'<a class="ex-btn" href="'+exHref(k,t,e[0])+'">'+ICO[e[2]]+e[1]+'</a>').join("")+'</div><div class="ex-tools"><button class="btn sm" data-thema="'+t.id+'">'+(t.done?"Als offen markieren":ICO.check+"Als sicher markieren")+'</button><button class="btn plain sm" data-delthema="'+t.id+'" style="color:var(--red)">Entfernen</button></div></div></details>';}).join("")+(k.themen.length?'':'<div style="padding:var(--s5) var(--s6)" class="hint">Was kommt dran? Trag jedes Unterthema einzeln ein — daraus entstehen Übungen und dein Fahrplan.</div>')+'<div class="sub-add"><input id="th_txt" placeholder="Unterthema hinzufügen …"><button class="btn sm" id="th_add">Hinzufügen</button></div></div></div>';
- // Fahrplan
- const today=klToday(k);
- const fahr='<div>'+sectionHead("Fahrplan",today?'<span class="sub" style="color:var(--accent)">Heute dran</span>':'')+'<div class="card"><div class="tl">'+plan.map(s=>'<div class="tls '+s.state+'"><div class="d">'+(s.state==="now"?"Heute · ":"")+esc(fmtD(s.date))+'</div><div class="x">'+esc(s.label)+'</div>'+(s.sub&&s.state!=="past"?'<div class="y">'+esc(s.sub)+'</div>':'')+'</div>').join("")+'</div></div></div>';
- // Vorbereitung
- const tasks='<div class="card"><h2>Aufgaben zur Prüfung <span class="count">'+linked.filter(h=>!h.done).length+'</span></h2>'+(linked.length?linked.sort(sortHW).map(h=>hwRow(h,{full:true})).join(""):'<div class="hint">Übungsblätter, Zusammenfassung, Altklausur — alles, was du bis dahin erledigen willst.</div>')+'<div class="inline-add" style="grid-template-columns:1fr 150px auto"><input id="kt_txt" placeholder="Neue Aufgabe …"><input id="kt_due" type="date" value="'+esc(d>1?addDays(k.datum,-1):todayISO())+'"><button class="btn" id="kt_add">'+ICO.plus+'</button></div></div>';
- const result='<div class="card"><h2>Ergebnis</h2>'+(k.punkte!=null?'<div style="display:flex;align-items:center;gap:var(--s5)"><div><div class="pbig">'+k.punkte+'</div><div class="pnote">Punkte · Note '+PT_NOTE[k.punkte]+'</div></div><button class="btn sm" id="kd_result" style="margin-left:auto">Ändern</button></div>':'<div class="hint">'+(d<0?"Sobald du die Prüfung zurück hast, trag die Punkte ein. Sie fließen automatisch in deine Noten.":"Wird nach der Prüfung eingetragen (0–15 Punkte).")+'</div>'+(d<0?'<button class="btn primary sm" id="kd_result" style="margin-top:var(--s3)">Punkte eintragen</button>':''))+'</div>';
- const notes='<div class="card"><h2>Notizen <span class="t-sub" id="kn_state" style="font-weight:400"></span></h2><textarea id="kn_txt" placeholder="Hinweise der Lehrkraft, erlaubte Hilfsmittel, Schwerpunkte …">'+esc(k.notizen)+'</textarea></div>';
- const mat='<div class="card"><h2>Material</h2>'+(k.material.length?k.material.map((m,i)=>'<div class="matl"><a href="'+esc(m.url)+'" target="_blank" rel="noopener">'+esc(m.titel||m.url)+'</a><span class="u">'+esc(m.url.replace(/^https?:\/\//,""))+'</span><button class="iconbtn" data-delmat="'+i+'" aria-label="Entfernen">'+ICO.x+'</button></div>').join(""):'<div class="hint">Logineo-Ordner, Übungsseiten, Erklärvideos — alles an einem Ort.</div>')+'<div class="inline-add" style="grid-template-columns:1fr 1fr auto"><input id="mt_t" placeholder="Titel"><input id="mt_u" placeholder="https://…"><button class="btn" id="mt_add">'+ICO.plus+'</button></div></div>';
- const mitList=k.mitnehmen.length?k.mitnehmen:(MITNEHMEN_DEFAULT[k.fach]||["Stifte","Wasser"]).map(t=>({id:uid(),text:t,done:false}));
- const mit='<div class="card"><h2>Mitnehmen</h2>'+mitList.map(t=>'<div class="thema'+(t.done?" done":"")+'"><button class="check'+(t.done?" done":"")+'" data-mit="'+t.id+'">'+(t.done?CHECK_SVG:"")+'</button><span class="tx">'+esc(t.text)+'</span><button class="iconbtn" data-delmit="'+t.id+'">'+ICO.x+'</button></div>').join("")+'<div class="inline-add"><input id="mi_txt" placeholder="Noch etwas …"><button class="btn" id="mi_add">'+ICO.plus+'</button></div></div>';
- const isLang=/Französisch|Englisch/.test(k.fach);const decks=isLang?deckOrder(Object.keys(deckStats())):[];
- const vok=isLang?'<div class="card"><h2>Vokabeln koppeln</h2><div class="hint">Welche Sammlungen kommen dran? Der Prüfungsfokus übt dann gezielt diese Karten.</div><div class="trlist" style="margin-top:var(--s3)">'+decks.map(dk=>'<label class="trck"><input type="checkbox" class="kvl" value="'+esc(dk)+'"'+(k.vokabel_lektionen.includes(dk)?' checked':'')+'> '+esc(dk)+'</label>').join("")+'</div><div style="display:flex;gap:var(--s2);margin-top:var(--s4);flex-wrap:wrap"><button class="btn sm" id="kv_save">Speichern</button><button class="btn primary sm" id="kv_trainer">Prüfungsfokus aktivieren</button></div></div>':'';
- const time='<div class="card"><h2>Lernzeit</h2><div class="strow"><div class="stbox"><div class="n">'+mins+'</div><div class="l">Minuten</div></div><div class="stbox"><div class="n">'+linked.filter(h=>h.done).length+'</div><div class="l">Aufgaben erledigt</div></div></div></div>';
- const danger='<div style="text-align:center;padding:var(--s3)"><button class="btn plain sm" id="kd_del" style="color:var(--red)">Prüfung löschen</button></div>';
- return head+'<div class="grid main-aside"><div style="min-width:0">'+subs.replace('class="section"','class="section" style="margin-top:0"')+'<div class="section"><div class="sh"><h2>Vorbereitung</h2></div><div class="stack">'+tasks+notes+mat+'</div></div></div><div class="stack" style="min-width:0">'+fahr+'<div class="stack">'+result+mit+vok+time+danger+'</div></div></div>';}
-function bindLpDetail(){const k=klById(ROUTE.sub);if(!k)return;const q=id=>document.getElementById(id);
- document.querySelectorAll("details.sub-it").forEach(d=>d.ontoggle=()=>{if(d.open)LP_OPEN.add(d.dataset.sid);else LP_OPEN.delete(d.dataset.sid);});
- q("kd_edit").onclick=()=>editKLModal(k);
- const res=q("kd_result");if(res)res.onclick=()=>resultModal(k);
- q("kd_del").onclick=async()=>{if(!confirm("Prüfung wirklich löschen? Themen, Notizen und Ergebnis gehen verloren."))return;STATE.kl=STATE.kl.filter(x=>x.id!==k.id);location.hash="#/lernplan";try{await sbDelete("klausuren",k.id);toast("Gelöscht");}catch(e){toast("Löschen fehlgeschlagen",true);}};
- const addT=async()=>{const t=val("th_txt");if(!t)return;await saveKL(k,{themen:k.themen.concat([{id:uid(),text:t,done:false}])});route();const n=q("th_txt");if(n)n.focus();};q("th_add").onclick=addT;q("th_txt").onkeydown=e=>{if(e.key==="Enter")addT()};
- document.querySelectorAll("[data-thema]").forEach(b=>b.onclick=async()=>{const th=k.themen.map(t=>t.id===b.dataset.thema?{...t,done:!t.done}:t);const nowDone=th.find(t=>t.id===b.dataset.thema).done;await saveKL(k,{themen:th});if(nowDone){logAdd("klausur",1,0,k.id);toast("Als sicher markiert");}route();});
- document.querySelectorAll("[data-delthema]").forEach(b=>b.onclick=async()=>{if(!confirm("Unterthema entfernen?"))return;await saveKL(k,{themen:k.themen.filter(t=>t.id!==b.dataset.delthema)});route();});
- const addKT=async()=>{const t=val("kt_txt");if(!t)return;const obj={aufgabe:t,fach:k.fach,faellig:val("kt_due")||null,dauer:30,prio:"Mittel",done:false,typ:"hausaufgabe",klausur_id:k.id};try{const r=await sbInsert("hausaufgaben",obj);STATE.hw.push(normHW({...r,typ:"hausaufgabe",klausur_id:k.id}));toast("Aufgabe angelegt");route();}catch(e){toast("Verknüpfte Aufgaben brauchen das DB-Update",true);}};q("kt_add").onclick=addKT;q("kt_txt").onkeydown=e=>{if(e.key==="Enter")addKT()};
- const kn=q("kn_txt");const st=q("kn_state");kn.oninput=debounce(async()=>{st.textContent="speichert …";await saveKL(k,{notizen:kn.value});st.textContent="gespeichert";setTimeout(()=>{st.textContent=""},1500);},700);
- q("mt_add").onclick=async()=>{const u=val("mt_u");if(!u)return;const url=/^https?:\/\//.test(u)?u:"https://"+u;await saveKL(k,{material:k.material.concat([{titel:val("mt_t")||url.replace(/^https?:\/\//,"").slice(0,40),url}])});route();};
- document.querySelectorAll("[data-delmat]").forEach(b=>b.onclick=async()=>{const m=k.material.slice();m.splice(+b.dataset.delmat,1);await saveKL(k,{material:m});route();});
- const mitList=()=>k.mitnehmen.length?k.mitnehmen:(MITNEHMEN_DEFAULT[k.fach]||["Stifte","Wasser"]).map(t=>({id:uid(),text:t,done:false}));
- document.querySelectorAll("[data-mit]").forEach((b,idx)=>b.onclick=async()=>{const items=mitList().map(t=>({...t}));if(items[idx])items[idx].done=!items[idx].done;await saveKL(k,{mitnehmen:items});route();});
- document.querySelectorAll("[data-delmit]").forEach((b,idx)=>b.onclick=async()=>{const items=mitList().filter((t,i)=>i!==idx);await saveKL(k,{mitnehmen:items.length?items:[{id:uid(),text:"—",done:false}]});route();});
- const miAdd=async()=>{const t=val("mi_txt");if(!t)return;await saveKL(k,{mitnehmen:mitList().concat([{id:uid(),text:t,done:false}])});route();};q("mi_add").onclick=miAdd;q("mi_txt").onkeydown=e=>{if(e.key==="Enter")miAdd()};
- const kv=q("kv_save");if(kv){const getL=()=>[...document.querySelectorAll(".kvl:checked")].map(x=>x.value);kv.onclick=async()=>{await saveKL(k,{vokabel_lektionen:getL()});toast("Sammlungen gespeichert");};
-  q("kv_trainer").onclick=async()=>{const les=getL();await saveKL(k,{vokabel_lektionen:les});await setSetting("trainer",{on:true,klausur_id:k.id,lessons:les,daily:30});toast("Prüfungsfokus aktiv · "+les.length+" Sammlungen · 30 pro Tag");route();};}}
-/* =====================================================================
-   TRAINER · eigener Modus: weniger Navigation, mehr Fokus
-   ===================================================================== */
-const PROMPTS={
- aufgabe:["Erkläre in eigenen Worten, worum es bei „{s}“ geht.","Nenne drei typische Merkmale von „{s}“ und gib zu jedem ein Beispiel.","Welche Fehler passieren bei „{s}“ häufig — und wie vermeidest du sie?","Wende „{s}“ auf einen Text oder eine Aufgabe aus dem Unterricht an."],
- text:["Schreibe einen kurzen Abschnitt (ca. 150 Wörter), in dem du „{s}“ gezielt einsetzt.","Überarbeite deinen Abschnitt: Was würdest du an „{s}“ noch verbessern? Schreibe die verbesserte Fassung."],
- sim:["Bearbeite diese Aufgabe so, wie sie in der Prüfung „{t}“ gestellt werden könnte. Schwerpunkt: {s}. Arbeite ohne Hilfsmittel und behalte die Zeit im Blick."]};
-const MODE_LABEL={aufgabe:"Aufgabe",text:"Text schreiben",sim:"Prüfungssimulation"};
-let TR_V=null,TR_T=null;
-function fxShell(ctx,stage,actions){return '<div class="fx"><div class="fx-bar"><div class="left"><a class="closebtn" href="'+esc(fxBack())+'" aria-label="Trainer verlassen" title="Verlassen (Timer läuft weiter)">'+ICO.x+'</a><span class="ctx">'+ctx+'</span></div><div class="timerwrap"><span class="timer" data-sessstate><i></i><span data-sesstime>0:00</span></span></div><div class="right"><button class="btn plain sm" data-sesspause>Pause</button><button class="btn plain sm" id="fx_end">Beenden</button></div></div><div class="fx-stage" id="fxStage">'+stage+'</div><div class="fx-actions"><div class="in" id="fxAct">'+actions+'</div></div></div>';}
-function fxBack(){const q=ROUTE.query;if(ROUTE.sub==="thema"&&q.kl)return "#/lernplan/"+q.kl;if(ROUTE.sub==="vok"&&q.deck&&q.deck!=="daily"&&q.deck!=="__hard")return "#/vokabeln/"+encodeURIComponent(q.deck);return "#/trainer";}
-V.trainer=()=>{const sub=ROUTE.sub;if(sub==="vok")return trVok();if(sub==="thema")return trThema();if(sub==="fokus")return trFokus();
- const s=sess();const cont=continueItem();const target=dailyTarget(),done=Math.min(vokDoneToday(),target);const hard=STATE.vo.filter(v=>!v.level&&(!v.next||v.next<=todayISO())).length;
- const head=pageHead("Trainer",{sub:"Der aktive Lernmodus. Wähle eine Aufgabe — der Rest der App tritt in den Hintergrund."});
- const running=s?'<div class="notice"><span class="timer" data-sessstate><i></i><span data-sesstime>'+fmtClock(sessElapsed(s))+'</span></span><span class="t-callout" style="color:var(--text)">'+esc(s.label||"Training")+' läuft</span><a class="btn primary sm" href="'+esc(s.href||"#/trainer")+'">Fortsetzen</a><button class="btn sm" id="tr_end">Beenden</button></div>':'';
- const rec=cont?'<div class="section" style="margin-top:0">'+sectionHead("Empfohlen")+'<a class="card link cont" href="'+cont.href+'" style="min-height:0"><div class="cont-top"><div style="min-width:0"><div class="crumb"><b>'+esc(cont.k.fach)+'</b> · '+esc(klTitle(cont.k))+'</div><h3>'+esc(cont.t.text)+'</h3><div class="t-sub" style="margin-top:6px">'+(cont.resumed?"Hier hast du zuletzt aufgehört":"Dein unsicherstes offenes Thema")+' · '+daysLabel(daysUntil(cont.k.datum))+' bis zur Prüfung</div></div>'+ring(cont.pct/100,68,6,cont.t.score==null&&!cont.t.done?"Neu":cont.pct+"%")+'</div><div><span class="btn primary lg">Trainer starten</span></div></a></div>':'';
- const vok='<div class="section">'+sectionHead("Vokabeln",'<a class="shl" href="#/vokabeln">Sammlungen</a>')+'<div class="starter"><a class="opt" href="#/trainer/vok?deck=daily"><span class="oi">'+ICO.vokabeln+'</span><span class="ot">Tägliche Wiederholung</span><span class="od">Fällige Karten nach dem Wiederholungsplan.</span><span class="om">'+(done>=target?"Tagesziel erreicht · Bonus":"Noch "+(target-done)+" von "+target)+'</span></a><a class="opt" href="#/trainer/vok?deck=__hard"><span class="oi">'+ICO.target+'</span><span class="ot">Wackelkandidaten</span><span class="od">Karten, die du zuletzt nicht wusstest.</span><span class="om">'+plural(hard,"Karte","Karten")+'</span></a><a class="opt" href="#/trainer/fokus"><span class="oi">'+ICO.clock+'</span><span class="ot">Freie Lernzeit</span><span class="od">Nur der Timer. Für Hausaufgaben, Lesen oder Zusammenfassungen.</span><span class="om">Zählt in deine Lernzeit</span></a></div></div>';
- const exams=upcomingKL().filter(k=>k.themen.length);
- const topics=exams.length?'<div class="section">'+sectionHead("Prüfungsthemen")+'<div class="stack">'+exams.slice(0,3).map(k=>'<div><div class="t-sub" style="margin:0 4px var(--s2)"><span class="dot" style="background:'+fcol(k.fach)+';margin-right:6px"></span>'+esc(k.fach)+' · '+esc(klTitle(k))+' · '+daysLabel(daysUntil(k.datum))+'</div><div class="list">'+k.themen.map(t=>{const p=subScore(t);return '<a class="li" href="#/trainer/thema?kl='+k.id+'&t='+t.id+'"><div class="li-main"><div class="li-title"'+(t.done?' style="color:var(--text-3)"':'')+'>'+esc(t.text)+'</div></div><span class="li-trail">'+(t.done?'<span class="pill p-green">Sicher</span>':t.score!=null?p+" %":"Neu")+'<span class="chev">'+ICO.chev+'</span></span></a>';}).join("")+'</div></div>').join("")+'</div></div>':'';
- return head+running+rec+vok+topics;};
-function bindTrainerStart(){const e=document.getElementById("tr_end");if(e)e.onclick=async()=>{await sessEnd();route();};}
-
-/* ---------- Vokabel-Session ---------- */
-function trVok(){const deck=ROUTE.query.deck||"daily";const name=deck==="daily"?"Tägliche Wiederholung":deck==="__hard"?"Wackelkandidaten":deck;
- return fxShell("Vokabeln · "+esc(name),'','');}
-function startVok(){const deck=ROUTE.query.deck||"daily";const key=location.hash;
- if(!TR_V||TR_V.key!==key){VOKMODE=deck;if(deck!=="daily"&&deck!=="__hard"&&!STATE.vo.some(v=>v.sprache===deck))VOKMODE="daily";let cards=buildSession();if(!cards.length&&deck==="daily")cards=shuffle(dailyPool().filter(v=>!v.next||v.next<=todayISO())).slice(0,20); /* Tagesziel erreicht: Bonusrunde mit fälligen Karten */
-  TR_V={key,deck,cards,i:0,shown:false,ok:0,no:0};}
- const name=deck==="daily"?"Tägliche Wiederholung":deck==="__hard"?"Wackelkandidaten":deck;
- sessStart({label:"Vokabeln · "+name,href:location.hash,ref:"vokabel"});setLast({kind:"vok",deck});renderVokFx();}
-function renderVokFx(){const st=document.getElementById("fxStage"),ac=document.getElementById("fxAct");if(!st)return;const T=TR_V;const total=T.cards.length;
- const name=T.deck==="daily"?"Tägliche Wiederholung":T.deck==="__hard"?"Wackelkandidaten":T.deck;
- if(T.i>=total){const target=dailyTarget(),dn=vokDoneToday();
-  st.innerHTML='<div class="fx-done"><div class="eyebrow">'+esc(name)+'</div>'+(total?'<div class="num" style="margin:var(--s5) 0 var(--s2)">'+T.ok+'<span class="t-title" style="color:var(--text-3)"> / '+total+'</span></div><div class="t-headline">gewusst</div><p class="lead" style="margin:var(--s3) auto 0">'+(T.deck==="daily"&&dn>=target?"Tagesziel erreicht. Dein Streak ist gesichert.":T.no?T.no+" Karten kommen morgen wieder.":"Stark — alles gewusst.")+'</p>':'<h2 class="fx-title" style="margin-top:var(--s5)">Gerade nichts fällig</h2><p class="lead" style="margin:var(--s3) auto 0">Schau später wieder vorbei oder wähle eine Sammlung.</p>')+'</div>';
-  ac.innerHTML='<a class="btn" href="#/vokabeln">Zu den Vokabeln</a><span class="grow"></span><button class="btn primary lg" id="fx_finish">Fertig</button>';
-  document.getElementById("fx_finish").onclick=async()=>{await sessEnd();location.hash="#/trainer";};return;}
- const k=T.cards[T.i];const lang=langOf(k.sprache);const rev=vokDir(lang)==="rev";const front=rev?k.bedeutung:k.begriff,back=rev?k.begriff:k.bedeutung;const L=dirLabels(lang)[rev?1:0];
- st.innerHTML='<div class="fx-ctx">'+esc(k.sprache)+' · '+esc(L)+'</div><div class="fx-progress">'+progBar(T.i/total*100)+'<span>'+(T.i+1)+' von '+total+'</span></div><div class="fx-card flash" id="flashCard" role="button" tabindex="0" aria-label="Karte umdrehen"><div class="term">'+esc(front)+'</div>'+(T.shown?'<div class="answer">'+esc(back)+'</div>':'<div class="tap">Tippen oder Leertaste, um die Antwort zu sehen</div>')+'</div>';
- ac.innerHTML=T.shown?'<span class="kb">← Nochmal · → Gewusst</span><span class="grow"></span><button class="btn lg" id="v_again">Nochmal</button><button class="btn primary lg" id="v_ok">Gewusst</button>':'<span class="kb">Leertaste</span><span class="grow"></span><button class="btn primary lg" id="v_show">Antwort zeigen</button>';
- const show=()=>{if(!T.shown){T.shown=true;renderVokFx();}};document.getElementById("flashCard").onclick=show;
- const sb=document.getElementById("v_show");if(sb)sb.onclick=show;
- if(T.shown){document.getElementById("v_ok").onclick=()=>gradeVok(true);document.getElementById("v_again").onclick=()=>gradeVok(false);}}
-async function gradeVok(ok){const T=TR_V;const k=T.cards[T.i];if(!k)return;const lvl=Math.max(0,Math.round(k.level||0));const nl=ok?Math.min(lvl+1,INTERVALS.length-1):0;const days=ok?INTERVALS[nl]:1;const nx=addDays(todayISO(),days);
- if(ok)T.ok++;else T.no++;
- const before=vokDoneToday();const countsDaily=T.deck==="daily"||before<dailyTarget();
- if(countsDaily)logAdd("vokabel",1,0,k.sprache);
- T.i++;T.shown=false;renderVokFx();
- const tg=dailyTarget();if(countsDaily&&before<tg&&before+1>=tg)toast("Tagesziel erreicht · "+vokStreak()+" Tage in Folge");
- const it=STATE.vo.find(x=>x.id===k.id);if(it){it.level=nl;it.next=nx;}try{await sbPatch("vokabeln",k.id,{level:nl,next:nx})}catch(e){}}
-
-/* ---------- Themen-Session (Aufgabe · Text · Simulation) ---------- */
-function trThema(){const k=klById(ROUTE.query.kl);const t=k&&k.themen.find(x=>x.id===ROUTE.query.t);
- if(!k||!t)return fxShell("Trainer",'<div class="fx-done">'+emptyState("lernplan","Thema nicht gefunden","Wähle ein Unterthema im Lernplan.",'<a class="btn" href="#/lernplan">Zum Lernplan</a>')+'</div>','');
- return fxShell(esc(k.fach)+" · "+esc(klTitle(k)),'','');}
-function startThema(){const k=klById(ROUTE.query.kl);const t=k&&k.themen.find(x=>x.id===ROUTE.query.t);if(!k||!t)return;const mode=PROMPTS[ROUTE.query.m]?ROUTE.query.m:"aufgabe";const key=location.hash;
- if(!TR_T||TR_T.key!==key)TR_T={key,k,t,mode,prompts:PROMPTS[mode].map(p=>p.replace(/\{s\}/g,t.text).replace(/\{t\}/g,klTitle(k))),i:0,phase:"task",rated:[],answers:[]};
- sessStart({label:k.fach+" · "+t.text,href:location.hash,ref:k.id});setLast({kind:"thema",kl:k.id,t:t.id});renderThemaFx();}
-const RATE=[["sicher","Sicher",100],["teils","Teilweise",60],["unsicher","Unsicher",25]];
-function renderThemaFx(){const st=document.getElementById("fxStage"),ac=document.getElementById("fxAct");if(!st)return;const T=TR_T;const {k,t}=T;const total=T.prompts.length;
- if(T.i>=total){const sc=subScore(k.themen.find(x=>x.id===t.id)||t);const nextT=k.themen.find(x=>!x.done&&x.id!==t.id);
-  st.innerHTML='<div class="fx-done"><div class="eyebrow">'+esc(k.fach)+' · '+esc(klTitle(k))+'</div><h2 class="fx-title" style="margin-top:var(--s2)">'+esc(t.text)+'</h2><div style="display:flex;justify-content:center;margin:var(--s7) 0 var(--s3)">'+ring(sc/100,120,9,sc+"%","Sicherheit")+'</div><p class="lead" style="margin:0 auto">'+(sc>=80?"Das sitzt. Du kannst das Unterthema als sicher markieren.":sc>=50?"Auf einem guten Weg — eine weitere Runde festigt es.":"Hier lohnt sich noch Übung. Morgen nochmal?")+'</p></div>';
-  ac.innerHTML=(sc>=80&&!t.done?'<button class="btn" id="th_mark">Als sicher markieren</button>':'<a class="btn" href="#/lernplan/'+k.id+'">Zum Lernplan</a>')+'<span class="grow"></span>'+(nextT?'<a class="btn primary lg" href="#/trainer/thema?kl='+k.id+'&t='+nextT.id+'">Nächstes Thema</a>':'<button class="btn primary lg" id="th_finish">Fertig</button>');
-  const mk=document.getElementById("th_mark");if(mk)mk.onclick=async()=>{await saveKL(k,{themen:k.themen.map(x=>x.id===t.id?{...x,done:true}:x)});logAdd("klausur",1,0,k.id);toast("Als sicher markiert");mk.remove();};
-  const fi=document.getElementById("th_finish");if(fi)fi.onclick=async()=>{await sessEnd();location.hash="#/lernplan/"+k.id;};return;}
- const check=T.phase==="check";
- st.innerHTML='<div class="fx-ctx">'+esc(k.fach)+' · '+esc(klTitle(k))+'</div><h1 class="fx-title">'+esc(t.text)+'</h1><div class="fx-progress">'+progBar(T.i/total*100)+'<span>'+(total>1?"Aufgabe "+(T.i+1)+" von "+total:MODE_LABEL[T.mode])+'</span></div><div class="fx-card"><div class="kind">'+MODE_LABEL[T.mode]+'</div><div class="task">'+esc(T.prompts[T.i])+'</div><textarea id="th_ans" placeholder="Deine Antwort …"'+(check?" readonly":"")+'>'+esc(T.answers[T.i]||"")+'</textarea>'+(check?'<div class="fx-check"><div class="t-sub">Wie sicher warst du? Automatisches Feedback folgt mit der KI-Anbindung — bis dahin zählt deine Einschätzung.</div><div class="choice">'+RATE.map(r=>'<button data-rate="'+r[0]+'" class="'+(T.rated[T.i]===r[0]?"on":"")+'">'+r[1]+'</button>').join("")+'</div></div>':'')+'</div>';
- ac.innerHTML=check?'<button class="btn" id="th_backtask">Antwort bearbeiten</button><span class="grow"></span><button class="btn primary lg" id="th_next"'+(T.rated[T.i]?'':' disabled')+'>'+(T.i+1<total?"Weiter":"Abschließen")+'</button>':'<a class="btn plain" href="#/ki?kl='+k.id+'&t='+t.id+'">'+ICO.ki+'Mit KI üben</a><span class="grow"></span><button class="btn primary lg" id="th_check">Antwort prüfen</button>';
- const ta=document.getElementById("th_ans");if(ta&&!check)ta.oninput=()=>{T.answers[T.i]=ta.value;};
- const q=id=>document.getElementById(id);
- if(!check){q("th_check").onclick=()=>{T.answers[T.i]=ta.value;T.phase="check";renderThemaFx();};setTimeout(()=>{if(window.innerWidth>720&&ta)ta.focus();},60);}
- else{q("th_backtask").onclick=()=>{T.phase="task";renderThemaFx();};
-  document.querySelectorAll("[data-rate]").forEach(b=>b.onclick=()=>{T.rated[T.i]=b.dataset.rate;renderThemaFx();});
-  q("th_next").onclick=async()=>{const val=RATE.find(r=>r[0]===T.rated[T.i])[2];const cur=k.themen.find(x=>x.id===t.id);const old=cur&&cur.score!=null?+cur.score:null;const ns=Math.round(old==null?val:old*.5+val*.5);
-   await saveKL(k,{themen:k.themen.map(x=>x.id===t.id?{...x,score:ns}:x)});T.i++;T.phase="task";renderThemaFx();};}}
-
-/* ---------- Freie Lernzeit ---------- */
-function trFokus(){const kl=upcomingKL();const s=sess();const pre=ROUTE.query.ref||(s&&s.ref)||"";
- const stage='<div style="text-align:center"><div class="fx-ctx">Freie Lernzeit</div><div class="fx-big-time" data-sesstime>'+fmtClock(sessElapsed(s))+'</div><p class="lead" style="margin:0 auto var(--s7)">Handy weg, ein Thema, Timer an. Alle 25 Minuten erinnert dich das Cockpit an eine kurze Pause.</p><label class="fld" style="max-width:360px;margin:0 auto;text-align:left">Wofür lernst du?<select id="fk_ref"><option value="">Allgemein</option>'+kl.map(k=>'<option value="'+k.id+'"'+(pre===k.id?' selected':'')+'>'+esc(k.fach)+' · '+esc(klTitle(k))+'</option>').join("")+FACHER.map(f=>'<option value="fach:'+esc(f)+'"'+(pre==="fach:"+f?' selected':'')+'>'+esc(f)+'</option>').join("")+'</select></label></div>';
- return fxShell("Freie Lernzeit",stage,'<span class="grow"></span><button class="btn primary lg" id="fk_go">'+(s?"Weiter":"Starten")+'</button>');}
-function startFokus(){const sel=document.getElementById("fk_ref");const go=document.getElementById("fk_go");const lbl=()=>{const o=sel.options[sel.selectedIndex];return "Lernzeit"+(sel.value?" · "+o.text:"");};
- sel.onchange=()=>{const s=sess();if(s)sessStart({ref:sel.value,label:lbl()});};
- go.onclick=()=>{const s=sess();if(!s)sessStart({ref:sel.value,label:lbl(),href:"#/trainer/fokus"});else sessToggle();upd();};
- const upd=()=>{const s=sess();go.textContent=!s?"Starten":s.runFrom?"Pause":"Fortsetzen";};
- const s=sess();if(s&&s.href!=="#/trainer/fokus"){/* andere Session läuft: Timer weiterführen */}upd();
- document.querySelectorAll("[data-sesspause]").forEach(b=>b.addEventListener("click",()=>setTimeout(upd,0)));}
-function bindTrainer(){const sub=ROUTE.sub;
- if(!sub){bindTrainerStart();return;}
- document.body.classList.add("focus");
- if(sub==="vok")startVok();else if(sub==="thema")startThema();else if(sub==="fokus")startFokus();
- document.querySelectorAll("[data-sesspause]").forEach(b=>b.onclick=()=>{if(!sess()&&sub==="fokus")return;sessToggle();});
- const end=document.getElementById("fx_end");if(end)end.onclick=async()=>{const back=fxBack();const m=await sessEnd(true);toast(m>=1?"Gut gemacht · "+m+" Min. gelernt":"Session beendet");location.hash=back;};
- sessTick();
- document.onkeydown=e=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName))return;
-  if(sub==="vok"&&TR_V&&TR_V.i<TR_V.cards.length){if(e.key===" "){e.preventDefault();if(!TR_V.shown){TR_V.shown=true;renderVokFx();}}else if(TR_V.shown&&(e.key==="ArrowRight"||e.key==="Enter"))gradeVok(true);else if(TR_V.shown&&e.key==="ArrowLeft")gradeVok(false);}};}
-/* =====================================================================
-   KI · strukturierte Lernaktionen statt leerem Chatfenster
-   ===================================================================== */
-const KI_OPTS=[["erklaeren","Erklären","Erkläre mir dieses Thema.","bulb"],["ueben","Üben","Stelle mir Aufgaben.","dumbbell"],["pruefen","Prüfen","Teste mein Wissen.","check"],["korrigieren","Korrigieren","Analysiere meine Antwort.","pen"],["simulieren","Prüfung simulieren","Teste mich wie in einer echten Prüfung.","clock"]];
-let KI_MODE="";
-function kiContexts(pre){return upcomingKL().map(k=>'<optgroup label="'+esc(k.fach+" · "+klTitle(k))+'"><option value="'+k.id+'"'+(pre===k.id?' selected':'')+'>Ganze Prüfung</option>'+k.themen.map(t=>'<option value="'+k.id+':'+t.id+'"'+(pre===k.id+":"+t.id?' selected':'')+'>'+esc(t.text)+'</option>').join("")+'</optgroup>').join("");}
-V.ki=()=>{const q=ROUTE.query;const pre=q.kl?(q.kl+(q.t?":"+q.t:"")):"";if(q.mode)KI_MODE=q.mode;
- const head=pageHead("Mit KI lernen",{sub:"Was möchtest du tun?"});
- const ctxbar='<div class="ctxbar"><span class="t-sub">Thema</span><select id="ki_ctx"><option value="">Allgemein — ohne Bezug</option>'+kiContexts(pre)+'</select></div>';
- const grid='<div class="ki-grid">'+KI_OPTS.map(o=>'<button class="opt'+(KI_MODE===o[0]?" on":"")+'" data-ki="'+o[0]+'"><span class="oi">'+ICO[o[3]]+'</span><span class="ot">'+o[1]+'</span><span class="od">„'+o[2]+'“</span></button>').join("")+'</div>';
- const sel=KI_OPTS.find(o=>o[0]===KI_MODE);
- const panel=sel?'<div class="section">'+sectionHead(sel[1])+'<div class="card"><div class="composer"><textarea id="ki_in" placeholder="'+(sel[0]==="korrigieren"?"Füge hier deine Antwort ein …":"Optional: Was genau möchtest du wissen?")+'" disabled></textarea><button class="btn primary" disabled>Starten</button></div><div class="hint" style="margin-top:var(--s3)">Die KI-Anbindung folgt im nächsten Schritt. Thema, Modus und deine Eingabe werden dann direkt übergeben — die Oberfläche ist bereits vorbereitet.</div></div></div>':'';
- return head+ctxbar+grid+panel;};
-function bindKI(){document.querySelectorAll("[data-ki]").forEach(b=>b.onclick=()=>{KI_MODE=KI_MODE===b.dataset.ki?"":b.dataset.ki;route();});
- const s=document.getElementById("ki_ctx");if(s)s.onchange=()=>{const [kl,t]=s.value.split(":");history.replaceState(null,"","#/ki"+(kl?"?kl="+kl+(t?"&t="+t:""):""));parseRoute();};}
-
-/* =====================================================================
-   FORTSCHRITT · nur Zahlen, die beim Lernen helfen
-   ===================================================================== */
-V.fortschritt=()=>{const t=todayISO();const st=vokStreak(),best=bestStreak();
- const weeks=[];for(let w=7;w>=0;w--){const mon=new Date();mon.setDate(mon.getDate()-((mon.getDay()+6)%7)-w*7);const a=isoLocal(mon),b=addDays(a,6);weeks.push({lbl:"KW "+isoWeek(mon),a,b,f:logRange("fokus",a,b,"minuten"),t:logRange("aufgabe",a,b),v:logRange("vokabel",a,b)});}
- const cur=weeks[7],prev=weeks[6];
- const delta=(a,b,u)=>{if(!b&&!a)return "Noch keine Daten";const d=a-b;return d===0?"wie letzte Woche":'<span class="'+(d>0?"up":"down")+'">'+(d>0?"+":"−")+Math.abs(d)+(u||"")+'</span> zur Vorwoche';};
- const head=pageHead("Fortschritt",{sub:"Wie viel du lernst, was sitzt — und wo du ansetzen solltest."});
- const kpis='<div class="kpis"><div class="card kpi"><div class="kl">Lernzeit diese Woche</div><div class="num">'+(cur.f>=60?Math.floor(cur.f/60)+'<small>Std.</small> '+(cur.f%60)+'<small>Min.</small>':cur.f+'<small>Min.</small>')+'</div><div class="kd">'+delta(cur.f,prev.f," Min.")+'</div></div><div class="card kpi"><div class="kl">Aufgaben erledigt</div><div class="num">'+cur.t+'</div><div class="kd">'+delta(cur.t,prev.t)+'</div></div><div class="card kpi"><div class="kl">Vokabeln diese Woche</div><div class="num">'+cur.v+'</div><div class="kd">'+(st?st+(st===1?" Tag":" Tage")+" in Folge · Rekord "+Math.max(best,st):"Starte heute eine neue Serie")+'</div></div></div>';
- // Prüfungsbereitschaft
- const up=upcomingKL();
- const ready='<div>'+sectionHead("Prüfungsbereitschaft",'<a class="shl" href="#/lernplan">Lernplan</a>')+'<div class="card tight">'+(up.length?up.map(k=>{const r=readiness(k);return '<a class="meter" href="#/lernplan/'+k.id+'" style="text-decoration:none;color:inherit;display:grid"><span class="mt-l">'+esc(k.fach)+' · '+esc(klTitle(k))+'<span class="mt-s">'+daysLabel(daysUntil(k.datum))+(r==null?" · Themen fehlen":" · "+k.themen.filter(x=>x.done).length+" von "+k.themen.length+" Themen sicher")+'</span></span><span class="mt-v">'+(r==null?"—":r+" %")+'</span>'+progBar(r||0)+'</a>';}).join(""):emptyState("flag","Keine Prüfung geplant","").replace('class="empty"','class="empty sm"'))+'</div></div>';
- // Schwachstellen
- const ws=weakSpots(6);
- const weak='<div>'+sectionHead("Schwachstellen")+'<div class="card tight">'+(ws.length?ws.map(meterRow).join(""):emptyState("target","Noch keine Schwachstellen erkannt","Übe im Trainer — danach siehst du hier, was noch nicht sitzt.").replace('class="empty"','class="empty sm"'))+'</div></div>';
- // Lernzeit-Verlauf
- const mx=Math.max(1,...weeks.map(w=>w.f));
- const chart='<div class="section">'+sectionHead("Lernzeit",'<span class="sub">Minuten pro Woche</span>')+'<div class="card"><div class="bars">'+weeks.map((w,i)=>'<div class="bc'+(i===7?" cur":"")+'"><span class="bv">'+(w.f||"")+'</span><span class="bb" style="height:'+Math.max(2,w.f/mx*100)+'%"></span><span class="bl">'+w.lbl.replace("KW ","KW")+'</span></div>').join("")+'</div></div></div>';
- // Vokabelentwicklung
- const lv=[0,0,0];STATE.vo.forEach(v=>{const l=v.level||0;lv[l===0?0:l<4?1:2]++;});const tot=Math.max(1,STATE.vo.length);
- const end=new Date();const startD=new Date(end);startD.setDate(end.getDate()-83-((end.getDay()+6)%7));let heat="";for(let i=0;i<91;i++){const d=new Date(startD);d.setDate(startD.getDate()+i);if(d>end)break;const iso=isoLocal(d);const n=logSum("vokabel",iso);const l=n===0?"":n<8?"l1":n<15?"l2":n<30?"l3":"l4";heat+='<i class="'+l+(iso===t?" today":"")+'" title="'+fmtD(iso)+': '+n+' Vokabeln"></i>';}
- const vok='<div class="section">'+sectionHead("Vokabeln",'<a class="shl" href="#/vokabeln">Sammlungen</a>')+'<div class="grid two"><div class="card"><h2>Wie gut deine Karten sitzen</h2><div class="num" style="font-size:34px;margin:var(--s2) 0 var(--s4)">'+Math.round(lv[2]/tot*100)+' %<span class="t-sub" style="font-size:15px;margin-left:8px;letter-spacing:0">sicher</span></div><div class="stackbar"><i style="width:'+(lv[2]/tot*100)+'%;background:var(--accent)"></i><i style="width:'+(lv[1]/tot*100)+'%;background:rgba(45,91,215,.4)"></i><i style="width:'+(lv[0]/tot*100)+'%;background:var(--fill-3)"></i></div><div class="legend"><span><i style="background:var(--accent)"></i>Sicher '+lv[2]+'</span><span><i style="background:rgba(45,91,215,.4)"></i>Im Lernen '+lv[1]+'</span><span><i style="background:var(--fill-3)"></i>Neu '+lv[0]+'</span></div></div><div class="card"><h2>Aktivität · 12 Wochen</h2><div class="heat" style="margin-top:var(--s3)">'+heat+'</div><div class="legend"><span>'+new Set(STATE.log.filter(l=>l.art==="vokabel"&&l.anzahl>0).map(l=>l.datum)).size+' aktive Tage</span><span>'+STATE.log.filter(l=>l.art==="vokabel").reduce((s,l)=>s+l.anzahl,0)+' Karten gelernt</span></div></div></div></div>';
- // Noten (kompakt)
- const hj=currentHJ();const ges=gesamtSchnitt(hj);const graded=pastKL().filter(k=>k.punkte!=null).slice(0,4);
- const noten='<div class="section">'+sectionHead("Ergebnisse",'<a class="shl" href="#/noten">Alle Noten</a>')+'<div class="list"><a class="li" href="#/noten"><div class="li-main"><div class="li-title">Schnitt '+hj+'</div><div class="li-sub">Alle belegten Fächer</div></div><span class="li-trail" style="color:var(--text);font-size:17px;font-weight:600">'+(ges==null?"—":fmtPt(ges)+" P.")+'<span class="chev">'+ICO.chev+'</span></span></a>'+graded.map(k=>'<a class="li" href="#/lernplan/'+k.id+'"><div class="li-main"><div class="li-title">'+esc(k.fach)+' · '+esc(klTitle(k))+'</div><div class="li-sub">'+esc(fmtD(k.datum))+' · Note '+PT_NOTE[k.punkte]+'</div></div><span class="pt '+ptClass(k.punkte)+'">'+k.punkte+'</span></a>').join("")+'</div></div>';
- return dbBanner()+head+kpis+'<div class="section"><div class="grid two">'+ready+weak+'</div></div>'+chart+vok+noten;};
-/* =====================================================================
    STUNDENPLAN · interaktiv (Klick auf Stunde / Freistunde, Entfall, Klausur-Marker)
    ===================================================================== */
 let SP_DAY=null;
@@ -1527,34 +1271,6 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-done
  if(t.dataset.free!=null){const [d,s]=t.dataset.free.split(":").map(Number);freeModal(d,s,t.dataset.iso||(ROUTE.name==="dashboard"?todayISO():null));return;}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
 
-/* ---------- ROUTER ---------- */
-const ROUTE={name:"dashboard",sub:"",id:"",query:{}};
-const ALIASES={klausuren:"lernplan",klausur:"lernplan",statistik:"fortschritt"};
-const OWN_HEADER=["dashboard","vokabeln","lernplan","trainer","ki","fortschritt"];
-function parseRoute(){let h=location.hash.replace(/^#\/?/,"");const qi=h.indexOf("?");let q={};if(qi>=0){new URLSearchParams(h.slice(qi+1)).forEach((v,k)=>q[k]=v);h=h.slice(0,qi);}const parts=h.split("/").filter(Boolean);
- let name=parts[0]||"dashboard",sub=parts[1]||"";
- if(name==="fokus"){name="trainer";sub="fokus";}
- if(ALIASES[name])name=ALIASES[name];
- ROUTE.name=name;ROUTE.sub=sub;ROUTE.id=name==="lernplan"?sub:"";ROUTE.query=q;if(!V[ROUTE.name]){ROUTE.name="dashboard";ROUTE.sub="";}}
-let LAST_KEY="";
-function skeleton(){return '<div class="page"><div class="skel h1"></div><div class="skel p"></div><div class="grid main-aside"><div class="skel blk" style="height:260px"></div><div class="skel blk" style="height:260px"></div></div><div class="skel blk"></div></div>';}
-function route(){parseRoute();const name=ROUTE.name;const needs=!["ernaehrung","info"].includes(name);
- renderNav(name);document.body.classList.remove("focus");
- document.title=(name==="dashboard"?"":TITLES[name]+" · ")+"Lern-Cockpit";
- const view=document.getElementById("view");
- if(needs&&!STATE.loaded){view.innerHTML=STATE.error?'<div class="page narrow"><div class="card" style="margin-top:var(--s9)">'+emptyState("info","Keine Verbindung","Der Speicher ist gerade nicht erreichbar.<br><span class=\"t-cap\">"+esc(STATE.error)+"</span>",'<button class="btn primary sm" onclick="init()">Erneut versuchen</button>')+'</div></div>':skeleton();return;}
- document.onkeydown=null;
- const key=location.hash.split("?")[0]+(name==="trainer"?location.hash:"");const enter=key!==LAST_KEY;LAST_KEY=key;
- try{let html=V[name]();if(!OWN_HEADER.includes(name))html=pageHead(TITLES[name],{sub:SUBTITLES[name]})+html;
-  view.innerHTML=(name==="trainer"&&ROUTE.sub)?html:'<div class="page'+(enter?" enter":"")+'">'+html+'</div>';}
- catch(e){view.innerHTML='<div class="page"><div class="card">'+emptyState("info","Anzeigefehler",esc(e.message))+'</div></div>';console.error(e);return;}
- try{bindPage(name);}catch(e){console.error(e);}
- sessTick();
- if(enter&&!ROUTE.query.keep)window.scrollTo({top:0});}
-function bindPage(name){if(name==="aufgaben")bindAufgaben();else if(name==="lernplan")bindLernplan();else if(name==="noten")bindNoten();else if(name==="vokabeln")bindVokabeln();else if(name==="stundenplan")bindStundenplan();else if(name==="info")bindInfo();else if(name==="trainer")bindTrainer();else if(name==="ki")bindKI();else if(name==="einstellungen")bindEinstellungen();}
-window.addEventListener("hashchange",()=>{closeModal();const prev=ROUTE.name+"/"+ROUTE.sub;parseRoute();if(ROUTE.name+"/"+ROUTE.sub!==prev)VOK_FILTER="";route();});
-window.addEventListener("resize",debounce(()=>{if(ROUTE.name==="stundenplan")route();},200));
-
 /* ---------- BENACHRICHTIGUNGEN ---------- */
 let SWREG=null;
 function notify(title,body,tag){if(!("Notification" in window)||Notification.permission!=="granted")return;const opts={body,tag:tag||("lc-"+Date.now()),icon:"icon-192.png",badge:"icon-192.png",renotify:false};try{if(SWREG&&SWREG.showNotification)SWREG.showNotification(title,opts);else new Notification(title,opts);}catch(e){try{new Notification(title,opts);}catch(e2){}}}
@@ -1578,8 +1294,11 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 
 /* ---------- INIT ---------- */
 if(!location.hash)location.hash="#/dashboard";
-async function init(silent){if(!silent){STATE.loaded=false;route();}try{await loadAll();STATE.error=null;}catch(e){STATE.error=e&&e.message?e.message:String(e);STATE.loaded=false;}route();setTimeout(checkReminders,1500);}
-window.init=init;init();
 </script>
+<script src="js/store.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/trainer.js"></script>
+<script src="js/views-learn.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>

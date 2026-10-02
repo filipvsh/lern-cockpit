@@ -1,0 +1,12 @@
+{
+  "name": "lern-cockpit",
+  "private": true,
+  "description": "Lern-Cockpit – statische Web-App mit Supabase-Backend. Kein Build-Schritt nötig; package.json dient nur den Tests.",
+  "scripts": {
+    "test": "node --test tests/engine.test.js && node tests/migration.test.mjs",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
+  }
+}
