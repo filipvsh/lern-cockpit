@@ -18,7 +18,7 @@ const AI = {
       const r = await Api.invoke("ai-tutor", payload);
       AI.state = "ok"; return r;
     } catch (e) {
-      if (e.code === "not_deployed" || e.code === "not_configured") { AI.state = "unavailable"; AI.reason = e.code; }
+      if (e.code === "not_deployed" || e.code === "not_configured" || e.code === "unreachable") { AI.state = "unavailable"; AI.reason = e.code; }
       throw e;
     }
   },
@@ -26,6 +26,7 @@ const AI = {
     if (!e) return "Die KI konnte gerade nicht antworten.";
     if (e.code === "not_deployed") return "Die KI-Funktion ist noch nicht eingerichtet.";
     if (e.code === "not_configured") return "Der KI-Zugang ist auf dem Server noch nicht hinterlegt.";
+    if (e.code === "unreachable") return "Die KI-Funktion ist nicht erreichbar – meist ist sie bei Supabase noch nicht eingerichtet (Edge Function „ai-tutor“).";
     if (e.code === "offline") return "Keine Internetverbindung – die KI ist gerade nicht erreichbar.";
     if (e.code === "timeout") return "Die KI hat zu lange gebraucht.";
     if (e.code === "rate_limited") return "Gerade zu viele KI-Anfragen. Versuch es in einer Minute erneut.";

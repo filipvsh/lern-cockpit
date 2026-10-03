@@ -197,7 +197,12 @@
     const timer = ctrl ? setTimeout(() => ctrl.abort(), (o && o.timeoutMs) || 90000) : null;
     let r;
     try { r = await fetch(URL_ + "/functions/v1/" + fn, { method: "POST", headers: headers(), body: JSON.stringify(payload), signal: ctrl && ctrl.signal }); }
-    catch (e) { throw new ApiError(e.name === "AbortError" ? "Die KI hat zu lange gebraucht." : "Keine Verbindung.", { network: true, code: e.name === "AbortError" ? "timeout" : "offline", retryable: true }); }
+    catch (e) {
+      if (e.name === "AbortError") throw new ApiError("Die KI hat zu lange gebraucht.", { network: true, code: "timeout", retryable: true });
+      // Online, aber Anfrage blockiert: meist ist die Funktion nicht deployt (ohne CORS-Antwort sieht das wie ein Netzfehler aus)
+      const online = typeof navigator === "undefined" || navigator.onLine !== false;
+      throw new ApiError(online ? "KI-Funktion nicht erreichbar." : "Keine Verbindung.", { network: !online, code: online ? "unreachable" : "offline", retryable: true });
+    }
     finally { if (timer) clearTimeout(timer); }
     const j = await r.json().catch(() => null);
     if (r.ok && j) return j;
