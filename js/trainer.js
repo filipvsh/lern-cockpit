@@ -31,7 +31,7 @@ let lastSync = 0;
 function tsSyncThrottled() { if (Date.now() - lastSync > 30000) { lastSync = Date.now(); tsSync(); } }
 
 /* ---------------- Session anlegen ---------------- */
-const dirLabel = (col, dir) => { const s = col ? langName(col.source_language) : "Fremdsprache", t = col ? langName(col.target_language) : "Deutsch"; return dir === "reverse" ? t + " → " + s : s + " → " + t; };
+const dirLabel = (col, dir) => { if (isTermCollection(col)) return dir === "reverse" ? "Erklärung → Begriff" : "Begriff → Erklärung"; const s = col ? langName(col.source_language) : "Fremdsprache", t = col ? langName(col.target_language) : "Deutsch"; return dir === "reverse" ? t + " → " + s : s + " → " + t; };
 function vocabItem(c, dir) { return { kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: dir }; }
 function topicItemsFor(st, max) { return Engine.buildTopicItems(st, topicById(st.topic_id), ES.exercises, lastExerciseResult, max); }
 /** cfg: {mode, collection_id, subtopic_id, exam_id, topic_id, direction, count, minutes, ref, label} */

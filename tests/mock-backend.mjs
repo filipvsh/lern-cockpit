@@ -15,7 +15,8 @@ export function seed() {
   ];
   const vok = []; let n = 1;
   [["Unité 1", [["bonjour", "guten Tag"], ["la gare", "der Bahnhof"], ["réussir", "gelingen, schaffen"], ["l'avenir", "die Zukunft"], ["le travail", "die Arbeit"]]],
-   ["Unit 1", [["to resolve", "lösen"], ["setting", "Schauplatz"], ["narrator", "Erzähler"], ["plot", "Handlung"]]]]
+   ["Unit 1", [["to resolve", "lösen"], ["setting", "Schauplatz"], ["narrator", "Erzähler"], ["plot", "Handlung"]]],
+   ["Chemie", [["Oxidation", "Abgabe von Elektronen"], ["Katalysator", "beschleunigt eine Reaktion"]]]]
     .forEach(([deck, words]) => words.forEach(([b, m], i) => vok.push({ id: n++, begriff: b, bedeutung: m, sprache: deck, level: i % 3, next: iso(i % 2 ? 2 : -1) })));
   return {
     klausuren: kl, vokabeln: vok,
