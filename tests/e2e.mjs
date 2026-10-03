@@ -47,7 +47,10 @@ await scenario("Anmeldung + Übernahme der Altdaten in das neue Modell", async (
   const b = new MockBackend(); const { ctx, page } = await open(b);
   await login(page);
   assert.ok(b.db.klausuren.every(k => k.user_id), "Altdaten übernommen");
-  assert.deepEqual(b.db.vocab_collections.map(c => c.name).sort(), ["Unit 1", "Unité 1"]);
+  assert.deepEqual(b.db.vocab_collections.map(c => c.name).sort(), ["Chemie", "Unit 1", "Unité 1"]);
+  const chem = b.db.vocab_collections.find(c => c.name === "Chemie");
+  assert.equal(chem.source_language, "de", "Fach-Lektion wird Fachbegriffe, nicht Französisch");
+  assert.equal(chem.subject_id, b.db.subjects.find(s => s.name === "Chemie").id);
   assert.ok(b.db.vokabeln.every(v => v.collection_id), "jede Vokabel hat eine Sammlung");
   assert.equal(b.db.vocab_collections.find(c => c.name === "Unit 1").source_language, "en");
   const topic = b.db.topics.find(t => t.title === "Short Story Writing"); assert.ok(topic, "Thema aus alter Themenliste");
@@ -56,13 +59,32 @@ await scenario("Anmeldung + Übernahme der Altdaten in das neue Modell", async (
   assert.ok(b.db.klausuren.every(k => k.topics_migrated), "Migration markiert");
   // erneutes Laden erzeugt keine Duplikate
   b.log.length = 0; await page.reload(); await page.waitForSelector(".dash"); await page.waitForTimeout(300);
-  assert.equal(b.db.topics.length, 1); assert.equal(b.db.vocab_collections.length, 2);
+  assert.equal(b.db.topics.length, 1); assert.equal(b.db.vocab_collections.length, 3);
   assert.deepEqual(b.log.filter(l => !l.startsWith("GET") && !l.includes("/rpc/")), [], "zweites Laden schreibt nichts");
   await shot(page, "01-dashboard");
   const text = await page.textContent(".dash");
   assert.ok(/fällige Vokabel|neue Vokabel/.test(text), "Tagesplan enthält Vokabeln");
   assert.ok(text.includes("Narrative Perspective") || text.includes("Characterisation"), "Tagesplan enthält Unterthema der nahen Prüfung");
   assert.ok(!/NaN|undefined/.test(text), "keine kaputten Werte");
+  await ctx.close();
+});
+
+await scenario("Reparatur: früher als Französisch eingeordnete Fach-Lektion wird zu Fachbegriffen", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  const chem = b.db.vocab_collections.find(c => c.name === "Chemie");
+  Object.assign(chem, { source_language: "fr", subject_id: null });               // Zustand nach dem alten Fehler
+  b.db.vokabeln.filter(v => v.collection_id === chem.id).forEach(v => v.source_language = "fr");
+  const fr = b.db.vocab_collections.find(c => c.name === "Unité 1");
+  await page.reload(); await page.waitForSelector(".dash"); await page.waitForTimeout(400);
+  assert.equal(chem.source_language, "de"); assert.ok(chem.subject_id);
+  assert.ok(b.db.vokabeln.filter(v => v.collection_id === chem.id).every(v => v.source_language === "de"));
+  assert.equal(fr.source_language, "fr", "echte Französisch-Sammlung bleibt unberührt");
+  await go(page, "#/vokabeln"); await page.waitForSelector(".tiles");
+  const groups = await page.$$eval(".lang-h h2", els => els.map(e => e.textContent));
+  assert.deepEqual(groups, ["Französisch", "Englisch", "Fachbegriffe"]);
+  await go(page, "#/vokabeln/" + chem.id); await page.waitForSelector(".dirsw");
+  assert.ok((await page.textContent(".dirsw")).includes("Begriff → Erklärung"));
+  await shot(page, "02b-fachbegriffe");
   await ctx.close();
 });
 

@@ -16,7 +16,15 @@ function memo(key, fn) { const k = ES_VER + ":" + key; if (MEMO.has(k)) return M
 const LANG_CODE = { "Französisch": "fr", "Englisch": "en", "Latein": "la", "Spanisch": "es", "Deutsch": "de" };
 const CODE_LANG = { fr: "Französisch", en: "Englisch", la: "Latein", es: "Spanisch", de: "Deutsch" };
 const langName = c => CODE_LANG[c] || c || "—";
-const guessLangCode = name => Engine.guessLanguage(name) || "fr";
+const isTermCollection = c => !!c && c.source_language === c.target_language;   // Fachbegriffe: Begriff → Erklärung
+const groupName = code => code === "de" ? "Fachbegriffe" : langName(code);
+/** Schulfach im Namen einer Sammlung (z. B. „Chemie“, „Mathe Grundbegriffe“) – nur Nicht-Fremdsprachen */
+function subjectInName(name) {
+  const s = String(name || "").toLowerCase();
+  return FACHER.filter(f => !["Englisch", "Französisch"].includes(f)).find(f => s.includes(f.toLowerCase())) || null;
+}
+/** Sprache einer Altdaten-Lektion: erkannte Fremdsprache, sonst Fachbegriffe (nie mehr pauschal Französisch) */
+const guessLangCode = name => Engine.guessLanguage(name) || "de";
 
 /* ---------------- Laden ---------------- */
 const SINCE_DAYS = 180;
@@ -86,7 +94,7 @@ async function normalizeEngine() {
     let col = ES.collections.find(c => c.name.toLowerCase() === name.toLowerCase());
     if (!col) {
       const code = guessLangCode(name);
-      col = (await dbInsert("vocab_collections", { name, source_language: code, target_language: "de", subject_id: subjectId(langName(code)) }, "user_id,name")).row;
+      col = (await dbInsert("vocab_collections", { name, source_language: code, target_language: "de", subject_id: code === "de" ? subjectId(subjectInName(name)) : subjectId(langName(code)) }, "user_id,name")).row;
     }
     const patch = { collection_id: col.id, source_language: col.source_language, target_language: col.target_language, subject_id: col.subject_id || null };
     cards.forEach(v => Object.assign(v, patch));
@@ -94,6 +102,15 @@ async function normalizeEngine() {
       const ids = cards.slice(i, i + 150).map(v => encodeURIComponent(v.id)).join(",");
       await Api.write("PATCH", "vokabeln", "id=in.(" + ids + ")", patch);
     }
+  }
+  // Korrektur: Lektionen mit Fachnamen (z. B. „Chemie“), die beim ersten Übernehmen als Französisch eingeordnet wurden
+  for (const c of ES.collections) {
+    const subj = subjectInName(c.name);
+    if (c.source_language !== "fr" || c.target_language !== "de" || Engine.guessLanguage(c.name) || !subj) continue;
+    const fix = { source_language: "de", target_language: "de", subject_id: subjectId(subj) };
+    await dbPatch("vocab_collections", c.id, fix);
+    const cards = cardsOf(c.id); cards.forEach(v => Object.assign(v, { source_language: "de", target_language: "de", subject_id: fix.subject_id }));
+    for (let i = 0; i < cards.length; i += 150) await Api.write("PATCH", "vokabeln", "id=in.(" + cards.slice(i, i + 150).map(v => encodeURIComponent(v.id)).join(",") + ")", { source_language: "de", target_language: "de", subject_id: fix.subject_id });
   }
   // Alte Themenlisten → Thema + Unterthemen (+ bisherige Selbsteinschätzungen als Ereignis)
   for (const k of STATE.kl) {
@@ -225,7 +242,7 @@ function weakSpots(limit) {
     ES.collections.forEach(c => {
       const cards = cardsOf(c.id); const tr = cards.filter(Engine.isTrouble).length; if (!tr) return;
       const st = Engine.vocabStats(cards, Date.now());
-      out.push({ kind: "collection", id: c.id, label: c.name, sub: "Vokabeln · " + langName(c.source_language) + " · " + plural(tr, "Fehlerkarte", "Fehlerkarten"), pct: st.mastery, errors: tr, href: "#/trainer/start?mode=errors&col=" + c.id });
+      out.push({ kind: "collection", id: c.id, label: c.name, sub: "Vokabeln · " + groupName(c.source_language) + " · " + plural(tr, "Fehlerkarte", "Fehlerkarten"), pct: st.mastery, errors: tr, href: "#/trainer/start?mode=errors&col=" + c.id });
     });
     return out.sort((a, b) => a.pct - b.pct || b.errors - a.errors).slice(0, limit || 5);
   });
