@@ -105,6 +105,23 @@ Die Session wird bei jeder Änderung in `localStorage` gespeichert und an
 Zeit weiter. Im Hintergrund pausieren normale Sessions nach 10 Minuten
 rückwirkend; der Prüfungsmodus läuft weiter wie in einer echten Prüfung.
 
+**Vokabeltest (fester Termin).** Ein Vokabeltest ist eine Prüfung in
+`klausuren` (Thema beginnt mit „Vokabeltest:“, `description = 'Vokabeltest'`)
+mit genau einer Sammlung in `vokabel_lektionen`. Keine zusätzliche Migration.
+- „Sitzt“ = mindestens 2× hintereinander richtig und zuletzt nicht falsch.
+  Bereitschaft = sitzende Karten ÷ alle Karten des Tests.
+- Neue Karten pro Tag = noch nicht abgefragte ÷ (Tage bis zum Test − 1):
+  bis zum Vortag sind alle Wörter mindestens einmal dran.
+- Täglich dazu alle fälligen Karten (falsche zuerst); falsche kommen nach
+  10 Minuten erneut.
+- Wiederholungsabstände von Testkarten enden spätestens am Vortag
+  (frühestens morgen), damit keine Karte über den Testtermin „springt“.
+- Vortag und Testtag: jede Karte, die an diesem Tag noch nicht dran war.
+- Probetest: alle Karten zufällig, Zeitlimit, keine Rückmeldung bis zum Ende,
+  Ergebnisse zählen normal für die Wiederholungsplanung.
+- Der Test steht im Tagesplan immer oben; seine Sammlung wird aus dem
+  allgemeinen Vokabel-Posten herausgenommen (keine Doppelplanung).
+
 ## Robustheit
 
 - **Schreibreihenfolge.** Alle Schreibvorgänge laufen in einer Kette. Ein PATCH
