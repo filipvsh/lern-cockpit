@@ -9,6 +9,8 @@ const LS_TS = "lc_ts_v3";
 let TS = lsGet(LS_TS, null);
 let UI = (TS && TS.ui) || {};
 const MODE_NAMES = { vocab: "Vokabeln", errors: "Fehlertraining", mixed: "Gemischtes Training", topic: "Üben", exam: "Prüfungsmodus", free: "Freie Lernzeit" };
+const modeName = t => { t = t || TS; return !t ? "" : t.test === "probe" ? "Probetest" : t.test ? "Vokabeltest" : MODE_NAMES[t.mode]; };
+const testDir = examId => lsGet("lc_vtdir_" + examId, "reverse");   // Vokabeltest: standardmäßig Deutsch → Fremdsprache
 const AUTO_PAUSE_MIN = 10;   // länger im Hintergrund → Pause ab dem Verlassen (nicht im Prüfungsmodus)
 
 const tsActive = () => !!(TS && (TS.status === "active" || TS.status === "paused"));
@@ -36,7 +38,7 @@ function vocabItem(c, dir) { return { kind: "vocab", key: "v:" + c.id, vocab_id:
 function topicItemsFor(st, max) { return Engine.buildTopicItems(st, topicById(st.topic_id), ES.exercises, lastExerciseResult, max); }
 /** cfg: {mode, collection_id, subtopic_id, exam_id, topic_id, direction, count, minutes, ref, label} */
 function buildSessionFromConfig(cfg) {
-  const now = Date.now(); const dir = cfg.direction || "forward"; const count = +cfg.count || 20;
+  const now = Date.now(); const dir = cfg.direction || "forward"; const count = +cfg.count || 20; let testKind = null, sessDir = null;
   let items = [], label = "", scope = {}, timeLimitS = null, feedback = true, hints = true;
   const col = cfg.collection_id ? colById(cfg.collection_id) : null;
   const st = cfg.subtopic_id ? subById(cfg.subtopic_id) : null;
@@ -75,10 +77,27 @@ function buildSessionFromConfig(cfg) {
     timeLimitS = (+cfg.minutes || 45) * 60; feedback = false; hints = false;
     label = (ex ? ex.fach + " · " : "") + (t ? t.title : ex ? klTitle(ex) : "Prüfung");
     scope = { exam_id: ex ? ex.id : null, topic_id: t ? t.id : null, subject: ex ? ex.fach : null };
+  } else if (cfg.mode === "test" || cfg.mode === "testexam") {
+    const k = klById(cfg.exam_id); const cards = k ? testCards(k) : [];
+    const tdir = cfg.direction || (k ? testDir(k.id) : "reverse");
+    if (cfg.mode === "test") {
+      let q = k ? Engine.testQueue(cards, { now, daysLeft: daysUntil(k.datum) }) : [];
+      if (!q.length) { q = Engine.shuffle(cards.filter(c => !Engine.isTestSecure(c))).concat(Engine.shuffle(cards.filter(Engine.isTestSecure))).slice(0, count); label = " · Zusatzrunde"; }
+      items = q.map(c => vocabItem(c, tdir));
+    } else {
+      items = Engine.shuffle(cards).slice(0, 80).map(c => vocabItem(c, tdir));
+      timeLimitS = (+cfg.minutes || 15) * 60; feedback = false; hints = false;
+    }
+    label = (k ? vtName(k) : "Vokabeltest") + label;
+    const col = k ? linkedCollections(k)[0] : null;
+    scope = { exam_id: k ? k.id : null, collection_id: col ? col.id : null, subject: k ? k.fach : null };
+    testKind = cfg.mode === "test" ? "learn" : "probe"; sessDir = tdir;
   } else if (cfg.mode === "free") {
     label = cfg.label || "Freie Lernzeit"; scope = { exam_id: cfg.exam_id || null, subject: cfg.subject || null };
   }
-  const s = Engine.createSession({ mode: cfg.mode, items, label, direction: dir, timeLimitS, feedback, hints, scope, now });
+  const mode = cfg.mode === "test" ? "vocab" : cfg.mode === "testexam" ? "exam" : cfg.mode;
+  const s = Engine.createSession({ mode, items, label, direction: sessDir || dir, timeLimitS, feedback, hints, scope, now });
+  if (testKind) s.test = testKind;
   s.masteryBefore = {}; items.forEach(i => { if (i.subtopic_id) s.masteryBefore[i.subtopic_id] = masteryOf(i.subtopic_id).score; });
   s.planKey = cfg.planKey || null;
   return s;
@@ -100,6 +119,7 @@ function startTraining(cfg) {
 }
 function emptyReason(cfg) {
   if (cfg.mode === "vocab") return "Keine Vokabeln in dieser Auswahl.";
+  if (cfg.mode === "test" || cfg.mode === "testexam") return "Für diesen Test sind noch keine Vokabeln eingetragen.";
   if (cfg.mode === "errors") return "Keine Fehler zum Wiederholen – sehr gut.";
   if (cfg.mode === "exam") return "Für den Prüfungsmodus braucht die Prüfung mindestens ein Unterthema.";
   return "Für diese Auswahl gibt es noch keine Aufgaben.";
@@ -152,10 +172,17 @@ function evBase(item) {
 }
 /** Vokabel: SRS + Lernereignis (nur erster Versuch je Karte und Session) */
 const SRS_FIELDS = ["reps", "ease", "interval_days", "lapses", "next_review_at", "last_reviewed_at", "last_result", "correct_count", "incorrect_count", "mastery", "difficulty", "level", "next"];
+/** SRS-Planung; gehört die Karte zu einem anstehenden Vokabeltest, kommt sie spätestens am Vortag wieder */
+function srsFor(card, verdict) {
+  const now = Date.now(); const patch = Engine.srsSchedule(card, verdict, now);
+  const k = testForCollection(card.collection_id);
+  if (k && verdict !== "wrong") patch.next_review_at = Engine.testCap(patch.next_review_at, k.datum + "T00:00:00", now);
+  return patch;
+}
 function applyVocabResult(card, verdict, given, item) {
   if (item.retry) return null;
   const prev = {}; SRS_FIELDS.forEach(k => prev[k] = card[k]);
-  const patch = Engine.srsSchedule(card, verdict, Date.now());
+  const patch = srsFor(card, verdict);
   dbPatch("vokabeln", card.id, Object.assign({}, patch, { level: Math.min(5, patch.reps), next: patch.next_review_at.slice(0, 10) }));
   const col = colById(card.collection_id);
   const ev = logEvent({ type: verdict === "wrong" ? "vocabulary_wrong" : "vocabulary_correct", result: verdict === "correct" ? 1 : verdict === "almost" ? 0.75 : 0, vocab_id: card.id, session_id: TS.id,
@@ -183,7 +210,7 @@ function nextItem() {
 function tsClock() { if (!TS) return ""; const now = Date.now(); const ms = TS.time_limit_s ? Engine.remainingMs(TS, now) : Engine.elapsedMs(TS, now); return fmtClock(ms); }
 function sessionShell() {
   const back = TS.scope.exam_id != null ? "#/lernplan/" + TS.scope.exam_id : "#/trainer";
-  return '<div class="fx"><div class="fx-bar"><div class="left"><a class="closebtn" href="' + back + '" aria-label="Trainer verlassen" title="Verlassen – das Training bleibt gespeichert">' + ICO.x + '</a><span class="ctx">' + esc(MODE_NAMES[TS.mode]) + ' · ' + esc(TS.label) + '</span></div><div class="timerwrap"><span class="timer' + (TS.time_limit_s ? " countdown" : "") + '" data-tsstate><i></i><span data-tstime>' + tsClock() + '</span></span></div><div class="right"><button class="btn plain sm" id="ts_pause">Pause</button><button class="btn plain sm" id="ts_end">' + (TS.mode === "exam" ? "Abgeben" : "Beenden") + '</button></div></div><div class="fx-stage" id="fxStage"></div><div class="fx-actions"><div class="in" id="fxAct"></div></div></div>';
+  return '<div class="fx"><div class="fx-bar"><div class="left"><a class="closebtn" href="' + back + '" aria-label="Trainer verlassen" title="Verlassen – das Training bleibt gespeichert">' + ICO.x + '</a><span class="ctx">' + esc(modeName()) + ' · ' + esc(TS.label) + '</span></div><div class="timerwrap"><span class="timer' + (TS.time_limit_s ? " countdown" : "") + '" data-tsstate><i></i><span data-tstime>' + tsClock() + '</span></span></div><div class="right"><button class="btn plain sm" id="ts_pause">Pause</button><button class="btn plain sm" id="ts_end">' + (TS.mode === "exam" ? "Abgeben" : "Beenden") + '</button></div></div><div class="fx-stage" id="fxStage"></div><div class="fx-actions"><div class="in" id="fxAct"></div></div></div>';
 }
 V.trainerSession = () => {
   if (!TS) return '<div class="fx"><div class="fx-stage">' + emptyState("trainer", "Kein Training aktiv", "Starte ein Training über den Trainer oder deinen Tagesplan.", '<a class="btn primary" href="#/trainer">Zum Trainer</a>') + '</div></div>';
@@ -205,7 +232,7 @@ function bindTrainerSession() {
 function setStage(stage, actions) { const st = document.getElementById("fxStage"), ac = document.getElementById("fxAct"); if (!st) return false; st.innerHTML = stage; ac.innerHTML = actions; return true; }
 function stageHead(item) {
   const total = TS.items.length; const n = Math.min(TS.index + 1, total);
-  let ctx = MODE_NAMES[TS.mode];
+  let ctx = modeName();
   if (item.subtopic_id) { const st = subById(item.subtopic_id), t = st && topicById(st.topic_id), ex = st && examOfSub(st); ctx = (ex ? ex.fach + " · " : "") + (t ? t.title : ""); }
   else if (item.vocab_id || item.vocab_ids) { const c = cardById(item.vocab_id || item.vocab_ids[0]); const col = c && colById(c.collection_id); ctx = (col ? col.name + " · " : "") + dirLabel(col, item.direction); }
   const title = item.subtopic_id ? (subById(item.subtopic_id) || {}).title || "" : "";
@@ -254,7 +281,7 @@ function renderVocab(item) {
       const v = UI.check.verdict;
       UI.undo = applyVocabResult(card, v, given, item);
       record(v === "correct" ? 1 : v === "almost" ? 0.75 : 0, { verdict: v, given });
-      if (v === "wrong") Engine.requeue(TS, 4);
+      if (v === "wrong" && TS.feedback) Engine.requeue(TS, 4);
       tsSave();
       if (!TS.feedback) nextItem(); else renderVocab(item);
     };
@@ -270,7 +297,7 @@ function renderVocab(item) {
       const req = TS.items.findIndex((x, i) => i > TS.index && x.retry && x.key === item.key); if (req > 0) TS.items.splice(req, 1);
       const alt = String(UI.given || "").trim();
       if (UI.undo) {
-        const patch = Engine.srsSchedule(UI.undo.prev, "correct", Date.now());
+        const patch = srsFor(Object.assign({}, card, UI.undo.prev), "correct");
         const alts = item.direction !== "reverse" && alt && !card.alternatives.includes(alt) ? card.alternatives.concat([alt]) : card.alternatives;
         dbPatch("vokabeln", card.id, Object.assign({}, patch, { level: Math.min(5, patch.reps), next: patch.next_review_at.slice(0, 10), alternatives: alts }));
         dbPatch("learning_events", UI.undo.eventId, { type: "vocabulary_correct", result: 1, detail: { given: alt, override: true, direction: item.direction } });
@@ -446,16 +473,24 @@ function renderSummary() {
   const changes = subs.map(id => ({ st: subById(id), before: TS.masteryBefore[id], after: masteryOf(id).score })).filter(x => x.st);
   const plan = todayPlan(); const nextPlan = plan.items.find(i => !i.done && i.key !== TS.planKey);
   const mins = Math.max(0, Math.round(sum.activeSeconds / 60));
-  setStage('<div class="fx-done"><div class="eyebrow">' + esc(MODE_NAMES[TS.mode]) + ' · ' + esc(TS.label) + (TS.status === "abandoned" ? " · vorzeitig beendet" : "") + '</div>' +
+  setStage('<div class="fx-done"><div class="eyebrow">' + esc(modeName()) + ' · ' + esc(TS.label) + (TS.status === "abandoned" ? " · vorzeitig beendet" : "") + '</div>' +
     (TS.mode === "free" ? '<div class="num" style="margin:var(--s5) 0 var(--s2)">' + mins + '<span class="t-title" style="color:var(--text-3)"> Min.</span></div><div class="t-headline">konzentriert gelernt</div>'
       : sum.graded ? '<div class="num" style="margin:var(--s5) 0 var(--s2)">' + Math.round(sum.score * 100) + '<span class="t-title" style="color:var(--text-3)"> %</span></div><div class="t-headline">' + sum.correct + ' richtig · ' + (sum.partial ? sum.partial + ' teilweise · ' : '') + sum.wrong + ' falsch</div><p class="lead" style="margin:var(--s3) auto 0">' + mins + ' Minuten · ' + sum.answered + ' von ' + sum.total + ' Aufgaben</p>'
       : '<h2 class="fx-title" style="margin-top:var(--s5)">Keine Aufgabe bewertet</h2>') +
     '</div>' + (changes.length ? '<div class="card tight" style="margin-top:var(--s6)"><h2>Lernstand</h2>' + changes.map(c => '<div class="meter"><span class="mt-l">' + esc(c.st.title) + '<span class="mt-s">vorher ' + (c.before == null ? "keine Daten" : c.before + " %") + '</span></span><span class="mt-v">' + (c.after == null ? "—" : c.after + " %") + '</span>' + progBar(c.after || 0, (c.after || 0) < 60 ? "o" : "") + '</div>').join("") + '</div>' : '') +
-    (TS.mode === "exam" ? examReviewList() : ''),
+    (TS.test ? testReviewList() : TS.mode === "exam" ? examReviewList() : ''),
     '<button class="btn" id="sm_close">Schließen</button><span class="grow"></span>' + (nextPlan ? '<button class="btn primary lg" id="sm_next">Weiter: ' + esc(nextPlan.title) + '</button>' : '<button class="btn primary lg" id="sm_done">Fertig</button>'));
   document.getElementById("sm_close").onclick = leaveTrainer;
   const d = document.getElementById("sm_done"); if (d) d.onclick = leaveTrainer;
   const n = document.getElementById("sm_next"); if (n) n.onclick = () => { TS = null; UI = {}; tsSave(); startPlanItem(nextPlan); };
+}
+/** Vokabeltest: Stand + falsche Antworten mit Lösung */
+function testReviewList() {
+  const k = klById(TS.scope.exam_id); const st = k ? testStatusOf(k) : null;
+  const wrong = TS.answers.filter(a => !a.retry && a.verdict === "wrong").map(a => { const it = TS.items[a.index]; const c = it && cardById(it.vocab_id); if (!c) return ""; const sd = Engine.vocabSides(c, it.direction);
+    return '<div class="meter"><span class="mt-l" style="white-space:normal">' + esc(sd.prompt) + '<span class="mt-s">' + (a.given ? "deine Antwort: " + esc(a.given) : "keine Antwort") + '</span></span><span class="mt-v" style="color:var(--text)">' + esc(sd.answer) + '</span></div>'; }).filter(Boolean);
+  return (st ? '<div class="card tight" style="margin-top:var(--s6)"><h2>Bis zum Test</h2><div class="meter"><span class="mt-l">' + st.secure + ' von ' + st.total + ' Vokabeln sitzen<span class="mt-s">' + (daysUntil(k.datum) > 0 ? "noch " + plural(daysUntil(k.datum), "Tag", "Tage") + " · " : "") + (st.unseen ? st.unseen + " noch nicht abgefragt" : "alle schon abgefragt") + '</span></span><span class="mt-v">' + (st.score || 0) + ' %</span>' + progBar(st.score || 0, (st.score || 0) < 60 ? "o" : "") + '</div></div>' : '') +
+    (wrong.length ? '<div class="card tight" style="margin-top:var(--s4)"><h2>Noch üben <span class="count">' + wrong.length + '</span></h2>' + wrong.join("") + '</div>' : '');
 }
 function examReviewList() {
   const rows = TS.answers.filter(a => !a.retry).map(a => { const it = TS.items[a.index]; const q = it.kind === "exercise" ? it.exercise.question : it.kind === "vocab_match" ? "Zuordnung" : it.prompt || (cardById(it.vocab_id) || {}).begriff; return '<div class="meter"><span class="mt-l" style="white-space:normal">' + esc(String(q).slice(0, 140)) + '</span><span class="mt-v">' + (a.result == null ? "—" : Math.round(a.result * 100) + " %") + '</span></div>'; }).join("");
@@ -465,7 +500,8 @@ function examReviewList() {
 /* ---------------- Tagesplan starten ---------------- */
 function startPlanItem(it) {
   if (!it) return;
-  if (it.kind === "vocab") startTraining({ mode: "vocab", direction: "forward", count: 30, planKey: it.key });
+  if (it.kind === "test") startTraining({ mode: "test", exam_id: it.exam_id, planKey: it.key });
+  else if (it.kind === "vocab") startTraining({ mode: "vocab", direction: "forward", count: 30, planKey: it.key });
   else if (it.kind === "errors") startTraining({ mode: "errors", direction: "forward", planKey: it.key });
   else if (it.kind === "subtopic") startTraining({ mode: "topic", subtopic_id: it.subtopic_id, planKey: it.key });
 }

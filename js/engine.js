@@ -179,6 +179,54 @@
     if (!q.length && o.allowAhead) q = cards.filter(c => !isNew(c)).sort((a, b) => (toMs(a.next_review_at) || 0) - (toMs(b.next_review_at) || 0)).slice(0, o.limit);
     return q;
   }
+  /* ---------- Vokabeltest (fester Termin) ----------
+     „Sitzt“ = mindestens 2× hintereinander richtig und zuletzt nicht falsch.
+     Neue Karten werden auf die Tage bis zum Vortag verteilt; der letzte
+     Tag vor dem Test (und der Testtag) ist Wiederholung aller Karten. */
+  const TEST_SECURE_REPS = 2;
+  const isTestSecure = c => (+c.reps || 0) >= TEST_SECURE_REPS && c.last_result !== "wrong";
+  function testStatus(cards) {
+    const s = { total: cards.length, secure: 0, seen: 0, unseen: 0, wrong: 0, score: null };
+    cards.forEach(c => { if (isNew(c)) s.unseen++; else s.seen++; if (isTestSecure(c)) s.secure++; if (c.last_result === "wrong") s.wrong++; });
+    if (s.seen) s.score = Math.round(s.secure / s.total * 100);
+    return s;
+  }
+  /** daysLeft = Tage bis zum Test (0 = heute) → neue Karten für heute */
+  function testNewQuota(unseen, daysLeft) {
+    if (unseen <= 0) return 0;
+    const d = Math.max(0, daysLeft);
+    return d <= 1 ? unseen : Math.ceil(unseen / (d - 1));
+  }
+  function testQueue(cards, o) {
+    const now = o.now != null ? o.now : Date.now(); const days = Math.max(0, o.daysLeft);
+    const fresh = cards.filter(isNew);
+    const due = cards.filter(c => isDue(c, now)).sort((a, b) => ((b.last_result === "wrong") - (a.last_result === "wrong")) || (toMs(a.next_review_at) || 0) - (toMs(b.next_review_at) || 0));
+    let q = due.concat(fresh.slice(0, testNewQuota(fresh.length, days)));
+    if (days <= 1) {
+      // Letzter Tag: jede Karte, die heute noch nicht dran war – unsichere zuerst
+      const today = startOfDay(now);
+      const rest = cards.filter(c => !isNew(c) && !q.includes(c) && !(c.last_reviewed_at && toMs(c.last_reviewed_at) >= today))
+        .sort((a, b) => isTestSecure(a) - isTestSecure(b));
+      q = q.concat(rest);
+    }
+    return o.limit ? q.slice(0, o.limit) : q;
+  }
+  /** Nächste Wiederholung spätestens am Tag vor dem Test (frühestens morgen) */
+  function testCap(nextIso, testDay, now) {
+    const cap = Math.max(startOfDay(now) + DAY, startOfDay(toMs(testDay)) - DAY);
+    return toMs(nextIso) > cap ? new Date(cap).toISOString() : nextIso;
+  }
+  /** Eingefügte Liste → [{begriff, bedeutung}]; Trenner: Tab, „ = “, „;“, „ - “, „ – “, „ — “, „ : “ */
+  function parseVocabList(text) {
+    const items = [], skipped = [];
+    String(text || "").split(/\r?\n/).forEach(line => {
+      const l = line.replace(/^\s*(?:\d+[.)]|[•·*-])\s+/, "").trim(); if (!l) return;
+      const m = l.match(/^(.+?)(?:\t+|\s+=\s+|\s*;\s*|\s+[-–—]\s+|\s+:\s+)(.+)$/);
+      if (!m || !m[1].trim() || !m[2].trim()) { skipped.push(l); return; }
+      items.push({ begriff: m[1].trim(), bedeutung: m[2].trim() });
+    });
+    return { items, skipped };
+  }
   function vocabStats(cards, now) {
     const s = { total: cards.length, due: 0, fresh: 0, learning: 0, secure: 0, mastered: 0, trouble: 0, mastery: 0 };
     let sum = 0;
@@ -494,6 +542,7 @@
     DAY, uuid, shuffle, isoDay, startOfDay, daysBetween,
     LANG_NAMES, normalize, stripAccents, answerVariants, levenshtein, checkAnswer,
     SRS, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
+    isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList,
     STATUSES, createSession, elapsedMs, remainingMs, isExpired, pause, resume, finish, current, recordAnswer, requeue, advance, summary,
     MASTERY, subtopicMastery, examReadiness,
     prioritize, dailyPlan,

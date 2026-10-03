@@ -11,19 +11,20 @@ const TYPE_ICON = { multiple_choice: "check", free_text: "doc", translation: "sw
 let LP_TAB = "up"; const LP_OPEN = new Set();
 function readinessLine(k) {
   const r = readinessOf(k);
+  if (r.test) return !r.total ? '<span class="t-sub" style="color:var(--orange)">Noch keine Vokabeln eingetragen.</span>' : progBar(r.score || 0) + '<span class="t-sub">' + r.secure + ' von ' + r.total + ' Vokabeln sitzen' + (r.score == null ? " · noch nicht geübt" : "") + '</span>';
   if (!r.total) return '<span class="t-sub" style="color:var(--orange)">Noch keine Unterthemen – damit startet der Lernplan.</span>';
   if (r.score == null) return '<span class="t-sub">' + plural(r.total, "Bereich", "Bereiche") + ' · noch nicht genug Lernaktivität für eine Einschätzung</span>';
   return progBar(r.score) + '<span class="t-sub">' + r.score + ' % vorbereitet · ' + r.withData + ' von ' + r.total + ' geübt</span>';
 }
 function planCard(k) {
   const d = daysUntil(k.datum); const tps = topicsOfExam(k.id); const subs = subsOfExam(k.id);
-  return '<a class="card link plan-card" href="#/lernplan/' + esc(k.id) + '"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:' + fcol(k.fach) + ';margin-right:6px"></span>' + esc(k.fach) + (k.nr ? " · Klausur " + k.nr : "") + (LAUFBAHN[k.fach] && LAUFBAHN[k.fach].abi ? " · Abiturfach" : "") + '</div><h3>' + esc(klTitle(k)) + '</h3><div class="t-sub">' + esc(fmtDL(k.datum)) + (k.uhrzeit ? " · " + esc(k.uhrzeit) : "") + (k.raum ? " · Raum " + esc(k.raum) : "") + (tps.length ? " · " + plural(tps.length, "Thema", "Themen") : "") + '</div>' + (subs.length ? '<div class="subchips">' + subs.slice(0, 7).map(s => { const m = masteryOf(s.id).score; return '<span class="subchip' + (m != null && m >= 80 ? " done" : "") + '"><i style="background:' + (m == null ? "var(--text-3)" : m >= 80 ? "var(--green)" : m >= 60 ? "var(--accent)" : "var(--orange)") + '"></i>' + esc(s.title) + (m != null ? " " + m + " %" : "") + '</span>'; }).join("") + (subs.length > 7 ? '<span class="subchip">+' + (subs.length - 7) + '</span>' : '') + '</div>' : '') + '</div><div class="days' + (d <= 7 ? " soon" : "") + '"><div class="num">' + d + '</div><small>' + (d === 1 ? "Tag" : "Tage") + '</small></div><div class="pc-foot">' + readinessLine(k) + '</div></a>';
+  return '<a class="card link plan-card" href="#/lernplan/' + esc(k.id) + '"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:' + fcol(k.fach) + ';margin-right:6px"></span>' + esc(k.fach) + (isVocabTest(k) ? " · Vokabeltest" : k.nr ? " · Klausur " + k.nr : "") + (LAUFBAHN[k.fach] && LAUFBAHN[k.fach].abi ? " · Abiturfach" : "") + '</div><h3>' + esc(isVocabTest(k) ? vtName(k) : klTitle(k)) + '</h3><div class="t-sub">' + esc(fmtDL(k.datum)) + (k.uhrzeit ? " · " + esc(k.uhrzeit) : "") + (k.raum ? " · Raum " + esc(k.raum) : "") + (tps.length ? " · " + plural(tps.length, "Thema", "Themen") : "") + '</div>' + (subs.length ? '<div class="subchips">' + subs.slice(0, 7).map(s => { const m = masteryOf(s.id).score; return '<span class="subchip' + (m != null && m >= 80 ? " done" : "") + '"><i style="background:' + (m == null ? "var(--text-3)" : m >= 80 ? "var(--green)" : m >= 60 ? "var(--accent)" : "var(--orange)") + '"></i>' + esc(s.title) + (m != null ? " " + m + " %" : "") + '</span>'; }).join("") + (subs.length > 7 ? '<span class="subchip">+' + (subs.length - 7) + '</span>' : '') + '</div>' : '') + '</div><div class="days' + (d <= 7 ? " soon" : "") + '"><div class="num">' + d + '</div><small>' + (d === 1 ? "Tag" : "Tage") + '</small></div><div class="pc-foot">' + readinessLine(k) + '</div></a>';
 }
 V.lernplan = () => {
   if (ROUTE.sub) return lpDetail();
   const up = upcomingKL(), past = pastKL(); const hj = currentHJ();
-  const missing = Object.keys(LAUFBAHN).filter(f => isSchriftlich(f, hj)).filter(f => !up.some(k => k.fach === f));
-  const head = pageHead("Lernplan", { sub: "Prüfungen, Themen und Unterthemen – und wie gut du jeweils vorbereitet bist.", actions: '<button class="btn primary" id="lp_new">' + ICO.plus + 'Neue Prüfung</button>' });
+  const missing = Object.keys(LAUFBAHN).filter(f => isSchriftlich(f, hj)).filter(f => !up.some(k => k.fach === f && !isVocabTest(k)));
+  const head = pageHead("Lernplan", { sub: "Prüfungen, Themen und Unterthemen – und wie gut du jeweils vorbereitet bist.", actions: '<button class="btn" id="lp_vt">' + ICO.plus + 'Vokabeltest</button><button class="btn primary" id="lp_new">' + ICO.plus + 'Neue Prüfung</button>' });
   const seg = '<div class="seg" style="margin-bottom:var(--s5)"><button class="' + (LP_TAB === "up" ? "on" : "") + '" data-lptab="up">Anstehend<b>' + up.length + '</b></button><button class="' + (LP_TAB === "past" ? "on" : "") + '" data-lptab="past">Geschrieben<b>' + past.length + '</b></button></div>';
   let body;
   if (!engineReady()) body = setupCard();
@@ -36,6 +37,7 @@ function bindLernplan() {
   if (ROUTE.sub) return bindLpDetail();
   document.querySelectorAll("[data-lptab]").forEach(b => b.onclick = () => { LP_TAB = b.dataset.lptab; route(); });
   const nb = document.getElementById("lp_new"); if (nb) nb.onclick = () => newKLModal("");
+  const vt = document.getElementById("lp_vt"); if (vt) vt.onclick = () => testModal();
   document.querySelectorAll("[data-lpnew]").forEach(b => b.onclick = () => newKLModal(b.dataset.lpnew));
 }
 function newKLModal(fach) {
@@ -85,6 +87,7 @@ function lpDetail() {
   const k = klById(ROUTE.sub);
   if (!k) return pageHead("Lernplan", { back: ["#/lernplan", "Lernplan"] }) + '<div class="card">' + emptyState("doc", "Prüfung nicht gefunden", "Vielleicht wurde sie gelöscht.", '<a class="btn sm" href="#/lernplan">Zur Übersicht</a>') + '</div>';
   const loc = lsGet("lc_kl_" + k.id, null); if (loc) Object.assign(k, loc);
+  if (isVocabTest(k) && engineReady()) return testDetail(k);
   const d = daysUntil(k.datum), past = d < 0 || k.punkte != null; const lb = LAUFBAHN[k.fach] || {};
   const r = engineReady() ? readinessOf(k) : { score: null, total: 0 };
   const tps = engineReady() ? topicsOfExam(k.id) : [];
@@ -116,6 +119,7 @@ function lpDetail() {
 }
 function bindLpDetail() {
   const k = klById(ROUTE.sub); if (!k) return; const q = id => document.getElementById(id);
+  if (isVocabTest(k) && engineReady()) return bindTestDetail(k);
   document.querySelectorAll("details.sub-it").forEach(d => d.ontoggle = () => { if (d.open) LP_OPEN.add(d.dataset.sid); else LP_OPEN.delete(d.dataset.sid); });
   q("kd_edit").onclick = () => editKLModal(k);
   const tr = q("kd_train"); if (tr) tr.onclick = () => { const p = priorities().find(x => x.exam && x.exam.id === k.id); if (p) startTraining({ mode: "topic", subtopic_id: p.subtopic.id }); };
