@@ -366,6 +366,32 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   await ctx.close();
 });
 
+await scenario("Geräte-Abgleich: Training auf dem Handy fortsetzen, Stand zurück am Laptop", async () => {
+  const b = new MockBackend();
+  const A = await open(b); await login(A.page);
+  await A.page.evaluate(() => startTraining({ mode: "vocab", count: 5 })); await A.page.waitForSelector("#va");
+  await A.page.fill("#va", "egal"); await A.page.click("#va_check"); await A.page.click("#va_next");
+  await A.page.evaluate(async () => { tsSync(); await Api.idle(); });
+  const idA = await A.page.evaluate(() => TS.id);
+  // Handy: übernimmt das laufende Training
+  const B = await open(b, { viewport: { width: 390, height: 844 } }); await login(B.page);
+  assert.equal(await B.page.evaluate(() => TS && TS.id), idA, "Session übernommen");
+  assert.equal(await B.page.evaluate(() => TS.answers.length), 1, "bisherige Antwort ist dabei");
+  await B.page.evaluate(() => { location.hash = "#/trainer/session"; }); await B.page.waitForSelector("#va");
+  await B.page.fill("#va", "auch egal"); await B.page.click("#va_check"); await B.page.click("#va_next");
+  await B.page.evaluate(async () => { tsSync(); await Api.idle(); });
+  // Laptop holt den neueren Stand
+  await A.page.evaluate(() => refreshData("test")); await A.page.waitForTimeout(300);
+  assert.equal(await A.page.evaluate(() => TS.answers.length), 2, "Fortschritt vom Handy ist am Laptop da");
+  const reviewedOnPhone = await B.page.evaluate(() => TS.answers[1] && TS.items[TS.answers[1].index].vocab_id);
+  assert.ok(await A.page.evaluate(id => !!STATE.vo.find(v => String(v.id) === String(id)).last_reviewed_at, reviewedOnPhone), "Karten-Lernstand synchronisiert");
+  // Auf dem Handy beendet → am Laptop nicht mehr offen
+  await B.page.evaluate(async () => { await tsFinish("abandoned", true); await Api.idle(); });
+  await A.page.evaluate(() => refreshData("test")); await A.page.waitForTimeout(300);
+  assert.equal(await A.page.evaluate(() => tsActive()), false);
+  await A.ctx.close(); await B.ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

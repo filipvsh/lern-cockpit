@@ -14,13 +14,13 @@ const testDir = examId => lsGet("lc_vtdir_" + examId, "reverse");   // Vokabelte
 const AUTO_PAUSE_MIN = 10;   // länger im Hintergrund → Pause ab dem Verlassen (nicht im Prüfungsmodus)
 
 const tsActive = () => !!(TS && (TS.status === "active" || TS.status === "paused"));
-function tsSave() { if (TS) { TS.ui = UI; lsSet(LS_TS, TS); } else { try { localStorage.removeItem(LS_TS); } catch (e) {} } }
+function tsSave() { if (TS) { TS.ui = UI; TS.savedAt = Date.now(); lsSet(LS_TS, TS); } else { try { localStorage.removeItem(LS_TS); } catch (e) {} } }
 function tsRow() {
   const sum = Engine.summary(TS, Date.now());
   return { status: TS.status, paused_at: TS.status === "paused" && TS.paused_at ? new Date(TS.paused_at).toISOString() : null,
     completed_at: TS.completed_at ? new Date(TS.completed_at).toISOString() : null, active_seconds: sum.activeSeconds,
     current_index: TS.index, question_count: sum.total, correct_count: sum.correct, wrong_count: sum.wrong, score: sum.score,
-    state: tsActive() ? { v: 3, mode: TS.mode, scope: TS.scope, direction: TS.direction, items: TS.items.length, index: TS.index } : null,
+    state: tsActive() ? Object.assign({}, TS, { ui: null }) : null,   // vollständig → auf einem anderen Gerät fortsetzbar
     updated_at: new Date().toISOString() };
 }
 function tsSync() {
@@ -30,7 +30,29 @@ function tsSync() {
   dbPatch("training_sessions", TS.id, row).catch(e => console.warn("Session-Sync", e));
 }
 let lastSync = 0;
-function tsSyncThrottled() { if (Date.now() - lastSync > 30000) { lastSync = Date.now(); tsSync(); } }
+function tsSyncThrottled() { if (Date.now() - lastSync > 8000) { lastSync = Date.now(); tsSync(); } }
+/**
+ * Abgleich mit dem Stand in der Datenbank (anderes Gerät):
+ *   • dieselbe Session, dort neuer → übernehmen
+ *   • lokal läuft eine Session, die woanders beendet wurde → lokal schließen
+ *   • lokal nichts aktiv, woanders läuft eine → übernehmen
+ * Gibt true zurück, wenn sich etwas geändert hat.
+ */
+function reconcileSession(remote) {
+  const usable = r => r && r.state && r.state.id === r.id && Array.isArray(r.state.items);
+  if (tsActive()) {
+    const mine = ES.sessions.find(s => s.id === TS.id);
+    if (mine && (mine.status === "completed" || mine.status === "abandoned")) { TS = null; UI = {}; tsSave(); return true; }
+    if (remote && remote.id === TS.id && usable(remote) && (remote.state.savedAt || 0) > (TS.savedAt || 0)) { TS = remote.state; UI = {}; tsSave(); return true; }
+    return false;
+  }
+  if (usable(remote) && (remote.status === "active" || remote.status === "paused") && (!TS || TS.id !== remote.id)) {
+    TS = remote.state; TS.status = remote.status; UI = {}; tsSave();
+    toast("Training vom anderen Gerät übernommen – du kannst hier weitermachen");
+    return true;
+  }
+  return false;
+}
 
 /* ---------------- Session anlegen ---------------- */
 const dirLabel = (col, dir) => { if (isTermCollection(col)) return dir === "reverse" ? "Erklärung → Begriff" : "Begriff → Erklärung"; const s = col ? langName(col.source_language) : "Fremdsprache", t = col ? langName(col.target_language) : "Deutsch"; return dir === "reverse" ? t + " → " + s : s + " → " + t; };

@@ -405,7 +405,12 @@ async function init(silent) {
     STATE.needAuth = false;
     if (STATE.engine === "ready") { try { const c = await Api.rpc("claim_legacy_data"); if (c && Object.keys(c).length && !c.skipped) console.info("Altdaten übernommen", c); } catch (e) { console.warn("Übernahme", e); } }
     await loadAll();
-    if (STATE.engine === "ready") { await loadEngine(); await normalizeEngine(); }
+    if (STATE.engine === "ready") {
+      await loadEngine(); await normalizeEngine();
+      const remote = await Api.get("training_sessions", "select=id,status,state,updated_at&status=in.(active,paused)&order=updated_at.desc&limit=1").then(r => r && r[0] || null).catch(() => null);
+      reconcileSession(remote);
+    }
+    STATE.syncedAt = Date.now();
     STATE.loaded = true; STATE.error = null; STATE.offline = false;
     saveSnap();
     Api.flush();
@@ -424,4 +429,34 @@ function restoreSnap(s) { const d = s.data; SNAP_KEYS.forEach(k => { if (d[k] !=
 let SNAP_VER = -1; setInterval(() => { if (SNAP_VER !== ES_VER) { SNAP_VER = ES_VER; saveSnap(); } }, 30000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveSnap(); });
 window.addEventListener("online", () => { if (STATE.offline) init(true); });
+
+/* ---------------- Geräte-Abgleich ----------------
+   Alle Lerndaten liegen in Supabase. Damit Handy und Laptop denselben Stand
+   zeigen, wird beim Zurückkehren zur App und regelmäßig im Vordergrund neu
+   geladen – nur, wenn nichts mehr auf dem Weg zum Server ist. */
+let SYNCING = false, hiddenAt = 0;
+async function refreshData(reason) {
+  if (SYNCING || !STATE.loaded || STATE.offline || STATE.needAuth || STATE.engine !== "ready" || !Api.session) return;
+  SYNCING = true;
+  try {
+    await Api.idle(); if (Api.pending) return;
+    const before = ES_VER;
+    const [_, __, remote] = await Promise.all([loadAll(), loadEngine(),
+      Api.get("training_sessions", "select=id,status,state,updated_at&status=in.(active,paused)&order=updated_at.desc&limit=1").then(r => r && r[0] || null).catch(() => null)]);
+    if (ES_VER - before > 1 || Api.pending) { setTimeout(() => refreshData("nachholen"), 3000); return; }   // währenddessen lokal geändert → gleich noch einmal
+    const changed = reconcileSession(remote);
+    STATE.syncedAt = Date.now(); bump(); saveSnap();
+    const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    const inSession = ROUTE.name === "trainer" && ROUTE.sub === "session";
+    if (inSession) { if (changed) route(); }
+    else if (!document.getElementById("mbg") && !typing) route();
+  } catch (e) { if (!e.network) console.warn("Abgleich", reason, e); }
+  finally { SYNCING = false; }
+}
+window.refreshData = refreshData;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { hiddenAt = Date.now(); if (TS) tsSync(); }
+  else if (hiddenAt && Date.now() - hiddenAt > 15000 && Date.now() - hiddenAt < 10 * 60000) refreshData("zurück");   // länger weg: init() lädt ohnehin neu
+});
+setInterval(() => { if (document.visibilityState === "visible") refreshData("regelmäßig"); }, 120000);
 init();
