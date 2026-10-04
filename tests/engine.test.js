@@ -43,23 +43,26 @@ test("Antwort: typografische Apostrophe werden vereinheitlicht", () => {
 });
 
 /* ---------- Spaced Repetition ---------- */
-test("SRS: neu → 1 → 3 → Intervall × Leichtigkeit; richtig verlängert, falsch setzt zurück", () => {
-  let c = { reps: 0, ease: 2.5, interval_days: 0 };
-  c = Object.assign(c, E.srsSchedule(c, "correct", NOW)); assert.equal(c.interval_days, 1);
-  c = Object.assign(c, E.srsSchedule(c, "correct", NOW)); assert.equal(c.interval_days, 3);
-  c = Object.assign(c, E.srsSchedule(c, "correct", NOW)); assert.ok(c.interval_days >= 7.5 && c.interval_days <= 8, c.interval_days);
-  assert.equal(c.correct_count, 3);
-  const before = c.ease;
-  c = Object.assign(c, E.srsSchedule(c, "wrong", NOW));
-  assert.equal(c.interval_days, 0); assert.equal(c.reps, 0); assert.equal(c.lapses, 1); assert.equal(c.incorrect_count, 1);
-  assert.ok(c.ease < before);
-  assert.equal(new Date(c.next_review_at).getTime(), NOW + 10 * 60000, "falsch → in 10 Minuten wieder fällig");
+test("SRS (FSRS): richtig verlängert die Abstände über die Tage, falsch setzt zurück", () => {
+  let c = { reps: 0, interval_days: 0, last_reviewed_at: null };
+  let t = NOW; const gaps = [];
+  for (let i = 0; i < 4; i++) { c = Object.assign(c, E.srsSchedule(c, "correct", t)); const g = E.calDays(t, new Date(c.next_review_at).getTime()); gaps.push(g); t = new Date(c.next_review_at).getTime() + 9 * 3600e3; }
+  assert.ok(gaps.every((g, i) => i === 0 || g > gaps[i - 1]), "wachsende Abstände: " + gaps);
+  assert.equal(c.correct_count, 4); assert.equal(c.reps, 4);
+  const S = c.interval_days, D = c.ease;
+  c = Object.assign(c, E.srsSchedule(c, "wrong", t));
+  assert.ok(c.interval_days < S / 2, "Stabilität bricht ein"); assert.ok(c.ease > D, "Wort gilt als schwerer");
+  assert.equal(c.reps, 0); assert.equal(c.lapses, 1); assert.equal(c.incorrect_count, 1);
+  assert.equal(new Date(c.next_review_at).getTime(), t + 10 * 60000, "falsch → in 10 Minuten wieder fällig");
 });
-test("SRS: Fälligkeit liegt auf Tagesbeginn, Mastery folgt dem Intervall", () => {
-  const r = E.srsSchedule({ reps: 2, ease: 2.5, interval_days: 3 }, "correct", NOW);
-  const due = new Date(r.next_review_at); assert.equal(due.getHours(), 0);
-  assert.ok(r.mastery >= 60 && r.mastery < 75);
+test("SRS: Fälligkeit liegt auf Tagesbeginn, Lernstand folgt der Stabilität", () => {
+  const r = E.srsSchedule({ reps: 0, last_reviewed_at: null }, "correct", NOW);
+  assert.equal(new Date(r.next_review_at).getHours(), 0);
+  assert.equal(r.mastery, E.masteryFromInterval(r.interval_days));
   assert.equal(E.masteryFromInterval(0), 0); assert.equal(E.masteryFromInterval(7), 60); assert.equal(E.masteryFromInterval(90), 100);
+  assert.equal(E.stageOf({ reps: 0 }).key, "new");
+  assert.equal(E.stageOf(Object.assign({ last_reviewed_at: "x" }, r)).key, "learning");
+  assert.equal(E.stageOf({ reps: 5, last_reviewed_at: "x", interval_days: 40, ease: 14, last_result: "correct" }).key, "long");
 });
 test("SRS: Warteschlange – fällige (zuletzt falsche zuerst) vor neuen, Limit für neue", () => {
   const cards = [
@@ -229,4 +232,88 @@ test("Liste einfügen: übliche Trenner, Nummerierung, Bindestriche im Wort blei
   assert.deepEqual(r.items.map(x => x.begriff), ["la gare", "est-ce que", "peut-être", "réussir", "le copain / la copine"]);
   assert.deepEqual(r.items.map(x => x.bedeutung), ["der Bahnhof", "Frageformel", "vielleicht", "gelingen; schaffen", "der Freund / die Freundin"]);
   assert.deepEqual(r.skipped, ["nur ein Wort"]);
+});
+
+/* ---------- FSRS-6 gegen die Referenz-Implementierung (py-fsrs) ---------- */
+test("FSRS-6: Stabilität, Schwierigkeit und Intervall stimmen mit py-fsrs überein", () => {
+  const ref = require("./fsrs-reference.json");
+  let n = 0;
+  ref.cases.forEach((steps, ci) => {
+    let mem = null;
+    steps.forEach((st, i) => {
+      mem = E.fsrsStep(mem, st.g, st.gap);
+      assert.ok(Math.abs(mem.S - st.S) < 1e-6 * Math.max(1, st.S), `Fall ${ci} Schritt ${i}: S ${mem.S} ≠ ${st.S}`);
+      assert.ok(Math.abs(mem.D - st.D) < 1e-6, `Fall ${ci} Schritt ${i}: D ${mem.D} ≠ ${st.D}`);
+      assert.equal(Math.min(365, Math.max(1, Math.round(E.fsrsInterval(mem.S)))), Math.min(365, st.ivl));
+      n++;
+    });
+  });
+  assert.ok(n > 150);
+});
+test("FSRS-6: nach S Tagen 90 % Abrufwahrscheinlichkeit", () => {
+  assert.ok(Math.abs(E.fsrsRetrievability(10, 10) - 0.9) < 1e-9);
+  assert.ok(E.fsrsRetrievability(20, 10) < 0.9 && E.fsrsRetrievability(5, 10) > 0.9);
+});
+test("FSRS-Planung: falsch = in 10 Minuten wieder, richtig = ganze Tage, Obergrenze für Tests", () => {
+  const card = { reps: 0, last_reviewed_at: null };
+  const ok = E.srsSchedule(card, "correct", NOW);
+  assert.equal(ok.interval_days, 2.31); assert.equal(new Date(ok.next_review_at).getTime(), E.startOfDay(NOW) + 2 * DAY);
+  assert.ok(ok.ease >= 10, "FSRS-Kennzeichnung");
+  const bad = E.srsSchedule(Object.assign({}, card, ok), "wrong", NOW + 2 * DAY);
+  assert.equal(new Date(bad.next_review_at).getTime(), NOW + 2 * DAY + 10 * 60000);
+  assert.equal(bad.lapses, 1); assert.equal(bad.reps, 0);
+  const capped = E.srsSchedule(Object.assign({}, card, ok), "correct", NOW + 2 * DAY, { cap: E.startOfDay(NOW) + 3 * DAY });
+  assert.equal(new Date(capped.next_review_at).getTime(), E.startOfDay(NOW) + 3 * DAY);
+  const retry = E.srsSchedule(Object.assign({}, card, bad), "correct", NOW + 2 * DAY + 600000, { retry: true });
+  assert.equal(retry.correct_count, bad.correct_count, "Wiederholung in der Runde zählt nicht doppelt");
+});
+test("FSRS: alte SM-2-Karten werden sinnvoll übernommen", () => {
+  const m = E.memoryOf({ reps: 3, last_reviewed_at: "2026-09-01", interval_days: 12, ease: 2.5, last_result: "correct" });
+  assert.equal(m.S, 12); assert.ok(m.D > 4 && m.D < 6);
+});
+
+/* ---------- Lernrunde (Successive Relearning) ---------- */
+function playRound(cards, answers) {
+  const r = E.buildRound(cards, { direction: "reverse" });
+  const s = E.createSession({ mode: "vocab", items: r.items, now: NOW }); s.prog = r.prog;
+  const log = [];
+  let guard = 0;
+  while (s.index < s.items.length && guard++ < 500) {
+    const it = E.current(s);
+    if (it.kind === "vocab_study") { log.push("S" + it.vocab_id); E.roundAfter(s, it, "studied"); }
+    else { const ok = answers(it, log); log.push((ok ? "+" : "-") + it.vocab_id); E.roundAfter(s, it, ok ? "correct" : "wrong"); }
+    E.advance(s);
+  }
+  return { s, log };
+}
+test("Lernrunde: neues Wort = ansehen, dann 3× richtig mit wachsendem Abstand; Runde endet", () => {
+  const cards = [tcard("n1"), tcard("r1", { reps: 2, last_reviewed_at: "x" }), tcard("r2", { reps: 2, last_reviewed_at: "x" })];
+  const { s, log } = playRound(cards, () => true);
+  assert.equal(log.filter(x => x === "+n1").length, 3, "neues Wort 3× abgerufen");
+  assert.equal(log.filter(x => x === "+r1").length, 1, "Wiederholung 1×");
+  assert.ok(log.indexOf("Sn1") < log.indexOf("+n1"), "erst ansehen, dann abrufen");
+  assert.deepEqual(E.roundProgress(s), { need: 5, got: 5, left: 0, words: 3, doneWords: 3 });
+});
+test("Lernrunde: Fehler → später erneut aus dem Kopf, mit Abstand, bis richtig", () => {
+  const cards = Array.from({ length: 10 }, (_, i) => tcard("r" + i, { reps: 2, last_reviewed_at: "x" }));
+  let firstTry = true;
+  const { s, log } = playRound(cards, it => { if (it.vocab_id === "r0" && firstTry) { firstTry = false; return false; } return true; });
+  const i1 = log.indexOf("-r0"), i2 = log.indexOf("+r0");
+  assert.ok(i2 - i1 >= 6, "Wiederholung erst nach mehreren anderen Karten: " + (i2 - i1));
+  assert.equal(s.prog.r0.wrong, 1); assert.equal(E.roundProgress(s).left, 0);
+});
+test("Korrektur: falsche Buchstaben werden markiert", () => {
+  const parts = E.diffParts("reusir", "réussir");
+  assert.equal(parts.map(p => p.text).join(""), "réussir");
+  assert.deepEqual(parts.filter(p => !p.ok).map(p => p.text), ["é", "s"]);
+  assert.deepEqual(E.diffParts("", "la gare"), [{ text: "la gare", ok: false }]);
+});
+test("Vokabeltest: erwartete Trefferquote = Abrufwahrscheinlichkeit am Testtag", () => {
+  const testDay = NOW + 4 * DAY;
+  const fresh = E.srsSchedule({ reps: 0 }, "correct", NOW);
+  const strong = { reps: 5, last_reviewed_at: new Date(NOW).toISOString(), interval_days: 60, ease: 13, last_result: "correct" };
+  const s = E.testStatus([Object.assign({ id: 1 }, fresh), Object.assign({ id: 2 }, strong), tcard(3)], testDay);
+  assert.equal(s.secure, 1, "nur das stabile Wort sitzt sicher");
+  const exp = Math.round((E.recallProbability(fresh, testDay) + E.recallProbability(strong, testDay)) / 3 * 100);
+  assert.equal(s.expected, exp); assert.ok(s.expected > 50 && s.expected < 70, s.expected);
 });

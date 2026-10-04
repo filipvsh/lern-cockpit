@@ -52,14 +52,42 @@ Falsch bleiben ein falscher Artikel bzw. ein falsches Genus und ein anderes Wort
 Mit „Ich hatte recht“ korrigierst du eine Bewertung. Die Antwort wird dann als
 Alternative gespeichert.
 
-**Spaced Repetition.** Neu → 1 Tag → 3 Tage → danach Intervall × Leichtigkeit
-(1,3–3,0).
-- Richtig: Leichtigkeit +0,05.
-- Fast richtig: kleinerer Schritt, Leichtigkeit −0,15.
-- Falsch: Intervall 0, in 10 Minuten wieder fällig, Leichtigkeit −0,2.
+**Spaced Repetition: FSRS-6.** Free Spaced Repetition Scheduler, Version 6,
+Standardparameter (`Engine.FSRS`). Er ist im srs-benchmark an ~727 Mio.
+Wiederholungen aus ~10 000 Anki-Sammlungen getestet: Log-Loss 0,366 mit
+Standardparametern gegenüber 0,616 für Anki-SM-2. Unsere Umsetzung wird gegen
+die Referenz py-fsrs 6.3.2 geprüft (`tests/fsrs-reference.json`, 40 Lernverläufe,
+alle Werte exakt gleich).
+- Grundgrößen: Stabilität S (nach S Tagen 90 % Abrufwahrscheinlichkeit),
+  Schwierigkeit D (1–10), Abrufwahrscheinlichkeit R = (1 + f·t/S)^−w20.
+- Bewertung: falsch = Again, fast richtig (Akzent/Artikel/Tippfehler) = Hard,
+  richtig = Good.
+- Nächste Wiederholung: bei R = 90 %, also nach S Tagen, gerundet auf ganze
+  Tage, verfügbar ab Tagesbeginn. Falsch: in 10 Minuten wieder fällig.
+- Tage werden als Kalendertage gezählt (wie Anki). Bei Wiederholungen am
+  selben Tag greift die FSRS-Kurzzeitformel.
+- Speicherung ohne neue Migration: `interval_days` = S, `ease` = D + 10.
+  Werte ab 10 kennzeichnen FSRS. Alte SM-2-Karten werden beim ersten Abruf
+  übernommen: S ≈ bisheriges Intervall, D aus der Leichtigkeit.
+- Stufen für die Anzeige: Neu · Lernen (S < 3 Tage oder zuletzt falsch) ·
+  Kurzzeit (< 10) · Gefestigt (< 30) · Langzeit (≥ 30 Tage).
 
-Lernstand einer Karte aus dem Intervall: 1 Tag = 20 %, 7 Tage = 60 % („sicher“),
-30 Tage = 90 %, ab 60 Tagen 100 %.
+**Lernrunde (Successive Relearning).** Nach Rawson & Dunlosky 2011 und
+Karpicke & Roediger 2008:
+- Neue Wörter: erst ansehen und einmal abschreiben (Studienkarte), dann
+  3 richtige Abrufe aus dem Kopf. Zwischen den Abrufen liegen 4 bzw. 8 andere
+  Karten.
+- Wiederholungen: 1 richtiger Abruf.
+- Fehler: Lösung mit markierten Buchstaben, einmal richtig abtippen (zählt
+  nicht als Abruf), nach 7 anderen Karten erneut aus dem Kopf. Die Runde endet
+  erst, wenn es richtig war (Pashler u. a. 2005: Rückmeldung mit Lösung).
+- Pro Runde höchstens 25 Wörter und 8 neue. Pro Tag höchstens 10 neue Wörter.
+  Danach „Fertig für heute“. Zusatzrunden sind freiwillig und nehmen die Wörter
+  mit der niedrigsten Abrufwahrscheinlichkeit.
+- Nur der erste Abruf eines Wortes je Runde erzeugt ein Lernereignis und zählt
+  in der Statistik. Wiederholungen in der Runde aktualisieren nur das
+  Gedächtnismodell.
+- Ab 3 Fehlschlägen schlägt die App eine Merkhilfe vor (Notizfeld).
 
 **Lernstand eines Unterthemas (0–100).** Grundlage ist der gewichtete
 Durchschnitt der letzten 12 Ergebnisse:
@@ -108,8 +136,9 @@ rückwirkend; der Prüfungsmodus läuft weiter wie in einer echten Prüfung.
 **Vokabeltest (fester Termin).** Ein Vokabeltest ist eine Prüfung in
 `klausuren` (Thema beginnt mit „Vokabeltest:“, `description = 'Vokabeltest'`)
 mit genau einer Sammlung in `vokabel_lektionen`. Keine zusätzliche Migration.
-- „Sitzt“ = mindestens 2× hintereinander richtig und zuletzt nicht falsch.
-  Bereitschaft = sitzende Karten ÷ alle Karten des Tests.
+- Bereitschaft = erwartete Trefferquote: FSRS-Abrufwahrscheinlichkeit am
+  Testtag, gemittelt über alle Wörter (neue zählen 0). „Sitzt“ = mindestens
+  90 % am Testtag und zuletzt nicht falsch.
 - Neue Karten pro Tag = noch nicht abgefragte ÷ (Tage bis zum Test − 1):
   bis zum Vortag sind alle Wörter mindestens einmal dran.
 - Täglich dazu alle fälligen Karten (falsche zuerst); falsche kommen nach

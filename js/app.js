@@ -71,7 +71,7 @@ function continueItem() {
   // Anstehender Vokabeltest mit offenem Tagespensum geht vor
   const vt = upcomingTests().filter(k => daysUntil(k.datum) <= 7 && testQueueOf(k).length)[0];
   if (vt) { const st = testStatusOf(vt); const n = testQueueOf(vt).length;
-    return { kind: "test", title: vtName(vt), crumb: vt.fach + " · Vokabeltest " + whenText(daysUntil(vt.datum)), m: { score: st.score }, reasons: [plural(n, "Karte", "Karten") + " für heute", st.secure + " von " + st.total + " sitzen"], start: { mode: "test", exam_id: vt.id, planKey: "test:" + vt.id } }; }
+    return { kind: "test", title: vtName(vt), crumb: vt.fach + " · Vokabeltest " + whenText(daysUntil(vt.datum)), m: { score: st.expected }, reasons: [plural(n, "Wort", "Wörter") + " für heute", st.expected == null ? "noch nicht begonnen" : "erwartet " + st.expected + " % im Test"], start: { mode: "test", exam_id: vt.id, planKey: "test:" + vt.id } }; }
   const last = lsGet("lc_last", null);
   if (last && last.kind === "subtopic") {
     const st = subById(last.sub); const ex = st && examOfSub(st); const m = st && masteryOf(st.id);
@@ -148,9 +148,23 @@ function colTile(c) {
 }
 function vocabRow(v, showCol) {
   const col = colById(v.collection_id); const now = Date.now();
-  const status = Engine.isNew(v) ? "neu" : Engine.isDue(v, now) ? "fällig" : "nächste Wdh. " + new Date(v.next_review_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
-  return '<button class="vrow" data-editvo="' + esc(v.id) + '"><span class="vt">' + esc(v.begriff) + '</span><span class="vb">' + esc(v.bedeutung) + (showCol && col ? ' <span class="t-cap">· ' + esc(col.name) + '</span>' : '') + '</span><span class="t-cap vstat">' + status + '</span>' + lvlDots(v.mastery) + '</button>';
+  const status = Engine.isNew(v) ? "noch nicht gelernt" : Engine.isDue(v, now) ? "heute dran" : "wieder am " + new Date(v.next_review_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+  const st = Engine.stageOf(v);
+  return '<button class="vrow" data-editvo="' + esc(v.id) + '"><span class="vt">' + esc(v.begriff) + '</span><span class="vb">' + esc(v.bedeutung) + (showCol && col ? ' <span class="t-cap">· ' + esc(col.name) + '</span>' : '') + '</span><span class="t-cap vstat">' + status + '</span><span class="stage ' + st.key + '" title="' + esc(stageHint(v)) + '">' + st.label + '</span></button>';
 }
+/** Erklärung der Stufe in Alltagssprache */
+function stageHint(v) {
+  if (Engine.isNew(v)) return "Noch nicht gelernt";
+  const m = Engine.memoryOf(v); const p = Math.round(Engine.recallProbability(v, Date.now()) * 100);
+  return "Heute erinnerst du dich mit etwa " + p + " % Wahrscheinlichkeit · stabil für ca. " + Math.round(m.S) + " Tage";
+}
+const HOWTO = '<details class="card howto"><summary>So lernst du hier – und warum es funktioniert</summary><ol>' +
+  '<li><b>Neue Wörter:</b> ansehen, einmal abschreiben, dann <b>3× richtig aus dem Kopf</b> – mit Abstand dazwischen. Danach an späteren Tagen je 1×.</li>' +
+  '<li><b>Fehler:</b> Du siehst die richtige Lösung (falsche Buchstaben markiert) und tippst sie einmal ab. Nach ein paar anderen Wörtern kommt es noch einmal – dann ohne Vorlage.</li>' +
+  '<li><b>Klares Ende:</b> Eine Runde ist fertig, wenn jedes Wort sein Ziel erreicht hat. Höchstens 10 neue Wörter pro Tag, dann heißt es „Fertig für heute“.</li>' +
+  '<li><b>Wiederholung zur richtigen Zeit:</b> Ein Wort kommt wieder, kurz bevor du es vergessen würdest (FSRS). Jedes Mal hält es länger: Lernen → Kurzzeit → Gefestigt → Langzeit.</li>' +
+  '<li><b>Verteilt statt gepaukt:</b> Zweimal 10 Minuten an zwei Tagen bringen mehr als 20 Minuten am Stück. Schlaf dazwischen hilft beim Festigen.</li></ol>' +
+  '<div class="src">Grundlagen: Karpicke & Roediger 2008 (Abrufen statt Wiederlesen) · Rawson & Dunlosky 2011 (3 richtige Abrufe, dann Wiederholen an späteren Tagen) · Pashler u. a. 2005 (Rückmeldung mit Lösung) · Cepeda u. a. 2008 (Abstände) · FSRS-6, getestet an ~727 Mio. echten Wiederholungen (open-spaced-repetition).</div></details>';
 function lvlDots(m) { const n = Math.round((m || 0) / 20); let h = '<span class="lvl" title="Lernstand ' + (m || 0) + ' %">'; for (let i = 1; i <= 5; i++) h += '<i class="' + (i <= n ? "on" : "") + '"></i>'; return h + '</span>'; }
 V.vokabeln = () => {
   if (!engineReady()) return pageHead("Vokabeln") + setupCard();
@@ -158,7 +172,8 @@ V.vokabeln = () => {
   const now = Date.now(); const all = Engine.vocabStats(STATE.vo, now); const due = vocabDue().reduce((a, x) => a + x.count, 0);
   const langs = [...new Set(ES.collections.map(c => c.source_language))];
   const head = pageHead("Vokabeln", { sub: all.total ? plural(all.total, "Karte", "Karten") + " in " + plural(ES.collections.length, "Sammlung", "Sammlungen") + " · " + all.secure + " sicher · " + due + " fällig" : "Lege deine erste Sammlung an.", actions: '<button class="btn" id="vt_new">' + ICO.plus + 'Test eintragen</button><button class="btn" id="col_new">' + ICO.plus + 'Sammlung</button><button class="btn primary" id="v_new">' + ICO.plus + 'Vokabel</button>' });
-  const daily = '<div class="card daily">' + ring(all.total ? all.mastery / 100 : 0, 64, 6, all.mastery + "%", "Ø") + '<div class="dm"><div class="t-headline">' + (due ? plural(due, "Karte ist", "Karten sind") + " heute fällig" : "Nichts fällig") + '</div><div class="t-sub">' + (due ? "Wiederholung nach Plan – etwa " + Math.max(2, Math.round(due * 0.4)) + " Minuten" : "Die nächsten Karten werden fällig, sobald ihr Intervall abläuft. Du kannst trotzdem üben.") + (all.trouble ? " · " + plural(all.trouble, "Fehlerkarte", "Fehlerkarten") : "") + '</div></div><div class="dact">' + (all.trouble ? '<button class="btn" data-vstart="errors">Fehlertraining</button>' : '') + '<button class="btn primary" data-vstart="vocab">' + (due ? "Wiederholen" : "Üben") + '</button></div></div>';
+  const day = dayStatus();
+  const daily = '<div class="card daily">' + ring(all.total ? all.mastery / 100 : 0, 64, 6, all.mastery + "%", "Ø") + '<div class="dm"><div class="t-headline">' + (day.open ? "Heute: " + [day.due ? plural(day.due, "Wiederholung", "Wiederholungen") : "", day.fresh ? plural(day.fresh, "neues Wort", "neue Wörter") : ""].filter(Boolean).join(" + ") : "Fertig für heute ✓") + '</div><div class="t-sub">' + (day.open ? "Etwa " + Math.max(3, Math.round(day.due * 0.4 + day.fresh * 1.2)) + " Minuten. Die Runde endet, wenn jedes Wort sitzt." : (day.tomorrow ? "Morgen " + (day.tomorrow === 1 ? "kommt 1 Wort" : "kommen " + day.tomorrow + " Wörter") + " wieder dran." : "Die nächsten Wörter kommen, kurz bevor du sie vergessen würdest.") + " Freiwillig üben geht trotzdem.") + '</div></div><div class="dact">' + (all.trouble ? '<button class="btn" data-vstart="errors">Fehlertraining</button>' : '') + '<button class="btn primary" data-vstart="vocab">' + (day.open ? "Lernrunde starten" : "Zusatzrunde") + '</button></div></div>' + HOWTO;
   const search = '<div class="coll-tools" style="margin-top:var(--s7)"><label class="search"><span>' + ICO.search + '</span><input id="v_filter" placeholder="Alle Vokabeln durchsuchen" value="' + esc(VOK_FILTER) + '"></label>' + (langs.length > 1 ? '<div class="seg"><button class="' + (!VOK_LANG ? "on" : "") + '" data-vlang="">Alle</button>' + langs.map(l => '<button class="' + (VOK_LANG === l ? "on" : "") + '" data-vlang="' + esc(l) + '">' + esc(groupName(l)) + '</button>').join("") + '</div>' : '') + '</div>';
   if (VOK_FILTER.trim()) {
     const f = Engine.normalize(VOK_FILTER);
@@ -241,12 +256,13 @@ function vocabStartModal(mode, colId) {
   const cols = ES.collections; let sel = colId || "", dir = dirPref(sel), m = mode || "vocab", count = 20;
   const render = () => {
     const c = sel ? colById(sel) : null; const pool = c ? colCards(c) : STATE.vo; const now = Date.now();
-    const avail = m === "errors" ? pool.filter(Engine.isTrouble).length : m === "vocab" ? pool.filter(v => Engine.isDue(v, now)).length + Math.min(Engine.SRS.newPerSession, pool.filter(Engine.isNew).length) : pool.length;
+    const ds = dayStatus(pool);
+    const avail = m === "errors" ? pool.filter(Engine.isTrouble).length : m === "vocab" ? Math.min(ds.due, Engine.ROUND.maxCards) + Math.min(Engine.ROUND.maxNew, ds.fresh) : pool.length;
     return '<div class="form"><label class="fld">Sammlung<select id="vs_col"><option value="">Alle Sammlungen</option>' + cols.map(x => '<option value="' + esc(x.id) + '"' + (x.id === sel ? " selected" : "") + '>' + esc(x.name) + '</option>').join("") + '</select></label>' +
       '<label class="fld">Modus</label><div class="seg full" style="margin-top:-6px"><button data-vsm="vocab" class="' + (m === "vocab" ? "on" : "") + '">Abfrage</button><button data-vsm="mixed" class="' + (m === "mixed" ? "on" : "") + '">Gemischt</button><button data-vsm="errors" class="' + (m === "errors" ? "on" : "") + '">Fehler</button></div>' +
       '<label class="fld">Richtung</label><div class="seg full" style="margin-top:-6px"><button data-vsd="forward" class="' + (dir === "forward" ? "on" : "") + '">' + esc(dirLabel(c, "forward")) + '</button><button data-vsd="reverse" class="' + (dir === "reverse" ? "on" : "") + '">' + esc(dirLabel(c, "reverse")) + '</button></div>' +
       (m === "mixed" ? '' : '<label class="fld">Höchstens<div class="seg full">' + [10, 20, 40].map(n => '<button data-vsn="' + n + '" class="' + (count === n ? "on" : "") + '">' + n + ' Karten</button>').join("") + '</div></label>') +
-      '<p class="hint">' + (m === "vocab" ? (avail ? plural(Math.min(avail, count), "Karte", "Karten") + " nach Wiederholungsplan (fällige zuerst, dann neue)." : "Nichts fällig – du übst die nächsten Karten vorgezogen.") : m === "errors" ? (avail ? plural(avail, "Karte", "Karten") + " mit Fehlern." : "Keine Fehlerkarten in dieser Auswahl.") : "Abwechselnd Freitext, Multiple Choice und Zuordnung.") + '</p></div>';
+      '<p class="hint">' + (m === "vocab" ? (avail ? "Lernrunde mit " + plural(Math.min(avail, count), "Wort", "Wörtern") + ": fällige zuerst, dann neue. Neue brauchen 3 richtige Antworten, Wiederholungen eine – dann ist die Runde fertig." : "Für heute ist alles erledigt. Die Zusatzrunde nimmt die 10 Wörter, die du am ehesten vergisst.") : m === "errors" ? (avail ? plural(avail, "Karte", "Karten") + " mit Fehlern." : "Keine Fehlerkarten in dieser Auswahl.") : "Abwechselnd Freitext, Multiple Choice und Zuordnung.") + '</p></div>';
   };
   openModal("Vokabeln lernen", '<div id="vs_body">' + render() + '</div>', '<button class="btn" id="vs_cancel">Abbrechen</button><button class="btn primary" id="vs_go">' + ICO.play + 'Starten</button>', () => {
     const bind = () => {
@@ -405,7 +421,12 @@ async function init(silent) {
     STATE.needAuth = false;
     if (STATE.engine === "ready") { try { const c = await Api.rpc("claim_legacy_data"); if (c && Object.keys(c).length && !c.skipped) console.info("Altdaten übernommen", c); } catch (e) { console.warn("Übernahme", e); } }
     await loadAll();
-    if (STATE.engine === "ready") { await loadEngine(); await normalizeEngine(); }
+    if (STATE.engine === "ready") {
+      await loadEngine(); await normalizeEngine();
+      const remote = await Api.get("training_sessions", "select=id,status,state,updated_at&status=in.(active,paused)&order=updated_at.desc&limit=1").then(r => r && r[0] || null).catch(() => null);
+      reconcileSession(remote);
+    }
+    STATE.syncedAt = Date.now();
     STATE.loaded = true; STATE.error = null; STATE.offline = false;
     saveSnap();
     Api.flush();
@@ -424,4 +445,34 @@ function restoreSnap(s) { const d = s.data; SNAP_KEYS.forEach(k => { if (d[k] !=
 let SNAP_VER = -1; setInterval(() => { if (SNAP_VER !== ES_VER) { SNAP_VER = ES_VER; saveSnap(); } }, 30000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveSnap(); });
 window.addEventListener("online", () => { if (STATE.offline) init(true); });
+
+/* ---------------- Geräte-Abgleich ----------------
+   Alle Lerndaten liegen in Supabase. Damit Handy und Laptop denselben Stand
+   zeigen, wird beim Zurückkehren zur App und regelmäßig im Vordergrund neu
+   geladen – nur, wenn nichts mehr auf dem Weg zum Server ist. */
+let SYNCING = false, hiddenAt = 0;
+async function refreshData(reason) {
+  if (SYNCING || !STATE.loaded || STATE.offline || STATE.needAuth || STATE.engine !== "ready" || !Api.session) return;
+  SYNCING = true;
+  try {
+    await Api.idle(); if (Api.pending) return;
+    const before = ES_VER;
+    const [_, __, remote] = await Promise.all([loadAll(), loadEngine(),
+      Api.get("training_sessions", "select=id,status,state,updated_at&status=in.(active,paused)&order=updated_at.desc&limit=1").then(r => r && r[0] || null).catch(() => null)]);
+    if (ES_VER - before > 1 || Api.pending) { setTimeout(() => refreshData("nachholen"), 3000); return; }   // währenddessen lokal geändert → gleich noch einmal
+    const changed = reconcileSession(remote);
+    STATE.syncedAt = Date.now(); bump(); saveSnap();
+    const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    const inSession = ROUTE.name === "trainer" && ROUTE.sub === "session";
+    if (inSession) { if (changed) route(); }
+    else if (!document.getElementById("mbg") && !typing) route();
+  } catch (e) { if (!e.network) console.warn("Abgleich", reason, e); }
+  finally { SYNCING = false; }
+}
+window.refreshData = refreshData;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { hiddenAt = Date.now(); if (TS) tsSync(); }
+  else if (hiddenAt && Date.now() - hiddenAt > 15000 && Date.now() - hiddenAt < 10 * 60000) refreshData("zurück");   // länger weg: init() lädt ohnehin neu
+});
+setInterval(() => { if (document.visibilityState === "visible") refreshData("regelmäßig"); }, 120000);
 init();

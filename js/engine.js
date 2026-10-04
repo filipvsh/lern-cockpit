@@ -115,13 +115,70 @@
   }
 
   /* ===================================================================
-     2. SPACED REPETITION
-     Neu → 1 Tag → 3 Tage → Intervall × Leichtigkeit (ease, 1,3–3,0).
-     Falsch: Intervall zurück auf 0, in 10 Minuten wieder fällig.
-     Fast richtig (Akzent/Artikel/Tippfehler): kleiner Fortschritt.
+     2. SPACED REPETITION · FSRS-6
+     Free Spaced Repetition Scheduler (open-spaced-repetition), Version 6,
+     Standardparameter. Auf ~727 Mio. echten Wiederholungen aus ~10 000
+     Anki-Sammlungen getestet (srs-benchmark): sagt Vergessen deutlich
+     genauer voraus als SM-2. Formeln wie in py-fsrs (Referenz).
+       S = Stabilität in Tagen (nach S Tagen erinnerst du dich zu 90 %)
+       D = Schwierigkeit 1–10 · R = Abrufwahrscheinlichkeit jetzt
+     Bewertung: falsch = 1 (Again) · fast richtig = 2 (Hard) · richtig = 3 (Good)
+     Speicherung ohne Datenbank-Änderung: interval_days = S,
+     ease = D + 10 (Werte ≥ 10 kennzeichnen FSRS; < 10 = alter SM-2-Stand).
      =================================================================== */
-  const SRS = { minEase: 1.3, maxEase: 3.0, againMinutes: 10, newPerSession: 10, secureFrom: 60 };
-  // Lernstand einer Karte aus ihrem Intervall – nachvollziehbare Stufen
+  const FSRS = {
+    w: [0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796,
+        1.4835, 0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542],
+    retention: 0.9, maxInterval: 365, relearnMinutes: 10, easeOffset: 10
+  };
+  FSRS.decay = -FSRS.w[20];
+  FSRS.factor = Math.pow(0.9, 1 / FSRS.decay) - 1;
+  const SRS = { newPerSession: 10, secureFrom: 60, againMinutes: FSRS.relearnMinutes };
+  const GRADE = { wrong: 1, almost: 2, correct: 3 };
+  const clampD = d => Math.min(10, Math.max(1, d));
+  const clampS = x => Math.max(0.001, x);
+  const fsrsRetrievability = (elapsedDays, S) => S > 0 ? Math.pow(1 + FSRS.factor * Math.max(0, elapsedDays) / S, FSRS.decay) : 0;
+  const fsrsInterval = (S, r) => S / FSRS.factor * (Math.pow(r || FSRS.retention, 1 / FSRS.decay) - 1);
+  const fsrsInitS = g => clampS(FSRS.w[g - 1]);
+  const fsrsInitD = (g, noClamp) => { const d = FSRS.w[4] - Math.exp(FSRS.w[5] * (g - 1)) + 1; return noClamp ? d : clampD(d); };
+  function fsrsNextD(D, g) {
+    const w = FSRS.w; const dd = -w[6] * (g - 3);
+    const d1 = D + dd * (10 - D) / 9;
+    return clampD(w[7] * fsrsInitD(4, true) + (1 - w[7]) * d1);
+  }
+  function fsrsShortTermS(S, g) {
+    const w = FSRS.w; let inc = Math.exp(w[17] * (g - 3 + w[18])) * Math.pow(S, -w[19]);
+    if (g >= 2) inc = Math.max(inc, 1);
+    return clampS(S * inc);
+  }
+  function fsrsNextS(D, S, R, g) {
+    const w = FSRS.w;
+    if (g === 1) return clampS(Math.min(w[11] * Math.pow(D, -w[12]) * (Math.pow(S + 1, w[13]) - 1) * Math.exp((1 - R) * w[14]), S / Math.exp(w[17] * w[18])));
+    return clampS(S * (1 + Math.exp(w[8]) * (11 - D) * Math.pow(S, -w[9]) * (Math.exp((1 - R) * w[10]) - 1) * (g === 2 ? w[15] : 1) * (g === 4 ? w[16] : 1)));
+  }
+  /** Kalendertage zwischen zwei Zeitpunkten (wie Anki: Tageswechsel, nicht 24 h) */
+  const calDays = (from, to) => Math.round((startOfDay(to) - startOfDay(from)) / DAY);
+  /** Gedächtniszustand einer Karte {S, D} – auch für alte SM-2-Karten (einmalige Umrechnung) */
+  function memoryOf(card) {
+    if (isNew(card)) return null;
+    const e = +card.ease || 0;
+    if (e >= FSRS.easeOffset) return { S: Math.max(0.001, +card.interval_days || 0.001), D: clampD(e - FSRS.easeOffset) };
+    // SM-2 → FSRS: Intervall ≈ Stabilität; Leichtigkeit 1,3 (schwer) … 3,0 (leicht) → D 9 … 3
+    const S = card.last_result === "wrong" ? fsrsInitS(1) : Math.max(+card.interval_days || 0, fsrsInitS(3));
+    return { S, D: clampD(9 - ((e || 2.5) - 1.3) / 1.7 * 6) };
+  }
+  /** Abrufwahrscheinlichkeit einer Karte zu einem Zeitpunkt (0 für neue Karten) */
+  function recallProbability(card, at) {
+    const m = memoryOf(card); if (!m || !card.last_reviewed_at) return 0;
+    return fsrsRetrievability(calDays(toMs(card.last_reviewed_at), at), m.S);
+  }
+  /** Rohes FSRS-Update (für Tests mit der Referenz): {S, D} oder null, Note g, vergangene Kalendertage */
+  function fsrsStep(mem, g, elapsedDays) {
+    if (!mem) return { S: fsrsInitS(g), D: fsrsInitD(g) };
+    if (elapsedDays < 1) return { S: fsrsShortTermS(mem.S, g), D: fsrsNextD(mem.D, g) };
+    return { S: fsrsNextS(mem.D, mem.S, fsrsRetrievability(elapsedDays, mem.S), g), D: fsrsNextD(mem.D, g) };
+  }
+  // Lernstand einer Karte aus ihrer Stabilität – nachvollziehbare Stufen
   const MASTERY_STEPS = [[0, 0], [1, 20], [3, 40], [7, 60], [14, 75], [30, 90], [60, 100]];
   function masteryFromInterval(days) {
     if (!(days > 0)) return 0;
@@ -131,32 +188,44 @@
     }
     return 100;
   }
-  const difficultyFromEase = ease => ease < 1.8 ? 3 : ease < 2.4 ? 2 : 1;
-  function srsSchedule(card, verdict, now) {
-    const reps = +card.reps || 0, ease = +card.ease || 2.5, prev = +card.interval_days || 0;
-    let nReps, nInt, nEase = ease, lapses = +card.lapses || 0, next;
-    if (verdict === "wrong") {
-      nReps = 0; nInt = 0; nEase = Math.max(SRS.minEase, ease - 0.2); lapses += 1;
-      next = now + SRS.againMinutes * MIN;
-    } else {
-      nReps = reps + 1;
-      if (verdict === "almost") {
-        nEase = Math.max(SRS.minEase, ease - 0.15);
-        nInt = nReps === 1 ? 1 : nReps === 2 ? 2 : Math.max(prev + 1, round1(prev * 1.2));
-      } else {
-        nEase = Math.min(SRS.maxEase, ease + 0.05);
-        nInt = nReps === 1 ? 1 : nReps === 2 ? 3 : Math.max(prev + 1, round1(prev * ease));
-      }
-      nInt = Math.min(nInt, 365);
-      next = startOfDay(now) + Math.round(nInt) * DAY;   // ganzer Tag verfügbar
+  /** Gedächtnisstufe für die Anzeige */
+  function stageOf(card) {
+    if (isNew(card)) return { key: "new", label: "Neu", n: 0 };
+    const m = memoryOf(card);
+    if (card.last_result === "wrong" || m.S < 3) return { key: "learning", label: "Lernen", n: 1 };
+    if (m.S < 10) return { key: "short", label: "Kurzzeit", n: 2 };
+    if (m.S < 30) return { key: "mid", label: "Gefestigt", n: 3 };
+    return { key: "long", label: "Langzeit", n: 4 };
+  }
+  const difficultyFromD = D => D >= 7 ? 3 : D >= 4 ? 2 : 1;
+  /**
+   * Eine Antwort einplanen. Richtig/fast: nächste Wiederholung nach FSRS-Intervall
+   * (ganze Tage, ab Tagesbeginn verfügbar). Falsch: in 10 Minuten wieder fällig
+   * (Wiederholung in derselben Lernrunde), danach plant die nächste richtige Antwort.
+   * opts.cap: späteste Fälligkeit (z. B. Vortag eines Tests); opts.retry: Wiederholung in
+   * derselben Runde – ändert das Gedächtnis (FSRS-Kurzzeitformel), aber nicht die Zähler.
+   */
+  function srsSchedule(card, verdict, now, opts) {
+    const o = opts || {}; const g = GRADE[verdict] || 1;
+    const mem = memoryOf(card);
+    const elapsed = card.last_reviewed_at ? calDays(toMs(card.last_reviewed_at), now) : 0;
+    const m = fsrsStep(mem, g, elapsed);
+    let next;
+    if (g === 1) next = now + FSRS.relearnMinutes * MIN;
+    else {
+      const days = Math.min(FSRS.maxInterval, Math.max(1, Math.round(fsrsInterval(m.S))));
+      next = startOfDay(now) + days * DAY;
+      if (o.cap != null) next = Math.min(next, Math.max(startOfDay(now) + DAY, toMs(o.cap)));
     }
+    const S = Math.round(m.S * 100) / 100, D = Math.round(m.D * 100) / 100;
     return {
-      reps: nReps, interval_days: nInt, ease: Math.round(nEase * 100) / 100, lapses,
+      reps: g === 1 ? 0 : (+card.reps || 0) + 1, interval_days: S, ease: D + FSRS.easeOffset,
+      lapses: (+card.lapses || 0) + (g === 1 && mem && !o.retry ? 1 : 0),
       next_review_at: new Date(next).toISOString(), last_reviewed_at: new Date(now).toISOString(),
       last_result: verdict,
-      correct_count: (+card.correct_count || 0) + (verdict === "wrong" ? 0 : 1),
-      incorrect_count: (+card.incorrect_count || 0) + (verdict === "wrong" ? 1 : 0),
-      mastery: masteryFromInterval(nInt), difficulty: difficultyFromEase(nEase)
+      correct_count: (+card.correct_count || 0) + (o.retry || g === 1 ? 0 : 1),
+      incorrect_count: (+card.incorrect_count || 0) + (o.retry || g !== 1 ? 0 : 1),
+      mastery: masteryFromInterval(S), difficulty: difficultyFromD(D)
     };
   }
   const isNew = c => !(+c.reps) && !c.last_reviewed_at;
@@ -180,15 +249,16 @@
     return q;
   }
   /* ---------- Vokabeltest (fester Termin) ----------
-     „Sitzt“ = mindestens 2× hintereinander richtig und zuletzt nicht falsch.
-     Neue Karten werden auf die Tage bis zum Vortag verteilt; der letzte
-     Tag vor dem Test (und der Testtag) ist Wiederholung aller Karten. */
-  const TEST_SECURE_REPS = 2;
-  const isTestSecure = c => (+c.reps || 0) >= TEST_SECURE_REPS && c.last_result !== "wrong";
-  function testStatus(cards) {
-    const s = { total: cards.length, secure: 0, seen: 0, unseen: 0, wrong: 0, score: null };
-    cards.forEach(c => { if (isNew(c)) s.unseen++; else s.seen++; if (isTestSecure(c)) s.secure++; if (c.last_result === "wrong") s.wrong++; });
-    if (s.seen) s.score = Math.round(s.secure / s.total * 100);
+     Bereitschaft = vorhergesagte Abrufwahrscheinlichkeit am Testtag (FSRS),
+     gemittelt über alle Wörter = erwartete Trefferquote. „Sitzt“ = ≥ 90 %
+     am Testtag und zuletzt nicht falsch. Neue Karten werden auf die Tage bis
+     zum Vortag verteilt; Vortag und Testtag = alles wiederholen. */
+  const isTestSecure = (c, testDay) => !isNew(c) && c.last_result !== "wrong" && (testDay == null ? (+c.reps || 0) >= 2 : recallProbability(c, toMs(testDay)) >= 0.9);
+  function testStatus(cards, testDay) {
+    const s = { total: cards.length, secure: 0, seen: 0, unseen: 0, wrong: 0, score: null, expected: null };
+    let sumR = 0;
+    cards.forEach(c => { if (isNew(c)) s.unseen++; else s.seen++; if (isTestSecure(c, testDay)) s.secure++; if (c.last_result === "wrong") s.wrong++; if (testDay != null) sumR += recallProbability(c, toMs(testDay)); });
+    if (s.seen) { s.score = Math.round(s.secure / s.total * 100); if (testDay != null) s.expected = Math.round(sumR / s.total * 100); }
     return s;
   }
   /** daysLeft = Tage bis zum Test (0 = heute) → neue Karten für heute */
@@ -206,7 +276,7 @@
       // Letzter Tag: jede Karte, die heute noch nicht dran war – unsichere zuerst
       const today = startOfDay(now);
       const rest = cards.filter(c => !isNew(c) && !q.includes(c) && !(c.last_reviewed_at && toMs(c.last_reviewed_at) >= today))
-        .sort((a, b) => isTestSecure(a) - isTestSecure(b));
+        .sort((a, b) => isTestSecure(a, o.testDay) - isTestSecure(b, o.testDay));
       q = q.concat(rest);
     }
     return o.limit ? q.slice(0, o.limit) : q;
@@ -226,6 +296,60 @@
       items.push({ begriff: m[1].trim(), bedeutung: m[2].trim() });
     });
     return { items, skipped };
+  }
+  /* ---------- Lernrunde (Successive Relearning, Rawson & Dunlosky) ----------
+     • Neue Wörter: erst ansehen und einmal abschreiben, dann 3× richtig aus dem
+       Kopf – mit wachsendem Abstand dazwischen.
+     • Wiederholung: 1× richtig aus dem Kopf.
+     • Fehler: richtige Lösung zeigen, einmal richtig abtippen, dann nach einigen
+       anderen Karten erneut aus dem Kopf – bis es sitzt.
+     Die Runde endet, wenn jedes Wort sein Ziel erreicht hat. */
+  const ROUND = { newCriterion: 3, reviewCriterion: 1, gapStudy: 2, gapCorrect: [4, 8], gapWrong: 7, maxNew: 8, maxCards: 25 };
+  function buildRound(cards, o) {
+    o = o || {}; const dir = o.direction || "forward";
+    const reviews = cards.filter(c => !isNew(c)), fresh = cards.filter(isNew);
+    const items = [], prog = {};
+    const rec = c => ({ kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: dir });
+    reviews.forEach(c => { prog[c.id] = { need: ROUND.reviewCriterion, got: 0, wrong: 0, fresh: false }; });
+    fresh.forEach(c => { prog[c.id] = { need: ROUND.newCriterion, got: 0, wrong: 0, fresh: true }; });
+    // Neue Wörter zwischen die Wiederholungen streuen (je 2 Wiederholungen ein neues)
+    let r = 0, f = 0;
+    while (r < reviews.length || f < fresh.length) {
+      for (let k = 0; k < 2 && r < reviews.length; k++) items.push(rec(reviews[r++]));
+      if (f < fresh.length) { const c = fresh[f++]; items.push({ kind: "vocab_study", key: "s:" + c.id, vocab_id: c.id, direction: dir }); }
+    }
+    return { items, prog };
+  }
+  function insertAt(s, gap, item) { const pos = Math.min(s.items.length, s.index + 1 + gap); s.items.splice(pos, 0, item); }
+  /** Nach einer Karte der Runde: nächsten Abruf einplanen. outcome: "studied" | "correct" | "wrong" */
+  function roundAfter(s, item, outcome) {
+    const p = s.prog && s.prog[item.vocab_id]; if (!p) return s;
+    const recall = (retry) => ({ kind: "vocab", key: "v:" + item.vocab_id, vocab_id: item.vocab_id, direction: item.direction, retry: !!retry });
+    if (outcome === "studied") { insertAt(s, ROUND.gapStudy, recall(false)); return s; }
+    if (outcome === "wrong") { p.wrong++; insertAt(s, ROUND.gapWrong, recall(true)); return s; }
+    p.got++;
+    if (p.got < p.need) insertAt(s, ROUND.gapCorrect[Math.min(p.got - 1, ROUND.gapCorrect.length - 1)], recall(true));
+    return s;
+  }
+  function roundProgress(s) {
+    const ps = Object.values(s.prog || {});
+    const need = ps.reduce((a, p) => a + p.need, 0), got = ps.reduce((a, p) => a + Math.min(p.got, p.need), 0);
+    return { need, got, left: need - got, words: ps.length, doneWords: ps.filter(p => p.got >= p.need).length };
+  }
+  /** Buchstabengenauer Vergleich (für die Korrektur): Teile von „expected“ mit ok-Markierung */
+  function diffParts(given, expected) {
+    const a = String(given || ""), b = String(expected || "");
+    const A = a.toLowerCase(), B = b.toLowerCase(); const n = A.length, m = B.length;
+    const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    const out = []; let i = 0, j = 0;
+    const push = (ch, ok) => { const last = out[out.length - 1]; if (last && last.ok === ok) last.text += ch; else out.push({ text: ch, ok }); };
+    while (j < m) {
+      if (i < n && A[i] === B[j]) { push(b[j], true); i++; j++; }
+      else if (i < n && L[i + 1][j] >= L[i][j + 1]) i++;
+      else { push(b[j], false); j++; }
+    }
+    return out;
   }
   function vocabStats(cards, now) {
     const s = { total: cards.length, due: 0, fresh: 0, learning: 0, secure: 0, mastered: 0, trouble: 0, mastery: 0 };
@@ -293,7 +417,7 @@
     const graded = first.filter(a => a.result != null);
     const score = graded.length ? graded.reduce((x, a) => x + a.result, 0) / graded.length : null;
     return {
-      total: s.items.filter(i => !i.retry).length, answered: first.length, graded: graded.length,
+      total: s.items.filter(i => !i.retry && i.kind !== "vocab_study").length, answered: first.length, graded: graded.length,
       correct: graded.filter(a => a.result >= 0.75).length, partial: graded.filter(a => a.result > 0.25 && a.result < 0.75).length,
       wrong: graded.filter(a => a.result <= 0.25).length,
       score: score == null ? null : Math.round(score * 1000) / 1000,
@@ -541,8 +665,8 @@
   return {
     DAY, uuid, shuffle, isoDay, startOfDay, daysBetween,
     LANG_NAMES, normalize, stripAccents, answerVariants, levenshtein, checkAnswer,
-    SRS, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
-    isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList,
+    SRS, FSRS, GRADE, fsrsStep, fsrsRetrievability, fsrsInterval, memoryOf, recallProbability, stageOf, calDays, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
+    isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, roundProgress, diffParts,
     STATUSES, createSession, elapsedMs, remainingMs, isExpired, pause, resume, finish, current, recordAnswer, requeue, advance, summary,
     MASTERY, subtopicMastery, examReadiness,
     prioritize, dailyPlan,

@@ -36,6 +36,19 @@ async function login(page) {
     catch (e) { if (i === 2 || !(await page.$("#auth_form"))) throw e; }
   }
 }
+/** Spielt die laufende Lernrunde durch: Einprägen (abschreiben), Abruf, bei Fehlern Lösung abtippen. wrong(n) → diese Antwort absichtlich falsch */
+async function playRoundUI(page, wrong) {
+  let n = 0;
+  for (let guard = 0; guard < 120; guard++) {
+    const it = await page.evaluate(() => { const it = TS && TS.status === "active" && Engine.current(TS); if (!it) return null; const c = cardById(it.vocab_id); const sd = Engine.vocabSides(c, it.direction); return { kind: it.kind, ans: sd.answers[0], raw: sd.answer }; });
+    if (!it) break;
+    if (it.kind === "vocab_study") { await page.fill("#vc", it.ans); await page.click("#st_next"); continue; }
+    const bad = wrong && wrong(n++);
+    await page.fill("#va", bad ? "falsch" : it.ans); await page.click("#va_check");
+    if (bad) { await page.fill("#vc", it.ans); }
+    await page.click("#va_next");
+  }
+}
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: SHOTS + "/" + name + ".png", fullPage: true }); };
 const go = async (page, hash) => { await page.evaluate(h => { location.hash = h; }, hash); await page.waitForTimeout(250); };
 async function scenario(name, fn) {
@@ -133,7 +146,10 @@ await scenario("Vokabeltraining: Richtung, richtig, falsch, Spaced Repetition, L
   await page.fill("#va", "völlig falsch"); await page.click("#va_check");
   await page.waitForSelector(".fb.bad"); await page.evaluate(() => Api.idle());
   const wrong = b.db.learning_events.filter(e => e.type === "vocabulary_wrong"); assert.equal(wrong.length, 1);
-  const wcard = b.db.vokabeln.find(v => v.id === wrong[0].vocab_id); assert.equal(wcard.interval_days, 0); assert.equal(wcard.incorrect_count, 1);
+  const wcard = b.db.vokabeln.find(v => v.id === wrong[0].vocab_id); assert.equal(wcard.incorrect_count, 1);
+  assert.ok(new Date(wcard.next_review_at).getTime() - Date.now() < 15 * 60000, "falsch → gleich noch einmal");
+  assert.ok(await page.$eval("#va_next", b => b.disabled), "erst weiter, wenn die Lösung abgetippt ist");
+
   // „Ich hatte recht“ korrigiert Ereignis und Planung
   await page.click("#va_override"); await page.waitForTimeout(200); await page.evaluate(() => Api.idle());
   const fixed = b.db.learning_events.find(e => e.id === wrong[0].id); assert.equal(fixed.type, "vocabulary_correct");
@@ -327,7 +343,7 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   assert.deepEqual(k.vokabel_lektionen, [col.name]);
   const cards = b.db.vokabeln.filter(v => v.collection_id === col.id); assert.equal(cards.length, 9);
   const t = await page.textContent("#view");
-  assert.ok(t.includes("0 von 9 Vokabeln sitzen"), "ehrliche Bereitschaft");
+  assert.ok(t.includes("Noch keine Vorhersage"), "ehrliche Bereitschaft");
   assert.ok(t.includes("3 neue Vokabeln"), "9 Wörter auf 3 Lerntage verteilt");
   assert.ok(t.includes("Alles wiederholen + Probetest"));
   await shot(page, "vt-02-detail");
@@ -336,17 +352,12 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   assert.ok((await page.textContent(".a-today")).includes("Vokabeltest in 4 Tagen"));
   assert.ok((await page.textContent(".a-cont")).includes("Voc. 7A p. 222/223"), "Als Nächstes: der Test");
   // Lernen: Deutsch → Französisch, eine Antwort falsch
-  await go(page, "#/lernplan/" + k.id); await page.click("#vt_learn"); await page.waitForSelector("#va");
-  let n = 0, wrongDone = false;
-  while (n++ < 20) {
-    const st = await page.evaluate(() => { const it = TS && TS.status === "active" && Engine.current(TS); if (!it) return null; const c = cardById(it.vocab_id); return { ans: c.begriff, prompt: Engine.vocabSides(c, it.direction).prompt }; });
-    if (!st) break;
-    await page.fill("#va", wrongDone ? st.ans.split(" / ")[0].replace("le/la ", "le ") : "falsch"); wrongDone = true;
-    await page.click("#va_check"); await page.click("#va_next");
-  }
+  await go(page, "#/lernplan/" + k.id); await page.click("#vt_learn"); await page.waitForSelector(".fx-card");
+  await playRoundUI(page, n => n === 0);
   await page.waitForSelector(".fx-done");
   const sum = await page.textContent("#fxStage");
   assert.ok(sum.includes("Noch üben"), "falsche Wörter mit Lösung"); assert.ok(sum.includes("Bis zum Test"));
+  assert.ok(sum.includes("Runde geschafft"), "klares Ende"); assert.ok(sum.includes("nachgelernt"));
   await shot(page, "vt-03-summary");
   const ev = b.db.learning_events.filter(e => e.vocab_id && cards.some(c => c.id === e.vocab_id));
   assert.equal(ev.filter(e => e.type === "vocabulary_correct").length, 2 , "2 richtig");
@@ -363,6 +374,80 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   await page.waitForSelector(".fx-done");
   assert.ok((await page.textContent("#fxStage")).includes("Probetest"));
   assert.ok(await page.evaluate(() => TS.items.length === 9), "keine Wiederholungen im Probetest");
+  await ctx.close();
+});
+
+await scenario("Geräte-Abgleich: Training auf dem Handy fortsetzen, Stand zurück am Laptop", async () => {
+  const b = new MockBackend();
+  const A = await open(b); await login(A.page);
+  await A.page.evaluate(() => startTraining({ mode: "vocab", count: 5 })); await A.page.waitForSelector("#va");
+  await A.page.fill("#va", "egal"); await A.page.click("#va_check");
+  if (await A.page.$("#vc")) await A.page.fill("#vc", await A.page.evaluate(() => Engine.vocabSides(cardById(Engine.current(TS).vocab_id), Engine.current(TS).direction).answers[0]));
+  await A.page.click("#va_next");
+  await A.page.evaluate(async () => { tsSync(); await Api.idle(); });
+  const idA = await A.page.evaluate(() => TS.id);
+  // Handy: übernimmt das laufende Training
+  const B = await open(b, { viewport: { width: 390, height: 844 } }); await login(B.page);
+  assert.equal(await B.page.evaluate(() => TS && TS.id), idA, "Session übernommen");
+  assert.equal(await B.page.evaluate(() => TS.answers.length), 1, "bisherige Antwort ist dabei");
+  await B.page.evaluate(() => { location.hash = "#/trainer/session"; }); await B.page.waitForSelector("#va");
+  await B.page.fill("#va", "auch egal"); await B.page.click("#va_check");
+  if (await B.page.$("#vc")) await B.page.fill("#vc", await B.page.evaluate(() => Engine.vocabSides(cardById(Engine.current(TS).vocab_id), Engine.current(TS).direction).answers[0]));
+  await B.page.click("#va_next");
+  await B.page.evaluate(async () => { tsSync(); await Api.idle(); });
+  // Laptop holt den neueren Stand
+  await A.page.evaluate(() => refreshData("test")); await A.page.waitForTimeout(300);
+  assert.equal(await A.page.evaluate(() => TS.answers.length), 2, "Fortschritt vom Handy ist am Laptop da");
+  const reviewedOnPhone = await B.page.evaluate(() => TS.answers[1] && TS.items[TS.answers[1].index].vocab_id);
+  assert.ok(await A.page.evaluate(id => !!STATE.vo.find(v => String(v.id) === String(id)).last_reviewed_at, reviewedOnPhone), "Karten-Lernstand synchronisiert");
+  // Auf dem Handy beendet → am Laptop nicht mehr offen
+  await B.page.evaluate(async () => { await tsFinish("abandoned", true); await Api.idle(); });
+  await A.page.evaluate(() => refreshData("test")); await A.page.waitForTimeout(300);
+  assert.equal(await A.page.evaluate(() => tsActive()), false);
+  await A.ctx.close(); await B.ctx.close();
+});
+
+await scenario("Lernrunde: einprägen, 3× richtig, Fehler abtippen und später aus dem Kopf, dann „Fertig für heute“", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  // eigene Sammlung mit 4 neuen Wörtern
+  const colId = await page.evaluate(async () => { const r = await dbInsert("vocab_collections", { name: "Leçon 7", source_language: "fr", target_language: "de" }); return r.row.id; });
+  await page.evaluate(async id => { const c = colById(id); for (const [f, d] of [["la gare", "der Bahnhof"], ["réussir", "schaffen"], ["peut-être", "vielleicht"], ["la cantine", "die Kantine"]]) { const r = await Api.insert("vokabeln", { begriff: f, bedeutung: d, collection_id: id, sprache: c.name, source_language: "fr", target_language: "de", level: 0, next: todayISO() }); STATE.vo.push(normVO(r)); } bump(); }, colId);
+  await page.evaluate(id => startTraining({ mode: "vocab", collection_id: id, direction: "reverse" }), colId);
+  await page.waitForSelector(".study-ans");
+  assert.ok(await page.$eval("#st_next", b => b.disabled), "erst abschreiben");
+  await shot(page, "lr-01-einpraegen");
+  if (SHOTS) { await page.setViewportSize({ width: 390, height: 844 }); await shot(page, "lr-01m-einpraegen"); await page.setViewportSize({ width: 1280, height: 860 }); }
+  // eine falsche Antwort: Lösung mit markierten Buchstaben, abtippen, später erneut
+  let shotDone = false;
+  for (let guard = 0; guard < 60; guard++) {
+    const it = await page.evaluate(() => { const it = TS && TS.status === "active" && Engine.current(TS); if (!it) return null; const c = cardById(it.vocab_id); return { kind: it.kind, ans: Engine.vocabSides(c, it.direction).answers[0], id: it.vocab_id, retry: !!it.retry, raw: c.begriff }; });
+    if (!it) break;
+    if (it.kind === "vocab_study") { await page.fill("#vc", it.ans); await page.click("#st_next"); continue; }
+    const bad = it.raw === "réussir" && !it.retry;
+    await page.fill("#va", bad ? "rester" : it.ans); await page.click("#va_check");
+    if (bad) {
+      assert.ok(await page.$("mark.dif"), "falsche Buchstaben markiert");
+      if (!shotDone) { await shot(page, "lr-02-korrektur"); shotDone = true; }
+      await page.fill("#vc", "réussir");
+    }
+    await page.click("#va_next");
+  }
+  await page.waitForSelector(".done-mark");
+  const t = await page.textContent("#fxStage");
+  assert.ok(t.includes("Runde geschafft")); assert.ok(t.includes("1 nachgelernt"), t);
+  const answers = await page.evaluate(() => TS.answers.filter(a => a.verdict).length);
+  assert.equal(answers, 4 * 3 + 1, "4 neue Wörter × 3 richtige + 1 Fehler");
+  await shot(page, "lr-03-geschafft");
+  await page.evaluate(() => Api.idle());
+  const rows = b.db.vokabeln.filter(v => v.collection_id === colId);
+  assert.ok(rows.every(v => +v.ease >= 10), "FSRS-Zustand gespeichert");
+  assert.equal(b.db.learning_events.filter(e => rows.some(r => r.id === e.vocab_id)).length, 4, "ein Lernereignis je Wort (erster Abruf)");
+  // Fehler-Wort ist schwerer als die anderen
+  const hard = rows.find(v => v.begriff === "réussir"), easy = rows.find(v => v.begriff === "la gare");
+  assert.ok(+hard.ease > +easy.ease && +hard.interval_days < +easy.interval_days);
+  // Vokabelseite: Fertig für heute (4 von 10 neuen genutzt, Sammlung leer) bzw. Stufen
+  await page.click("#sm_close").catch(() => {}); await go(page, "#/vokabeln/" + colId); await page.waitForSelector(".stage");
+  assert.ok((await page.textContent("#view")).includes("Lernen"), "Stufe sichtbar");
   await ctx.close();
 });
 

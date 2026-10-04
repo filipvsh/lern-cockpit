@@ -11,7 +11,7 @@ const TYPE_ICON = { multiple_choice: "check", free_text: "doc", translation: "sw
 let LP_TAB = "up"; const LP_OPEN = new Set();
 function readinessLine(k) {
   const r = readinessOf(k);
-  if (r.test) return !r.total ? '<span class="t-sub" style="color:var(--orange)">Noch keine Vokabeln eingetragen.</span>' : progBar(r.score || 0) + '<span class="t-sub">' + r.secure + ' von ' + r.total + ' Vokabeln sitzen' + (r.score == null ? " · noch nicht geübt" : "") + '</span>';
+  if (r.test) return !r.total ? '<span class="t-sub" style="color:var(--orange)">Noch keine Vokabeln eingetragen.</span>' : progBar(r.score || 0) + '<span class="t-sub">' + (r.score == null ? r.total + " Vokabeln · noch nicht geübt" : "erwartet " + r.score + " % im Test · " + r.secure + " von " + r.total + " sitzen") + '</span>';
   if (!r.total) return '<span class="t-sub" style="color:var(--orange)">Noch keine Unterthemen – damit startet der Lernplan.</span>';
   if (r.score == null) return '<span class="t-sub">' + plural(r.total, "Bereich", "Bereiche") + ' · noch nicht genug Lernaktivität für eine Einschätzung</span>';
   return progBar(r.score) + '<span class="t-sub">' + r.score + ' % vorbereitet · ' + r.withData + ' von ' + r.total + ' geübt</span>';
