@@ -67,7 +67,11 @@ function setupCard() {
    DASHBOARD · „Was ist für mich jetzt wichtig?“
    ===================================================================== */
 function continueItem() {
-  if (tsActive()) return { kind: "session", title: TS.label, crumb: MODE_NAMES[TS.mode], href: "#/trainer/session", sub: TS.status === "paused" ? "Pausiert · " + fmtClock(Engine.elapsedMs(TS, Date.now())) : "Läuft seit " + fmtClock(Engine.elapsedMs(TS, Date.now())) };
+  if (tsActive()) return { kind: "session", title: TS.label, crumb: modeName(), href: "#/trainer/session", sub: TS.status === "paused" ? "Pausiert · " + fmtClock(Engine.elapsedMs(TS, Date.now())) : "Läuft seit " + fmtClock(Engine.elapsedMs(TS, Date.now())) };
+  // Anstehender Vokabeltest mit offenem Tagespensum geht vor
+  const vt = upcomingTests().filter(k => daysUntil(k.datum) <= 7 && testQueueOf(k).length)[0];
+  if (vt) { const st = testStatusOf(vt); const n = testQueueOf(vt).length;
+    return { kind: "test", title: vtName(vt), crumb: vt.fach + " · Vokabeltest " + whenText(daysUntil(vt.datum)), m: { score: st.score }, reasons: [plural(n, "Karte", "Karten") + " für heute", st.secure + " von " + st.total + " sitzen"], start: { mode: "test", exam_id: vt.id, planKey: "test:" + vt.id } }; }
   const last = lsGet("lc_last", null);
   if (last && last.kind === "subtopic") {
     const st = subById(last.sub); const ex = st && examOfSub(st); const m = st && masteryOf(st.id);
@@ -93,7 +97,7 @@ function contCard(c) {
 function planList(plan) {
   if (!plan.items.length) return '<div class="card">' + emptyState("check", "Heute ist nichts geplant", ES.subtopics.length ? "Keine fälligen Vokabeln und keine Prüfung in den nächsten 60 Tagen." : "Lege im Lernplan Prüfungen mit Themen an – dann entsteht hier dein Tagesplan.", '<a class="btn sm" href="#/lernplan">Lernplan</a>') + '</div>';
   const done = plan.items.filter(i => i.done).length;
-  return '<div class="list">' + plan.items.map((it, i) => '<div class="li' + (it.done ? " done" : "") + '" style="--li-inset:66px"><span class="ico' + (it.done ? "" : " accent") + '">' + (it.done ? ICO.check : ICO[it.kind === "vocab" ? "vokabeln" : it.kind === "errors" ? "target" : "lernplan"]) + '</span><div class="li-main"><div class="li-title">' + esc(it.title) + '</div><div class="li-sub">' + esc(it.sub || "") + (it.reasons && it.reasons.length && it.kind === "subtopic" ? " · " + esc(it.reasons.slice(0, 2).join(" · ")) : "") + '</div></div><span class="li-trail">' + (it.doneMin ? it.doneMin + "/" : "") + it.minutes + ' Min.' + (it.done ? "" : '<button class="btn sm" data-plan="' + i + '">Starten</button>') + '</span></div>').join("") +
+  return '<div class="list">' + plan.items.map((it, i) => '<div class="li' + (it.done ? " done" : "") + '" style="--li-inset:66px"><span class="ico' + (it.done ? "" : " accent") + '">' + (it.done ? ICO.check : ICO[it.kind === "vocab" || it.kind === "test" ? "vokabeln" : it.kind === "errors" ? "target" : "lernplan"]) + '</span><div class="li-main"><div class="li-title">' + esc(it.title) + '</div><div class="li-sub">' + esc(it.sub || "") + (it.reasons && it.reasons.length && it.kind === "subtopic" ? " · " + esc(it.reasons.slice(0, 2).join(" · ")) : "") + '</div></div><span class="li-trail">' + (it.doneMin ? it.doneMin + "/" : "") + it.minutes + ' Min.' + (it.done ? "" : '<button class="btn sm" data-plan="' + i + '">Starten</button>') + '</span></div>').join("") +
     '<div class="list-foot plan-foot"><span class="t-sub">' + done + ' von ' + plan.items.length + ' erledigt · Budget ' + plan.budget + ' Min.</span>' + (done < plan.items.length ? '<button class="btn primary sm" id="plan_go">' + ICO.play + 'Training starten</button>' : '') + '</div></div>';
 }
 function hwToday() {
@@ -153,7 +157,7 @@ V.vokabeln = () => {
   if (ROUTE.sub) return vokCollection(decodeURIComponent(ROUTE.sub));
   const now = Date.now(); const all = Engine.vocabStats(STATE.vo, now); const due = vocabDue().reduce((a, x) => a + x.count, 0);
   const langs = [...new Set(ES.collections.map(c => c.source_language))];
-  const head = pageHead("Vokabeln", { sub: all.total ? plural(all.total, "Karte", "Karten") + " in " + plural(ES.collections.length, "Sammlung", "Sammlungen") + " · " + all.secure + " sicher · " + due + " fällig" : "Lege deine erste Sammlung an.", actions: '<button class="btn" id="col_new">' + ICO.plus + 'Sammlung</button><button class="btn primary" id="v_new">' + ICO.plus + 'Vokabel</button>' });
+  const head = pageHead("Vokabeln", { sub: all.total ? plural(all.total, "Karte", "Karten") + " in " + plural(ES.collections.length, "Sammlung", "Sammlungen") + " · " + all.secure + " sicher · " + due + " fällig" : "Lege deine erste Sammlung an.", actions: '<button class="btn" id="vt_new">' + ICO.plus + 'Test eintragen</button><button class="btn" id="col_new">' + ICO.plus + 'Sammlung</button><button class="btn primary" id="v_new">' + ICO.plus + 'Vokabel</button>' });
   const daily = '<div class="card daily">' + ring(all.total ? all.mastery / 100 : 0, 64, 6, all.mastery + "%", "Ø") + '<div class="dm"><div class="t-headline">' + (due ? plural(due, "Karte ist", "Karten sind") + " heute fällig" : "Nichts fällig") + '</div><div class="t-sub">' + (due ? "Wiederholung nach Plan – etwa " + Math.max(2, Math.round(due * 0.4)) + " Minuten" : "Die nächsten Karten werden fällig, sobald ihr Intervall abläuft. Du kannst trotzdem üben.") + (all.trouble ? " · " + plural(all.trouble, "Fehlerkarte", "Fehlerkarten") : "") + '</div></div><div class="dact">' + (all.trouble ? '<button class="btn" data-vstart="errors">Fehlertraining</button>' : '') + '<button class="btn primary" data-vstart="vocab">' + (due ? "Wiederholen" : "Üben") + '</button></div></div>';
   const search = '<div class="coll-tools" style="margin-top:var(--s7)"><label class="search"><span>' + ICO.search + '</span><input id="v_filter" placeholder="Alle Vokabeln durchsuchen" value="' + esc(VOK_FILTER) + '"></label>' + (langs.length > 1 ? '<div class="seg"><button class="' + (!VOK_LANG ? "on" : "") + '" data-vlang="">Alle</button>' + langs.map(l => '<button class="' + (VOK_LANG === l ? "on" : "") + '" data-vlang="' + esc(l) + '">' + esc(groupName(l)) + '</button>').join("") + '</div>' : '') + '</div>';
   if (VOK_FILTER.trim()) {
@@ -172,11 +176,12 @@ function vokCollection(id) {
   if (!c) { c = ES.collections.find(x => x.name === id); if (c) { location.replace("#/vokabeln/" + c.id); return ""; } return pageHead("Sammlung", { back: ["#/vokabeln", "Vokabeln"] }) + '<div class="card">' + emptyState("vokabeln", "Sammlung nicht gefunden", "Vielleicht wurde sie gelöscht.") + '</div>'; }
   const cards = colCards(c); const st = Engine.vocabStats(cards, Date.now()); const f = Engine.normalize(VOK_FILTER);
   const list = cards.filter(v => !f || Engine.normalize(v.begriff).includes(f) || Engine.normalize(v.bedeutung).includes(f)).sort((a, b) => String(a.created_at || a.id).localeCompare(String(b.created_at || b.id)));
-  const dir = dirPref(c.id);
-  const head = pageHead(esc(c.name), { back: ["#/vokabeln", "Vokabeln"], eyebrow: esc(isTermCollection(c) ? "Fachbegriffe" + (c.subject_id ? " · " + ((ES.subjects.find(x => x.id === c.subject_id) || {}).name || "") : "") : langName(c.source_language) + " → " + langName(c.target_language)), sub: plural(st.total, "Karte", "Karten") + " · " + st.due + " fällig · " + st.secure + " sicher · " + st.fresh + " neu" + (c.description ? " · " + esc(c.description) : ""), actions: '<button class="btn" id="col_edit">Bearbeiten</button><button class="btn" id="v_new">' + ICO.plus + 'Karte</button><button class="btn primary" data-vstart="vocab">' + ICO.play + 'Lernen</button>' });
+  const dir = dirPref(c.id); const vt = testForCollection(c.id);
+  const head = pageHead(esc(c.name), { back: ["#/vokabeln", "Vokabeln"], eyebrow: esc(isTermCollection(c) ? "Fachbegriffe" + (c.subject_id ? " · " + ((ES.subjects.find(x => x.id === c.subject_id) || {}).name || "") : "") : langName(c.source_language) + " → " + langName(c.target_language)), sub: plural(st.total, "Karte", "Karten") + " · " + st.due + " fällig · " + st.secure + " sicher · " + st.fresh + " neu" + (c.description ? " · " + esc(c.description) : ""), actions: '<button class="btn" id="col_edit">Bearbeiten</button>' + (isTermCollection(c) ? '' : '<button class="btn" id="vt_new">' + (vt ? "Zum Test" : "Test eintragen") + '</button>') + '<button class="btn" id="v_import">Liste einfügen</button><button class="btn" id="v_new">' + ICO.plus + 'Karte</button><button class="btn primary" data-vstart="vocab">' + ICO.play + 'Lernen</button>' });
   const tools = '<div class="coll-tools"><div class="dirsw"><span class="t-sub">Abfrage</span><div class="seg"><button class="' + (dir === "forward" ? "on" : "") + '" data-vdir="forward">' + esc(dirLabel(c, "forward")) + '</button><button class="' + (dir === "reverse" ? "on" : "") + '" data-vdir="reverse">' + esc(dirLabel(c, "reverse")) + '</button></div></div><label class="search"><span>' + ICO.search + '</span><input id="v_filter" placeholder="In ' + esc(c.name) + ' suchen" value="' + esc(VOK_FILTER) + '"></label></div>';
   const rows = list.length ? '<div class="list">' + list.slice(0, 300).map(v => vocabRow(v)).join("") + '</div>' + (list.length > 300 ? '<div class="t-sub" style="padding:12px 4px">… und ' + (list.length - 300) + ' weitere. Nutze die Suche.</div>' : '') : '<div class="card">' + (cards.length ? emptyState("search", "Nichts gefunden", "Keine Karte passt zu „" + esc(VOK_FILTER) + "“.") : emptyState("vokabeln", "Leere Sammlung", "Füge die erste Karte hinzu.", '<button class="btn primary sm" id="v_new2">Karte hinzufügen</button>')) + '</div>';
-  return netNotice() + head + tools + rows;
+  const vtNote = vt ? '<div class="notice"><span class="dot" style="background:var(--accent)"></span><span><b>Vokabeltest ' + esc(whenText(daysUntil(vt.datum))) + ':</b> ' + esc(vtName(vt)) + ' · ' + testStatusOf(vt).secure + ' von ' + testStatusOf(vt).total + ' sitzen</span><a class="btn primary sm" href="#/lernplan/' + esc(vt.id) + '">Zum Test</a></div>' : '';
+  return netNotice() + head + vtNote + tools + rows;
 }
 const LANG_OPTS = [["fr", "Französisch"], ["en", "Englisch"], ["la", "Latein"], ["es", "Spanisch"], ["de", "Deutsch"]];
 function collectionModal(c) {
@@ -192,8 +197,10 @@ function collectionModal(c) {
         try {
           if (isNew) { const r = await dbInsert("vocab_collections", row); closeModal(); location.hash = "#/vokabeln/" + r.row.id; toast("Sammlung angelegt"); }
           else {
+            const old = Object.assign({}, c), oldName = old.name;
             await dbPatch("vocab_collections", c.id, row);
-            if (row.source_language !== c.source_language || row.target_language !== c.target_language || row.name !== c.name) { const ids = colCards(c).map(v => encodeURIComponent(v.id)); colCards(c).forEach(v => Object.assign(v, { source_language: row.source_language, target_language: row.target_language, sprache: name })); for (let i = 0; i < ids.length; i += 150) await Api.write("PATCH", "vokabeln", "id=in.(" + ids.slice(i, i + 150).join(",") + ")", { source_language: row.source_language, target_language: row.target_language, sprache: name }); }
+            if (row.name !== oldName) for (const k of STATE.kl.filter(k => (k.vokabel_lektionen || []).some(x => String(x).toLowerCase() === oldName.toLowerCase()))) await saveKL(k, { vokabel_lektionen: k.vokabel_lektionen.map(x => String(x).toLowerCase() === oldName.toLowerCase() ? row.name : x) });
+            if (row.source_language !== old.source_language || row.target_language !== old.target_language || row.name !== old.name) { const ids = colCards(c).map(v => encodeURIComponent(v.id)); colCards(c).forEach(v => Object.assign(v, { source_language: row.source_language, target_language: row.target_language, sprache: name })); for (let i = 0; i < ids.length; i += 150) await Api.write("PATCH", "vokabeln", "id=in.(" + ids.slice(i, i + 150).join(",") + ")", { source_language: row.source_language, target_language: row.target_language, sprache: name }); }
             closeModal(); route(); toast("Gespeichert");
           }
         } catch (e) { toast("Speichern fehlgeschlagen: " + e.message, true); }
@@ -261,6 +268,8 @@ function bindVokabeln() {
   ["v_new", "v_new2"].forEach(id => { const b = q(id); if (b) b.onclick = () => vocabModal(null, colId); });
   ["col_new", "col_new2"].forEach(id => { const b = q(id); if (b) b.onclick = () => collectionModal(); });
   const ce = q("col_edit"); if (ce) ce.onclick = () => collectionModal(colById(colId));
+  const vtn = q("vt_new"); if (vtn) vtn.onclick = () => { const k = colId && testForCollection(colId); if (k) location.hash = "#/lernplan/" + k.id; else testModal(null, colId); };
+  const im = q("v_import"); if (im) im.onclick = () => importModal(colId);
   document.querySelectorAll("[data-vstart]").forEach(b => b.onclick = () => vocabStartModal(b.dataset.vstart, colId));
   document.querySelectorAll("[data-vdir]").forEach(b => b.onclick = () => { setDirPref(colId, b.dataset.vdir); route(); });
   document.querySelectorAll("[data-vlang]").forEach(b => b.onclick = () => { VOK_LANG = b.dataset.vlang; route(); });

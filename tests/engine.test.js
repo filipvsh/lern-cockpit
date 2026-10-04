@@ -180,3 +180,53 @@ test("Streak: zählt Tage in Folge, heute optional", () => {
   assert.equal(E.streak(days, NOW), 3);
   assert.equal(E.streak(days.slice(1), NOW), 2);
 });
+
+/* ---------- Vokabeltest ---------- */
+const tcard = (id, o) => Object.assign({ id, begriff: "w" + id, bedeutung: "b" + id, reps: 0, last_reviewed_at: null, next_review_at: null, last_result: null }, o || {});
+test("Vokabeltest: neue Karten werden bis zum Vortag verteilt", () => {
+  assert.equal(E.testNewQuota(42, 4), 14);   // Sa–Mo je 14, Di nur Wiederholung
+  assert.equal(E.testNewQuota(42, 1), 42);   // morgen Test → alles heute
+  assert.equal(E.testNewQuota(42, 0), 42);
+  assert.equal(E.testNewQuota(0, 4), 0);
+});
+test("Vokabeltest: Warteschlange = fällige (falsche zuerst) + Tagesanteil neuer Karten", () => {
+  const cards = [];
+  for (let i = 0; i < 30; i++) cards.push(tcard(i));
+  cards.push(tcard("d1", { reps: 1, last_reviewed_at: NOW - DAY, next_review_at: new Date(NOW - 3600e3).toISOString(), last_result: "correct" }));
+  cards.push(tcard("d2", { reps: 0, last_reviewed_at: NOW - DAY, next_review_at: new Date(NOW - 60e3).toISOString(), last_result: "wrong" }));
+  cards.push(tcard("later", { reps: 1, last_reviewed_at: NOW - 3600e3, next_review_at: new Date(NOW + DAY).toISOString(), last_result: "correct" }));
+  const q = E.testQueue(cards, { now: NOW, daysLeft: 4 });
+  assert.equal(q[0].id, "d2"); assert.equal(q[1].id, "d1");
+  assert.equal(q.length, 2 + 10);
+  assert.ok(!q.some(c => c.id === "later"));
+});
+test("Vokabeltest: am letzten Tag kommt jede Karte dran, die heute noch nicht abgefragt wurde", () => {
+  const cards = [
+    tcard("sec", { reps: 2, last_reviewed_at: NOW - 2 * DAY, next_review_at: new Date(NOW + DAY).toISOString(), last_result: "correct" }),
+    tcard("weak", { reps: 1, last_reviewed_at: NOW - 2 * DAY, next_review_at: new Date(NOW + DAY).toISOString(), last_result: "almost" }),
+    tcard("done", { reps: 2, last_reviewed_at: NOW - 60e3, next_review_at: new Date(NOW + DAY).toISOString(), last_result: "correct" }),
+    tcard("neu")
+  ];
+  const ids = E.testQueue(cards, { now: NOW, daysLeft: 1 }).map(c => c.id);
+  assert.deepEqual(ids, ["neu", "weak", "sec"]);
+});
+test("Vokabeltest: Bereitschaft = Anteil der Karten, die 2× hintereinander richtig waren", () => {
+  const s = E.testStatus([tcard(1, { reps: 2, last_reviewed_at: NOW, last_result: "correct" }), tcard(2, { reps: 1, last_reviewed_at: NOW, last_result: "correct" }), tcard(3, { reps: 0, last_reviewed_at: NOW, last_result: "wrong" }), tcard(4)]);
+  assert.deepEqual([s.total, s.secure, s.seen, s.unseen, s.wrong, s.score], [4, 1, 3, 1, 1, 25]);
+  assert.equal(E.testStatus([tcard(1)]).score, null);
+});
+test("Vokabeltest: Wiederholung spätestens am Tag vor dem Test, frühestens morgen", () => {
+  const testDay = "2026-10-07";
+  const far = new Date(E.startOfDay(NOW) + 10 * DAY).toISOString();
+  assert.equal(new Date(E.testCap(far, testDay, NOW)).getTime(), E.startOfDay(new Date("2026-10-07T00:00:00").getTime()) - DAY);
+  const soon = new Date(E.startOfDay(NOW) + DAY).toISOString();
+  assert.equal(E.testCap(soon, testDay, NOW), soon);
+  const tomorrowTest = new Date(E.startOfDay(NOW) + DAY);
+  assert.equal(new Date(E.testCap(far, tomorrowTest.getTime(), NOW)).getTime(), E.startOfDay(NOW) + DAY);
+});
+test("Liste einfügen: übliche Trenner, Nummerierung, Bindestriche im Wort bleiben", () => {
+  const r = E.parseVocabList("1. la gare – der Bahnhof\nest-ce que\tFrageformel\npeut-être = vielleicht\nréussir ; gelingen; schaffen\n• le copain / la copine - der Freund / die Freundin\n\nnur ein Wort");
+  assert.deepEqual(r.items.map(x => x.begriff), ["la gare", "est-ce que", "peut-être", "réussir", "le copain / la copine"]);
+  assert.deepEqual(r.items.map(x => x.bedeutung), ["der Bahnhof", "Frageformel", "vielleicht", "gelingen; schaffen", "der Freund / die Freundin"]);
+  assert.deepEqual(r.skipped, ["nur ein Wort"]);
+});

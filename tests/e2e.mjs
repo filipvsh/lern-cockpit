@@ -27,10 +27,14 @@ async function open(backend, o = {}) {
   return { ctx, page };
 }
 async function login(page) {
-  await page.waitForSelector("#auth_form");
-  await page.fill("#a_mail", "filip@example.org"); await page.fill("#a_pw", "geheim123");
-  await page.click("#a_go");
-  await page.waitForSelector(".dash", { timeout: 8000 });
+  // Das Anmeldeformular kann direkt nach dem Laden noch einmal neu gezeichnet werden → bei Bedarf erneut ausfüllen
+  for (let i = 0; i < 3; i++) {
+    await page.waitForSelector("#auth_form");
+    await page.fill("#a_mail", "filip@example.org"); await page.fill("#a_pw", "geheim123");
+    await page.click("#a_go");
+    try { await page.waitForSelector(".dash", { timeout: i < 2 ? 6000 : 15000 }); return; }
+    catch (e) { if (i === 2 || !(await page.$("#auth_form"))) throw e; }
+  }
 }
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: SHOTS + "/" + name + ".png", fullPage: true }); };
 const go = async (page, hash) => { await page.evaluate(h => { location.hash = h; }, hash); await page.waitForTimeout(250); };
@@ -120,18 +124,18 @@ await scenario("Vokabeltraining: Richtung, richtig, falsch, Spaced Repetition, L
   const card = b.db.vokabeln.find(v => v.bedeutung.split(",")[0].trim() === prompt || v.bedeutung === prompt);
   assert.ok(card, "Abfrage zeigt die deutsche Seite: " + prompt);
   await page.fill("#va", card.begriff.toUpperCase() + "  "); await page.click("#va_check");
-  await page.waitForSelector(".fb.ok");
+  await page.waitForSelector(".fb.ok"); await page.evaluate(() => Api.idle());
   let row = b.db.vokabeln.find(v => v.id === card.id);
   assert.equal(row.correct_count, 1); assert.ok(row.next_review_at > new Date().toISOString(), "Intervall verlängert");
   assert.ok(b.db.learning_events.some(e => e.type === "vocabulary_correct" && e.vocab_id === card.id && e.detail.direction === "reverse"));
   await page.click("#va_next");
   const prompt2 = (await page.textContent(".term")).trim();
   await page.fill("#va", "völlig falsch"); await page.click("#va_check");
-  await page.waitForSelector(".fb.bad");
+  await page.waitForSelector(".fb.bad"); await page.evaluate(() => Api.idle());
   const wrong = b.db.learning_events.filter(e => e.type === "vocabulary_wrong"); assert.equal(wrong.length, 1);
   const wcard = b.db.vokabeln.find(v => v.id === wrong[0].vocab_id); assert.equal(wcard.interval_days, 0); assert.equal(wcard.incorrect_count, 1);
   // „Ich hatte recht“ korrigiert Ereignis und Planung
-  await page.click("#va_override"); await page.waitForTimeout(200);
+  await page.click("#va_override"); await page.waitForTimeout(200); await page.evaluate(() => Api.idle());
   const fixed = b.db.learning_events.find(e => e.id === wrong[0].id); assert.equal(fixed.type, "vocabulary_correct");
   assert.ok(!b.db.vokabeln.find(v => v.id === wcard.id).alternatives.includes("völlig falsch"), "Richtung DE→FR: französische Antwort wird nicht als deutsche Übersetzung gespeichert");
   assert.ok(b.db.vokabeln.find(v => v.id === wcard.id).interval_days > 0, "nach Korrektur wie „richtig“ geplant");
@@ -249,6 +253,7 @@ await scenario("Offline: Antworten werden gepuffert und nach der Verbindung nach
   await page.evaluate(() => startTraining({ mode: "vocab", count: 5 })); await page.waitForSelector("#va");
   b.offline = true;
   await page.fill("#va", "xyz"); await page.click("#va_check"); await page.waitForSelector(".fb");
+  await page.waitForFunction(() => Api.pending > 0, null, { timeout: 3000 }).catch(() => {});
   const pending = await page.evaluate(() => Api.pending); assert.ok(pending > 0, "Schreibvorgänge gepuffert: " + pending);
   assert.equal(b.db.learning_events.filter(e => e.type.startsWith("vocabulary")).length, 0);
   b.offline = false; await page.evaluate(() => Api.flush()); await page.waitForTimeout(500);
@@ -301,6 +306,63 @@ await scenario("Fortschritt zeigt nur echte Werte und sinnvolle Leerzustände", 
   assert.ok(!/NaN|undefined|Infinity/.test(t));
   assert.ok(t.includes("Noch keine Lernzeit"), "ehrlicher Leerzustand");
   await shot(page, "09-fortschritt");
+  await ctx.close();
+});
+
+await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probetest", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b); await login(page);
+  const testDay = await page.evaluate(() => addDays(todayISO(), 4));
+  await go(page, "#/lernplan"); await page.click("#lp_vt"); await page.waitForSelector("#vt_name");
+  await page.fill("#vt_name", "Voc. 7A p. 222/223"); await page.fill("#vt_date", testDay);
+  await page.click("#vt_save");
+  await page.waitForSelector("#im_txt");
+  const list = ["la rentrée - der Schulbeginn", "le collège - die Gesamtschule", "avoir peur de qc = Angst haben vor etw.", "la cantine\tdie Kantine", "peut-être ; vielleicht", "l'emploi du temps – der Stundenplan", "le/la prof - der/die Lehrer/in", "réussir - schaffen, gelingen", "la récré - die Pause", "nur ein Wort", "la cantine - doppelt"];
+  await page.fill("#im_txt", list.join("\n")); await page.waitForTimeout(300);
+  assert.match(await page.textContent("#im_prev"), /9 Vokabeln erkannt · ist schon drin|9 Vokabeln erkannt/);
+  await shot(page, "vt-01-import");
+  await page.click("#im_go"); await page.waitForSelector("#vt_learn");
+  const k = b.db.klausuren.find(x => /^Vokabeltest: Voc\. 7A/.test(x.thema)); assert.ok(k, "Test gespeichert");
+  assert.equal(k.datum, testDay); assert.equal(k.description, "Vokabeltest");
+  const col = b.db.vocab_collections.find(c => c.name === "Voc. 7A p. 222/223"); assert.ok(col); assert.equal(col.source_language, "fr");
+  assert.deepEqual(k.vokabel_lektionen, [col.name]);
+  const cards = b.db.vokabeln.filter(v => v.collection_id === col.id); assert.equal(cards.length, 9);
+  const t = await page.textContent("#view");
+  assert.ok(t.includes("0 von 9 Vokabeln sitzen"), "ehrliche Bereitschaft");
+  assert.ok(t.includes("3 neue Vokabeln"), "9 Wörter auf 3 Lerntage verteilt");
+  assert.ok(t.includes("Alles wiederholen + Probetest"));
+  await shot(page, "vt-02-detail");
+  // Tagesplan: Test steht oben
+  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
+  assert.ok((await page.textContent(".a-today")).includes("Vokabeltest in 4 Tagen"));
+  assert.ok((await page.textContent(".a-cont")).includes("Voc. 7A p. 222/223"), "Als Nächstes: der Test");
+  // Lernen: Deutsch → Französisch, eine Antwort falsch
+  await go(page, "#/lernplan/" + k.id); await page.click("#vt_learn"); await page.waitForSelector("#va");
+  let n = 0, wrongDone = false;
+  while (n++ < 20) {
+    const st = await page.evaluate(() => { const it = TS && TS.status === "active" && Engine.current(TS); if (!it) return null; const c = cardById(it.vocab_id); return { ans: c.begriff, prompt: Engine.vocabSides(c, it.direction).prompt }; });
+    if (!st) break;
+    await page.fill("#va", wrongDone ? st.ans.split(" / ")[0].replace("le/la ", "le ") : "falsch"); wrongDone = true;
+    await page.click("#va_check"); await page.click("#va_next");
+  }
+  await page.waitForSelector(".fx-done");
+  const sum = await page.textContent("#fxStage");
+  assert.ok(sum.includes("Noch üben"), "falsche Wörter mit Lösung"); assert.ok(sum.includes("Bis zum Test"));
+  await shot(page, "vt-03-summary");
+  const ev = b.db.learning_events.filter(e => e.vocab_id && cards.some(c => c.id === e.vocab_id));
+  assert.equal(ev.filter(e => e.type === "vocabulary_correct").length, 2 , "2 richtig");
+  const reviewed = b.db.vokabeln.filter(v => v.collection_id === col.id && v.last_reviewed_at);
+  assert.equal(reviewed.length, 3, "heute nur der Tagesanteil");
+  const cap = await page.evaluate(d => new Date(d + "T00:00:00").getTime() - 864e5, testDay);
+  assert.ok(reviewed.every(v => new Date(v.next_review_at).getTime() <= cap), "Wiederholung spätestens am Vortag");
+  const sess = b.db.training_sessions.find(s => String(s.exam_id) === String(k.id)); assert.equal(sess.mode, "vocab");
+  // Probetest: alle Wörter, Zeitlimit, ohne Rückmeldung
+  await page.click("#sm_close").catch(() => {}); await page.waitForTimeout(200);
+  await go(page, "#/lernplan/" + k.id); await page.click("#vt_probe"); await page.click("#pm_go"); await page.waitForSelector("#va");
+  assert.ok(await page.evaluate(() => TS.mode === "exam" && TS.items.length === 9 && !TS.feedback && TS.time_limit_s > 0));
+  for (let i = 0; i < 9; i++) { await page.fill("#va", "x"); await page.click("#va_check"); }
+  await page.waitForSelector(".fx-done");
+  assert.ok((await page.textContent("#fxStage")).includes("Probetest"));
+  assert.ok(await page.evaluate(() => TS.items.length === 9), "keine Wiederholungen im Probetest");
   await ctx.close();
 });
 

@@ -179,10 +179,22 @@ function collectionMastery(colId) {
   return Engine.vocabStats(cards, Date.now()).mastery;
 }
 function linkedCollections(k) {
-  const names = (k.vokabel_lektionen || []).map(x => String(x).toLowerCase());
+  const loc = (!k.vokabel_lektionen || !k.vokabel_lektionen.length) ? lsGet("lc_kl_" + k.id, {}).vokabel_lektionen : null;
+  const names = (loc || k.vokabel_lektionen || []).map(x => String(x).toLowerCase());
   return ES.collections.filter(c => names.includes(c.name.toLowerCase()));
 }
+/* ---------------- Vokabeltests (Prüfung mit fester Sammlung, z. B. „Voc. 7A p. 222/223“) ---------------- */
+const VT_PREFIX = "Vokabeltest: ";
+const isVocabTest = k => !!k && (k.description === "Vokabeltest" || /^vokabeltest\b/i.test(k.thema || ""));
+const vtName = k => String(k.thema || "").replace(/^vokabeltest:?\s*/i, "") || "Vokabeltest";
+const upcomingTests = () => upcomingKL().filter(isVocabTest);
+const testCards = k => { const ids = linkedCollections(k).map(c => c.id); return STATE.vo.filter(v => ids.includes(v.collection_id)); };
+function testStatusOf(k) { return memo("ts:" + k.id, () => Engine.testStatus(testCards(k))); }
+function testQueueOf(k) { return memo("tq:" + k.id, () => Engine.testQueue(testCards(k), { now: Date.now(), daysLeft: daysUntil(k.datum) })); }
+/** Anstehender Test, zu dem diese Sammlung gehört (für die Begrenzung der Wiederholungsabstände) */
+const testForCollection = colId => upcomingTests().find(k => linkedCollections(k).some(c => c.id === colId)) || null;
 function readinessOf(k) {
+  if (isVocabTest(k)) return memo("r:" + k.id, () => { const s = testStatusOf(k); return { score: s.score, total: s.total, withData: s.seen, secure: s.secure, test: true }; });
   return memo("r:" + k.id, () => Engine.examReadiness(subsOfExam(k.id), id => masteryOf(id).score, linkedCollections(k).map(c => collectionMastery(c.id))));
 }
 function minutesTodayFor(pred) {
@@ -209,23 +221,39 @@ const budgetMinutes = () => (ES.profile && ES.profile.daily_minutes) || 30;
 function todayPlan(forceNew) {
   const key = "lc_plan_" + todayISO();
   let plan = forceNew ? null : lsGet(key, null);
-  if (!plan || plan.v !== 3) {
-    const focus = focusCollections(); const fresh = STATE.vo.filter(v => Engine.isNew(v) && (!focus || focus.includes(v.collection_id))).length;
-    const p = Engine.dailyPlan({ budgetMin: budgetMinutes(), vocabDue: vocabDue(), vocabNew: fresh, priorities: priorities(), troubleCount: troubleCards().length + troubleExercises().length });
-    plan = { v: 3, budget: p.budget, items: p.items.map(i => ({ key: i.key, kind: i.kind, minutes: i.minutes, title: i.title, sub: i.sub, reasons: i.reasons, subtopic_id: i.ref ? i.ref.subtopic.id : null })) };
+  if (!plan || plan.v !== 4) {
+    // Sammlungen eines anstehenden Vokabeltests plant der Test selbst
+    const tcols = new Set(upcomingTests().flatMap(k => linkedCollections(k).map(c => c.id)));
+    const focus = focusCollections(); const fresh = STATE.vo.filter(v => Engine.isNew(v) && !tcols.has(v.collection_id) && (!focus || focus.includes(v.collection_id))).length;
+    const p = Engine.dailyPlan({ budgetMin: budgetMinutes(), vocabDue: vocabDue().filter(x => !tcols.has(x.id)), vocabNew: fresh, priorities: priorities(), troubleCount: troubleCards().length + troubleExercises().length });
+    plan = { v: 4, budget: p.budget, items: p.items.map(i => ({ key: i.key, kind: i.kind, minutes: i.minutes, title: i.title, sub: i.sub, reasons: i.reasons, subtopic_id: i.ref ? i.ref.subtopic.id : null })) };
     lsSet(key, plan);
   }
+  // Vokabeltests stehen immer oben und werden live berechnet (nicht im Tages-Cache)
+  const tests = upcomingTests().map(testPlanItem).filter(Boolean);
+  plan = Object.assign({}, plan, { items: tests.concat(plan.items.filter(i => i.kind !== "test")) });
   // Reihenfolge bleibt stabil; Begründungen und Fortschritt sind immer aktuell
   const prio = priorities();
   plan.items.forEach(i => {
     if (i.kind === "subtopic") { const p = prio.find(x => x.subtopic.id === i.subtopic_id); const st = subById(i.subtopic_id); if (p) i.reasons = p.reasons; if (st) i.title = st.title; }
-    i.doneMin = i.kind === "vocab" ? minutesTodayFor(s => s.mode === "vocab" && s.status === "completed")
+    if (i.kind === "test") return;
+    i.doneMin = i.kind === "vocab" ? minutesTodayFor(s => s.mode === "vocab" && s.status === "completed" && s.exam_id == null)
       : i.kind === "errors" ? minutesTodayFor(s => s.mode === "errors")
       : minutesTodayFor(s => s.subtopic_id === i.subtopic_id);
     if (i.kind === "vocab" && !vocabDue().length && i.doneMin > 0) i.doneMin = Math.max(i.doneMin, i.minutes);
     i.done = i.doneMin >= i.minutes * 0.8;
   });
   return plan;
+}
+function testPlanItem(k) {
+  const cards = testCards(k); if (!cards.length) return null;
+  const d = daysUntil(k.datum); const q = testQueueOf(k); const st = testStatusOf(k);
+  const fresh = q.filter(Engine.isNew).length, rev = q.length - fresh;
+  const doneMin = minutesTodayFor(s => String(s.exam_id) === String(k.id));
+  const when = d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen";
+  return { key: "test:" + k.id, kind: "test", exam_id: k.id, minutes: Math.max(5, Math.min(25, Math.ceil(Math.max(q.length, 1) * 0.4))),
+    title: vtName(k), sub: "Vokabeltest " + when + " · " + (q.length ? (fresh ? fresh + " neue" : "") + (fresh && rev ? " + " : "") + (rev ? rev + " Wiederholungen" : "") : "für heute erledigt") + " · " + st.secure + " von " + st.total + " sitzen",
+    reasons: [d <= 1 ? "Letzte Runde: alle Wörter noch einmal" : "Verteilt bis zum Test"], doneMin, done: !q.length };
 }
 /** Schwachstellen: geübte Unterthemen unter 70 % und Sammlungen mit Fehlerkarten */
 function weakSpots(limit) {
