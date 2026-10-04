@@ -60,7 +60,7 @@ function vocabItem(c, dir) { return { kind: "vocab", key: "v:" + c.id, vocab_id:
 function topicItemsFor(st, max) { return Engine.buildTopicItems(st, topicById(st.topic_id), ES.exercises, lastExerciseResult, max); }
 /** cfg: {mode, collection_id, subtopic_id, exam_id, topic_id, direction, count, minutes, ref, label} */
 function buildSessionFromConfig(cfg) {
-  const now = Date.now(); const dir = cfg.direction || "forward"; const count = +cfg.count || 20; let testKind = null, sessDir = null;
+  const now = Date.now(); const dir = cfg.direction || "forward"; const count = +cfg.count || 20; let testKind = null, sessDir = null, round = null, extraRound = false;
   let items = [], label = "", scope = {}, timeLimitS = null, feedback = true, hints = true;
   const col = cfg.collection_id ? colById(cfg.collection_id) : null;
   const st = cfg.subtopic_id ? subById(cfg.subtopic_id) : null;
@@ -68,14 +68,19 @@ function buildSessionFromConfig(cfg) {
   const focus = focusCollections();
   const pool = col ? cardsOf(col.id) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : STATE.vo;
   if (cfg.mode === "vocab") {
-    let q = Engine.buildVocabQueue(pool, { now, limit: count, mode: "review" });
-    if (!q.length) { q = Engine.buildVocabQueue(pool, { now, limit: count, mode: "review", allowAhead: true }); label = " · vorgezogen"; }
-    items = q.map(c => vocabItem(c, dir));
-    label = (col ? col.name : "Fällige Vokabeln") + label; scope = { collection_id: col ? col.id : null, subject: col ? langName(col.source_language) : null };
+    let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: Math.min(Engine.ROUND.maxNew, newLeftToday()) });
+    if (!q.length || cfg.extra) {
+      // Freiwillige Zusatzrunde: die Wörter, die du am ehesten vergisst
+      q = pool.filter(v => !Engine.isNew(v)).map(v => [v, Engine.recallProbability(v, now)]).sort((a, b) => a[1] - b[1]).slice(0, 10).map(x => x[0]);
+      label = " · Zusatzrunde"; extraRound = true;
+    }
+    round = Engine.buildRound(q, { direction: dir }); items = round.items;
+    label = (col ? col.name : "Vokabeln") + label; scope = { collection_id: col ? col.id : null, subject: col ? langName(col.source_language) : null };
   } else if (cfg.mode === "errors") {
     const cards = Engine.buildVocabQueue(pool, { mode: "errors", limit: count });
     const exItems = troubleExercises().filter(e => !st || e.subtopic_id === st.id).slice(0, 8).map(e => { const s = subById(e.subtopic_id); return Engine.exerciseItem(e, s, s && topicById(s.topic_id)); });
-    items = cards.map(c => vocabItem(c, dir)).concat(exItems);
+    round = Engine.buildRound(cards, { direction: dir });
+    items = round.items.concat(exItems);
     label = "Fehlertraining" + (col ? " · " + col.name : ""); scope = { collection_id: col ? col.id : null };
   } else if (cfg.mode === "topic" && st) {
     items = topicItemsFor(st, +cfg.count || 6);
@@ -103,9 +108,11 @@ function buildSessionFromConfig(cfg) {
     const k = klById(cfg.exam_id); const cards = k ? testCards(k) : [];
     const tdir = cfg.direction || (k ? testDir(k.id) : "reverse");
     if (cfg.mode === "test") {
-      let q = k ? Engine.testQueue(cards, { now, daysLeft: daysUntil(k.datum) }) : [];
-      if (!q.length) { q = Engine.shuffle(cards.filter(c => !Engine.isTestSecure(c))).concat(Engine.shuffle(cards.filter(Engine.isTestSecure))).slice(0, count); label = " · Zusatzrunde"; }
-      items = q.map(c => vocabItem(c, tdir));
+      let q = k ? Engine.testQueue(cards, { now, daysLeft: daysUntil(k.datum), testDay: testDayMs(k) }) : [];
+      // Höchstens ROUND.maxNew neue Wörter pro Runde – der Rest kommt in der nächsten Runde
+      let nNew = 0; q = q.filter(c => !Engine.isNew(c) || nNew++ < Engine.ROUND.maxNew).slice(0, Engine.ROUND.maxCards);
+      if (!q.length) { q = cards.filter(c => !Engine.isNew(c)).map(v => [v, Engine.recallProbability(v, testDayMs(k))]).sort((a, b) => a[1] - b[1]).slice(0, 10).map(x => x[0]); label = " · Zusatzrunde"; extraRound = true; }
+      round = Engine.buildRound(q, { direction: tdir }); items = round.items;
     } else {
       items = Engine.shuffle(cards).slice(0, 80).map(c => vocabItem(c, tdir));
       timeLimitS = (+cfg.minutes || 15) * 60; feedback = false; hints = false;
@@ -120,6 +127,11 @@ function buildSessionFromConfig(cfg) {
   const mode = cfg.mode === "test" ? "vocab" : cfg.mode === "testexam" ? "exam" : cfg.mode;
   const s = Engine.createSession({ mode, items, label, direction: sessDir || dir, timeLimitS, feedback, hints, scope, now });
   if (testKind) s.test = testKind;
+  if (round) {
+    s.round = true; s.prog = round.prog; s.extra = extraRound;
+    s.cfg = Object.assign({}, cfg, { force: undefined, extra: undefined });
+    s.stageBefore = {}; Object.keys(round.prog).forEach(id => { const c = cardById(id); if (c) s.stageBefore[id] = Engine.stageOf(c).n; });
+  }
   s.masteryBefore = {}; items.forEach(i => { if (i.subtopic_id) s.masteryBefore[i.subtopic_id] = masteryOf(i.subtopic_id).score; });
   s.planKey = cfg.planKey || null;
   return s;
@@ -187,7 +199,6 @@ document.addEventListener("visibilitychange", () => {
 });
 
 /* ---------------- Antworten auswerten ---------------- */
-const cardById = id => STATE.vo.find(v => String(v.id) === String(id));
 function evBase(item) {
   const st = item.subtopic_id ? subById(item.subtopic_id) : null; const ex = st ? examOfSub(st) : null;
   return { session_id: TS.id, subtopic_id: item.subtopic_id || null, topic_id: item.topic_id || (st && st.topic_id) || null, exam_id: ex ? ex.id : (TS.scope.exam_id ?? null), subject: ex ? ex.fach : (TS.scope.subject || null) };
@@ -195,21 +206,20 @@ function evBase(item) {
 /** Vokabel: SRS + Lernereignis (nur erster Versuch je Karte und Session) */
 const SRS_FIELDS = ["reps", "ease", "interval_days", "lapses", "next_review_at", "last_reviewed_at", "last_result", "correct_count", "incorrect_count", "mastery", "difficulty", "level", "next"];
 /** SRS-Planung; gehört die Karte zu einem anstehenden Vokabeltest, kommt sie spätestens am Vortag wieder */
-function srsFor(card, verdict) {
-  const now = Date.now(); const patch = Engine.srsSchedule(card, verdict, now);
+function srsFor(card, verdict, retry) {
   const k = testForCollection(card.collection_id);
-  if (k && verdict !== "wrong") patch.next_review_at = Engine.testCap(patch.next_review_at, k.datum + "T00:00:00", now);
-  return patch;
+  return Engine.srsSchedule(card, verdict, Date.now(), { retry: !!retry, cap: k ? new Date(k.datum + "T00:00:00").getTime() - Engine.DAY : null });
 }
 function applyVocabResult(card, verdict, given, item) {
-  if (item.retry) return null;
   const prev = {}; SRS_FIELDS.forEach(k => prev[k] = card[k]);
-  const patch = srsFor(card, verdict);
+  const fresh = Engine.isNew(card);
+  const patch = srsFor(card, verdict, item.retry);
   dbPatch("vokabeln", card.id, Object.assign({}, patch, { level: Math.min(5, patch.reps), next: patch.next_review_at.slice(0, 10) }));
+  if (item.retry) return { prev, eventId: null };   // Wiederholung in der Runde: Gedächtnis ja, Statistik nein
   const col = colById(card.collection_id);
   const ev = logEvent({ type: verdict === "wrong" ? "vocabulary_wrong" : "vocabulary_correct", result: verdict === "correct" ? 1 : verdict === "almost" ? 0.75 : 0, vocab_id: card.id, session_id: TS.id,
     subject: col ? langName(col.source_language) : null, difficulty: patch.difficulty,
-    detail: { given: String(given || "").slice(0, 200), expected: Engine.vocabSides(card, item.direction).answer, direction: item.direction, verdict, format: item.kind } });
+    detail: { given: String(given || "").slice(0, 200), expected: Engine.vocabSides(card, item.direction).answer, direction: item.direction, verdict, format: item.kind, fresh } });
   logAdd("vokabel", 1, 0, card.sprache || (col && col.name) || "");   // Tageszähler/Streak (Kompatibilität)
   return { prev, eventId: ev.id };
 }
@@ -258,7 +268,13 @@ function stageHead(item) {
   if (item.subtopic_id) { const st = subById(item.subtopic_id), t = st && topicById(st.topic_id), ex = st && examOfSub(st); ctx = (ex ? ex.fach + " · " : "") + (t ? t.title : ""); }
   else if (item.vocab_id || item.vocab_ids) { const c = cardById(item.vocab_id || item.vocab_ids[0]); const col = c && colById(c.collection_id); ctx = (col ? col.name + " · " : "") + dirLabel(col, item.direction); }
   const title = item.subtopic_id ? (subById(item.subtopic_id) || {}).title || "" : "";
-  return '<div class="fx-ctx">' + esc(ctx) + '</div>' + (title ? '<h1 class="fx-title">' + esc(title) + '</h1>' : '') + '<div class="fx-progress">' + progBar(TS.index / total * 100) + '<span>' + n + ' von ' + total + (item.retry ? ' · Wiederholung' : '') + '</span></div>';
+  let prog = '<div class="fx-progress">' + progBar(TS.index / total * 100) + '<span>' + n + ' von ' + total + (item.retry ? ' · Wiederholung' : '') + '</span></div>';
+  if (TS.round && (item.kind === "vocab" || item.kind === "vocab_study")) {
+    // Runde: Fortschritt = richtige Antworten aus dem Kopf bis zum Ziel → klares Ende
+    const rp = Engine.roundProgress(TS);
+    prog = '<div class="fx-progress" title="Neue Wörter brauchen 3 richtige Antworten, Wiederholungen eine">' + progBar(rp.need ? rp.got / rp.need * 100 : 0) + '<span>' + (rp.left ? "noch " + rp.left + "× richtig" : "geschafft") + ' · ' + rp.doneWords + ' von ' + rp.words + ' Wörtern</span></div>';
+  }
+  return '<div class="fx-ctx">' + esc(ctx) + '</div>' + (title ? '<h1 class="fx-title">' + esc(title) + '</h1>' : '') + prog;
 }
 function renderSessionStage() {
   if (!document.getElementById("fxStage") || !TS) return;
@@ -269,7 +285,7 @@ function renderSessionStage() {
   if (TS.status === "completed" || TS.status === "abandoned") return renderSummary();
   if (TS.mode === "free") return renderFree();
   const item = Engine.current(TS); if (!item) { tsFinish("completed"); return; }
-  if (item.kind === "vocab") return renderVocab(item);
+  if (item.kind === "vocab" || item.kind === "vocab_study") return renderVocab(item);
   if (item.kind === "vocab_mc") return renderChoice(item, item.prompt, item.options, item.correct_index, "Welche Übersetzung stimmt?");
   if (item.kind === "vocab_match") return renderMatch(item, item.pairs);
   const ex = item.exercise;
@@ -279,20 +295,46 @@ function renderSessionStage() {
 }
 const feedbackBox = (kind, title, text) => '<div class="fb ' + kind + '"><div class="fb-t">' + (kind === "ok" ? ICO.check : kind === "almost" ? ICO.check : ICO.x) + '<b>' + esc(title) + '</b></div>' + (text ? '<div class="fb-x">' + text + '</div>' : '') + '</div>';
 
-/* Vokabel – Freitext */
+/* Vokabel – neues Wort: ansehen und einmal abschreiben (danach Abruf aus dem Kopf) */
+const diffHtml = (given, expected) => Engine.diffParts(given, expected).map(p => p.ok ? esc(p.text) : '<mark class="dif">' + esc(p.text) + '</mark>').join("");
+function copyField(answers, label) { return '<input id="vc" class="answer-input copy" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(label) + '" value="' + esc(UI.copy || "") + '">'; }
+function bindCopy(answers, lang, onOk) {
+  const inp = document.getElementById("vc"); if (!inp) return;
+  const test = () => { UI.copy = inp.value; const ok = Engine.checkAnswer(inp.value, answers, lang).verdict === "correct"; inp.classList.toggle("ok", ok); onOk(ok); };
+  inp.oninput = test; test(); setTimeout(() => inp.focus(), 30);
+}
+function cardExtras(card) {
+  return (card.example_sentence ? '<div class="t-sub" style="margin-top:var(--s3)">' + esc(card.example_sentence) + '</div>' : '') +
+    (card.notes ? '<div class="hint-it" style="margin-top:var(--s3)"><div class="kind">Merkhilfe</div>' + esc(card.notes) + '</div>' : '');
+}
+function renderStudy(item) {
+  const card = cardById(item.vocab_id); if (!card) { nextItem(); return; }
+  const s = Engine.vocabSides(card, item.direction);
+  setStage(stageHead(item) + '<div class="fx-card"><div class="kind">Neues Wort · einprägen</div><div class="term" style="text-align:center">' + esc(s.prompt) + '</div><div class="study-ans">' + esc(s.answer) + '</div>' + cardExtras(card) + copyField(s.answers, "Einmal abschreiben") + '<div class="t-sub" style="margin-top:var(--s3)">Gleich fragt dich die App danach – dann ohne Vorlage.</div></div>',
+    '<button class="btn plain" id="st_known">Kenne ich schon</button><span class="grow"></span><button class="btn primary lg" id="st_next" disabled>Weiter</button>');
+  const go = () => { Engine.roundAfter(TS, item, "studied"); nextItem(); };
+  bindCopy(s.answers, s.lang, ok => { document.getElementById("st_next").disabled = !ok; });
+  document.getElementById("st_next").onclick = go;
+  document.getElementById("st_known").onclick = go;
+}
+/* Vokabel – Abruf aus dem Kopf (Freitext) */
 function renderVocab(item) {
+  if (item.kind === "vocab_study") return renderStudy(item);
   const card = cardById(item.vocab_id); if (!card) { nextItem(); return; }
   const s = Engine.vocabSides(card, item.direction);
   const fb = UI.phase === "feedback";
+  const mustCopy = fb && TS.feedback && TS.round && UI.check.verdict === "wrong";
   let fbHtml = "";
   if (fb && TS.feedback) {
     const v = UI.check.verdict;
     fbHtml = v === "correct" ? feedbackBox("ok", "Richtig", UI.check.note ? esc(UI.check.note) : (s.answers.length > 1 ? "Auch richtig: " + esc(s.answers.filter(a => a !== Engine.normalize(UI.given)).slice(0, 3).join(" · ")) : ""))
-      : v === "almost" ? feedbackBox("almost", "Fast richtig", esc(UI.check.note))
-      : feedbackBox("bad", "Nicht ganz", "Richtig: <b>" + esc(s.answer) + "</b>" + (UI.check.note ? "<br>" + esc(UI.check.note) : "") + (card.example_sentence ? '<br><span class="t-sub">' + esc(card.example_sentence) + '</span>' : ""));
+      : v === "almost" ? feedbackBox("almost", "Fast richtig", esc(UI.check.note) + (UI.check.expected ? '<br><span class="t-sub">' + diffHtml(UI.given, s.answer) + '</span>' : ""))
+      : feedbackBox("bad", "Nicht ganz", 'Richtig: <b class="dif-ans">' + (UI.given ? diffHtml(UI.given, s.answer) : esc(s.answer)) + '</b>' + (UI.check.note ? "<br>" + esc(UI.check.note) : "") + cardExtras(card) +
+          (mustCopy ? copyField(s.answers, "Tipp die richtige Lösung einmal ab") + '<div class="t-sub" style="margin-top:6px">Das Wort kommt nach ein paar anderen noch einmal – dann aus dem Kopf.</div>' : "") +
+          ((+card.lapses || 0) >= 3 ? '<div class="t-sub" style="margin-top:8px">Hartnäckiges Wort. Eine Eselsbrücke hilft: <button class="linkbtn" id="va_note">Merkhilfe notieren</button></div>' : ""));
   }
-  setStage(stageHead(item) + '<div class="fx-card"><div class="kind">Übersetze</div><div class="term" style="text-align:center">' + esc(s.prompt) + '</div><input id="va" class="answer-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Deine Antwort" value="' + esc(UI.given || "") + '"' + (fb ? " readonly" : "") + '>' + fbHtml + '</div>',
-    fb ? (UI.check.verdict === "wrong" && TS.feedback ? '<button class="btn" id="va_override" title="Wenn deine Antwort auch richtig ist">Ich hatte recht</button>' : '') + '<span class="grow"></span><button class="btn primary lg" id="va_next">Weiter</button>'
+  setStage(stageHead(item) + '<div class="fx-card"><div class="kind">' + (item.retry ? "Noch einmal aus dem Kopf" : "Übersetze") + '</div><div class="term" style="text-align:center">' + esc(s.prompt) + '</div><input id="va" class="answer-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Deine Antwort" value="' + esc(UI.given || "") + '"' + (fb ? " readonly" : "") + '>' + fbHtml + '</div>',
+    fb ? (UI.check.verdict === "wrong" && TS.feedback ? '<button class="btn" id="va_override" title="Wenn deine Antwort auch richtig ist">Ich hatte recht</button>' : '') + '<span class="grow"></span><button class="btn primary lg" id="va_next"' + (mustCopy ? " disabled" : "") + '>Weiter</button>'
        : '<button class="btn plain" id="va_skip">Weiß ich nicht</button><span class="grow"></span><button class="btn primary lg" id="va_check">Antwort prüfen</button>');
   const inp = document.getElementById("va");
   if (!fb) {
@@ -303,7 +345,7 @@ function renderVocab(item) {
       const v = UI.check.verdict;
       UI.undo = applyVocabResult(card, v, given, item);
       record(v === "correct" ? 1 : v === "almost" ? 0.75 : 0, { verdict: v, given });
-      if (v === "wrong" && TS.feedback) Engine.requeue(TS, 4);
+      if (TS.feedback) { if (TS.round) Engine.roundAfter(TS, item, v === "wrong" ? "wrong" : "correct"); else if (v === "wrong") Engine.requeue(TS, 4); }
       tsSave();
       if (!TS.feedback) nextItem(); else renderVocab(item);
     };
@@ -311,18 +353,21 @@ function renderVocab(item) {
     document.getElementById("va_skip").onclick = () => check("");
   } else {
     document.getElementById("va_next").onclick = nextItem;
+    if (mustCopy) bindCopy(s.answers, s.lang, ok => { document.getElementById("va_next").disabled = !ok; });
+    const nb = document.getElementById("va_note"); if (nb) nb.onclick = () => vocabModal(card);
     const ov = document.getElementById("va_override");
     if (ov) ov.onclick = () => {
       // Korrektur durch den Nutzer: zählt als richtig. Zustand vor der Antwort wird wiederhergestellt,
       // dann normal als „richtig“ geplant; das Fehler-Ereignis wird korrigiert, die Antwort als Alternative gespeichert.
       const last = TS.answers[TS.answers.length - 1]; if (last) { last.result = 1; last.verdict = "override"; }
       const req = TS.items.findIndex((x, i) => i > TS.index && x.retry && x.key === item.key); if (req > 0) TS.items.splice(req, 1);
+      if (TS.round && TS.prog[item.vocab_id]) { TS.prog[item.vocab_id].wrong = Math.max(0, TS.prog[item.vocab_id].wrong - 1); Engine.roundAfter(TS, item, "correct"); }
       const alt = String(UI.given || "").trim();
       if (UI.undo) {
-        const patch = srsFor(Object.assign({}, card, UI.undo.prev), "correct");
+        const patch = srsFor(Object.assign({}, card, UI.undo.prev), "correct", item.retry);
         const alts = item.direction !== "reverse" && alt && !card.alternatives.includes(alt) ? card.alternatives.concat([alt]) : card.alternatives;
         dbPatch("vokabeln", card.id, Object.assign({}, patch, { level: Math.min(5, patch.reps), next: patch.next_review_at.slice(0, 10), alternatives: alts }));
-        dbPatch("learning_events", UI.undo.eventId, { type: "vocabulary_correct", result: 1, detail: { given: alt, override: true, direction: item.direction } });
+        if (UI.undo.eventId) dbPatch("learning_events", UI.undo.eventId, { type: "vocabulary_correct", result: 1, detail: { given: alt, override: true, direction: item.direction } });
       }
       tsSave(); toast("Als richtig gewertet" + (item.direction !== "reverse" && UI.given ? " · Antwort als Alternative gespeichert" : "")); nextItem();
     };
@@ -495,6 +540,7 @@ function renderSummary() {
   const changes = subs.map(id => ({ st: subById(id), before: TS.masteryBefore[id], after: masteryOf(id).score })).filter(x => x.st);
   const plan = todayPlan(); const nextPlan = plan.items.find(i => !i.done && i.key !== TS.planKey);
   const mins = Math.max(0, Math.round(sum.activeSeconds / 60));
+  if (TS.round && TS.status === "completed") return renderRoundSummary(sum, mins);
   setStage('<div class="fx-done"><div class="eyebrow">' + esc(modeName()) + ' · ' + esc(TS.label) + (TS.status === "abandoned" ? " · vorzeitig beendet" : "") + '</div>' +
     (TS.mode === "free" ? '<div class="num" style="margin:var(--s5) 0 var(--s2)">' + mins + '<span class="t-title" style="color:var(--text-3)"> Min.</span></div><div class="t-headline">konzentriert gelernt</div>'
       : sum.graded ? '<div class="num" style="margin:var(--s5) 0 var(--s2)">' + Math.round(sum.score * 100) + '<span class="t-title" style="color:var(--text-3)"> %</span></div><div class="t-headline">' + sum.correct + ' richtig · ' + (sum.partial ? sum.partial + ' teilweise · ' : '') + sum.wrong + ' falsch</div><p class="lead" style="margin:var(--s3) auto 0">' + mins + ' Minuten · ' + sum.answered + ' von ' + sum.total + ' Aufgaben</p>'
@@ -511,8 +557,33 @@ function testReviewList() {
   const k = klById(TS.scope.exam_id); const st = k ? testStatusOf(k) : null;
   const wrong = TS.answers.filter(a => !a.retry && a.verdict === "wrong").map(a => { const it = TS.items[a.index]; const c = it && cardById(it.vocab_id); if (!c) return ""; const sd = Engine.vocabSides(c, it.direction);
     return '<div class="meter"><span class="mt-l" style="white-space:normal">' + esc(sd.prompt) + '<span class="mt-s">' + (a.given ? "deine Antwort: " + esc(a.given) : "keine Antwort") + '</span></span><span class="mt-v" style="color:var(--text)">' + esc(sd.answer) + '</span></div>'; }).filter(Boolean);
-  return (st ? '<div class="card tight" style="margin-top:var(--s6)"><h2>Bis zum Test</h2><div class="meter"><span class="mt-l">' + st.secure + ' von ' + st.total + ' Vokabeln sitzen<span class="mt-s">' + (daysUntil(k.datum) > 0 ? "noch " + plural(daysUntil(k.datum), "Tag", "Tage") + " · " : "") + (st.unseen ? st.unseen + " noch nicht abgefragt" : "alle schon abgefragt") + '</span></span><span class="mt-v">' + (st.score || 0) + ' %</span>' + progBar(st.score || 0, (st.score || 0) < 60 ? "o" : "") + '</div></div>' : '') +
+  return (st ? '<div class="card tight" style="margin-top:var(--s6)"><h2>Bis zum Test</h2><div class="meter"><span class="mt-l">Erwartete Trefferquote im Test<span class="mt-s">' + st.secure + ' von ' + st.total + ' sitzen sicher · ' + (daysUntil(k.datum) > 0 ? "noch " + plural(daysUntil(k.datum), "Tag", "Tage") + " · " : "") + (st.unseen ? st.unseen + " noch nicht gelernt" : "alle schon gelernt") + '</span></span><span class="mt-v">' + (st.expected || 0) + ' %</span>' + progBar(st.expected || 0, (st.expected || 0) < 60 ? "o" : "") + '</div></div>' : '') +
     (wrong.length ? '<div class="card tight" style="margin-top:var(--s4)"><h2>Noch üben <span class="count">' + wrong.length + '</span></h2>' + wrong.join("") + '</div>' : '');
+}
+/** Ende einer Lernrunde: was geschafft ist, was sich im Gedächtnis verändert hat, wie es weitergeht */
+function renderRoundSummary(sum, mins) {
+  const ids = Object.keys(TS.prog || {}); const cards = ids.map(cardById).filter(Boolean);
+  const up = cards.filter(c => Engine.stageOf(c).n > (TS.stageBefore[c.id] || 0)).length;
+  const fresh = ids.filter(id => TS.prog[id].fresh).length;
+  const firstWrong = ids.filter(id => TS.prog[id].wrong > 0).length;
+  const k = TS.test ? klById(TS.scope.exam_id) : null; const col = TS.scope.collection_id ? colById(TS.scope.collection_id) : null;
+  const pool = k ? testCards(k) : col ? cardsOf(col.id) : STATE.vo;
+  const day = k ? { open: testQueueOf(k).length, tomorrow: 0 } : dayStatus(pool);
+  const stages = ["new", "learning", "short", "mid", "long"]; const names = { new: "Neu", learning: "Lernen", short: "Kurzzeit", mid: "Gefestigt", long: "Langzeit" };
+  const cnt = {}; pool.forEach(v => { const st = Engine.stageOf(v).key; cnt[st] = (cnt[st] || 0) + 1; });
+  const ladder = '<div class="ladder">' + stages.map(st => '<div class="rung ' + st + '"><b>' + (cnt[st] || 0) + '</b><span>' + names[st] + '</span></div>').join("") + '</div>';
+  const nextTxt = day.open ? "Heute ist noch etwas offen: " + plural(day.open, "Wort", "Wörter") + "."
+    : k ? "Für heute bist du mit diesem Test fertig. Morgen geht es weiter."
+    : "Fertig für heute. " + (day.tomorrow ? "Morgen " + (day.tomorrow === 1 ? "kommt 1 Wort" : "kommen " + day.tomorrow + " Wörter") + " wieder dran." : day.nextAt ? "Die nächste Wiederholung ist am " + new Date(day.nextAt).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }) + "." : "");
+  setStage('<div class="fx-done"><div class="done-mark">' + ICO.check + '</div><div class="eyebrow">' + esc(modeName()) + ' · ' + esc(TS.label) + '</div><h2 class="fx-title" style="margin-top:var(--s3)">' + (TS.extra ? "Zusatzrunde geschafft" : "Runde geschafft") + '</h2>' +
+    '<p class="lead" style="margin:var(--s3) auto 0">' + plural(ids.length, "Wort", "Wörter") + (fresh === ids.length ? ' – jedes 3× richtig aus dem Kopf. ' : fresh ? ' – neue 3×, Wiederholungen 1× richtig aus dem Kopf. ' : ' – jedes richtig aus dem Kopf. ') + mins + ' Min.</p>' +
+    '<div class="t-headline" style="margin-top:var(--s4)">' + (ids.length - firstWrong) + ' beim ersten Versuch richtig · ' + firstWrong + ' nachgelernt' + (up ? ' · ' + plural(up, "Wort", "Wörter") + ' eine Stufe höher' : '') + '</div></div>' +
+    '<div class="card tight" style="margin-top:var(--s6)"><h2>' + esc(k ? vtName(k) : col ? col.name : "Alle Vokabeln") + ' im Gedächtnis</h2>' + ladder + '<p class="t-sub" style="margin-top:var(--s3)">' + esc(nextTxt) + '</p></div>' +
+    (TS.test ? testReviewList() : ''),
+    '<button class="btn" id="sm_close">Schließen</button><span class="grow"></span>' + (day.open ? '<button class="btn primary lg" id="sm_again">' + ICO.play + 'Nächste Runde</button>' : '<button class="btn primary lg" id="sm_done">Fertig</button>'));
+  document.getElementById("sm_close").onclick = leaveTrainer;
+  const d = document.getElementById("sm_done"); if (d) d.onclick = leaveTrainer;
+  const a = document.getElementById("sm_again"); if (a) a.onclick = () => { const cfg = TS.cfg; TS = null; UI = {}; tsSave(); startTraining(Object.assign({}, cfg, { force: true })); };
 }
 function examReviewList() {
   const rows = TS.answers.filter(a => !a.retry).map(a => { const it = TS.items[a.index]; const q = it.kind === "exercise" ? it.exercise.question : it.kind === "vocab_match" ? "Zuordnung" : it.prompt || (cardById(it.vocab_id) || {}).begriff; return '<div class="meter"><span class="mt-l" style="white-space:normal">' + esc(String(q).slice(0, 140)) + '</span><span class="mt-v">' + (a.result == null ? "—" : Math.round(a.result * 100) + " %") + '</span></div>'; }).join("");
