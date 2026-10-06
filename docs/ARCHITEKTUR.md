@@ -133,6 +133,37 @@ Die Session wird bei jeder Änderung in `localStorage` gespeichert und an
 Zeit weiter. Im Hintergrund pausieren normale Sessions nach 10 Minuten
 rückwirkend; der Prüfungsmodus läuft weiter wie in einer echten Prüfung.
 
+**Auftrag für heute (Dashboard).** Die App sagt, was heute dran ist, in
+fester Reihenfolge:
+1. Themen festlegen für jede Klausur der nächsten 21 Tage ohne Unterthemen
+   (Themen-Assistent mit typischen EF-Themen je Fach)
+2. Vokabeltests: Lernrunde, am Vortag zusätzlich Probetest
+3. Klausurschritte aus `Engine.examRoadmap`: Probeklausur, Nacharbeiten,
+   Vortag
+4. Übrige Unterthemen, Vokabeln und Fehlertraining aus dem Tagesplan
+
+„Los“ startet den nächsten offenen Schritt. Nach jedem Schritt führt
+„Weiter: …“ direkt zum nächsten. Wer mitten in einem Schritt abbricht, wird
+darauf hingewiesen. Erinnerungen (Benachrichtigung) kommen zur eingestellten
+Uhrzeit und um 20 Uhr, solange der Auftrag offen ist.
+
+**Klausur-Fahrplan (`Engine.examRoadmap`).** Übungstests und verteiltes
+Lernen haben die höchste Wirksamkeit (Dunlosky u. a. 2013):
+- ohne Themen → zuerst festlegen
+- ≥ 5 Tage vorher: üben
+- 4 Tage vorher: Probeklausur unter Zeitdruck (bei weniger Zeit sofort, ab
+  dem Vortag keine mehr)
+- am Tag danach: die schwächsten Bereiche nacharbeiten
+- am Vortag: 20 Minuten locker wiederholen
+
+Probeklausur mit echter Aufgabe (Modus `mock`, gespeichert als `exam`):
+- Aufgabe aus Buch, alter Klausur oder von Claude: Ein Auftrag wird kopiert
+  und claude.ai geöffnet, ohne API-Schlüssel.
+- Zeitlimit, Abgabe, danach Korrektur durch Claude (gleicher Weg) und
+  ehrliche Einschätzung je Thema (gut/teils/schlecht).
+- Die Einschätzung wird als `exam_result` gespeichert (Gewicht 1,5 im
+  Lernstand) und bestimmt, was danach nachgearbeitet wird.
+
 **Vokabeltest (fester Termin).** Ein Vokabeltest ist eine Prüfung in
 `klausuren` (Thema beginnt mit „Vokabeltest:“, `description = 'Vokabeltest'`)
 mit genau einer Sammlung in `vokabel_lektionen`. Keine zusätzliche Migration.

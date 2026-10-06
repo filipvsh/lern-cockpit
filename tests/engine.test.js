@@ -317,3 +317,23 @@ test("Vokabeltest: erwartete Trefferquote = Abrufwahrscheinlichkeit am Testtag",
   const exp = Math.round((E.recallProbability(fresh, testDay) + E.recallProbability(strong, testDay)) / 3 * 100);
   assert.equal(s.expected, exp); assert.ok(s.expected > 50 && s.expected < 70, s.expected);
 });
+
+/* ---------- Klausur-Fahrplan ---------- */
+const kinds = o => E.examRoadmap(o).map(s => s.kind);
+test("Fahrplan: eine Woche vorher, ohne Themen → festlegen, üben, Probeklausur 4 Tage vorher, nacharbeiten, Vortag locker", () => {
+  assert.deepEqual(kinds({ daysLeft: 7, hasTopics: false, mockDoneDaysAgo: null }),
+    ["setup", "learn", "learn", "learn", "mock", "review", "learn", "final", "exam"]);
+});
+test("Fahrplan: wenig Zeit → Probeklausur sofort; am Vortag keine mehr", () => {
+  assert.deepEqual(kinds({ daysLeft: 3, hasTopics: true, mockDoneDaysAgo: null }), ["mock", "review", "final", "exam"]);
+  assert.deepEqual(kinds({ daysLeft: 2, hasTopics: true, mockDoneDaysAgo: null }), ["mock", "final", "exam"]);
+  assert.deepEqual(kinds({ daysLeft: 1, hasTopics: true, mockDoneDaysAgo: null }), ["final", "exam"]);
+});
+test("Fahrplan: Probeklausur geschrieben → am nächsten Tag nacharbeiten, keine zweite", () => {
+  assert.deepEqual(kinds({ daysLeft: 3, hasTopics: true, mockDoneDaysAgo: 1, reviewDone: false }), ["review", "learn", "final", "exam"]);
+  assert.deepEqual(kinds({ daysLeft: 3, hasTopics: true, mockDoneDaysAgo: 1, reviewDone: true }), ["learn", "learn", "final", "exam"]);
+  assert.ok(!E.examRoadmap({ daysLeft: 6, hasTopics: true, mockDoneDaysAgo: 0 }).some(s => s.kind === "mock" && s.day > 0), "keine zweite Probeklausur");
+});
+test("Fahrplan: Probeklausur heute geschrieben → heute abgehakt, morgen nacharbeiten", () => {
+  assert.deepEqual(kinds({ daysLeft: 4, hasTopics: true, mockDoneDaysAgo: 0, reviewDone: false }), ["mock", "review", "learn", "final", "exam"]);
+});
