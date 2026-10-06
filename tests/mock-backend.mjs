@@ -31,6 +31,7 @@ export class MockBackend {
     this.db = o.db || seed();
     this.engine = o.engine !== false;          // Migration 003 vorhanden?
     this.ai = o.ai !== false;                  // Edge Function vorhanden?
+    this.open = !!o.open;                      // Migration 005: ohne Anmeldung (anon = Besitzer)
     this.offline = false;
     this.users = { "filip@example.org": { id: "aaaaaaaa-0000-4000-8000-000000000001", password: "geheim123", name: "Filip" } };
     this.log = [];
@@ -44,7 +45,7 @@ export class MockBackend {
     if (this.offline) return route.abort("internetdisconnected");
     const method = req.method(); let body = null; try { body = JSON.parse(req.postData() || "null"); } catch (e) {}
     const auth = (req.headers()["authorization"] || "").replace("Bearer ", "");
-    const me = this.user(auth);
+    const me = this.user(auth) || (this.open ? Object.values(this.users)[0] : null);
     const json = (status, data, headers) => route.fulfill({ status, contentType: "application/json", headers: headers || {}, body: data === undefined ? "" : JSON.stringify(data) });
     this.log.push(method + " " + u.pathname + u.search);
     // ---- Auth
@@ -68,7 +69,7 @@ export class MockBackend {
     if (u.pathname.startsWith("/rest/v1/rpc/")) {
       const fn = u.pathname.slice(13);
       if (!this.engine) return json(404, { code: "PGRST202", message: "Could not find the function" });
-      if (fn === "lern_engine_version") return json(200, 3);
+      if (fn === "lern_engine_version") return json(200, this.open ? 5 : 3);
       if (fn === "claim_legacy_data") { if (!me) return json(401, { code: "42501" }); const r = {}; Object.keys(this.db).forEach(t => { if (NEW_TABLES.includes(t)) return; let c = 0; this.db[t].forEach(x => { if (!x.user_id) { x.user_id = me.id; c++; } }); if (c) r[t] = c; }); if (!this.db.profiles.length) this.db.profiles.push({ id: me.id, email: "filip@example.org", name: me.name, daily_minutes: 30 }); return json(200, r); }
       return json(404, {});
     }

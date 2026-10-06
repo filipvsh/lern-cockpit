@@ -404,7 +404,7 @@ window.addEventListener("hashchange", () => { closeModal(); const prev = ROUTE.n
 window.addEventListener("resize", debounce(() => { if (ROUTE.name === "stundenplan") route(); }, 200));
 Api.on("outbox", () => { if (!document.getElementById("mbg") && !document.body.classList.contains("focus") && ["dashboard", "vokabeln", "trainer"].includes(ROUTE.name)) { const n = document.querySelector("#view .notice"); if (n || Api.pending === 0) route(); } });
 Api.on("auth", s => {
-  if (s || STATE.engine !== "ready" || STATE.needAuth) return;
+  if (s || STATE.open || STATE.engine !== "ready" || STATE.needAuth) return;
   if (Api.hasAccess()) { init(true); return; }   // Sitzung abgelaufen → mit dem Zugangslink neu anmelden
   STATE.needAuth = true; route();
 });
@@ -422,14 +422,17 @@ async function init(silent) {
     try { version = await Api.rpc("lern_engine_version"); }
     catch (e) { if (e.network) throw e; version = 0; }
     STATE.engine = version >= 3 ? "ready" : "missing"; STATE.engineVersion = version;
+    // Ab Version 5 (Migration 005) gibt es keine Anmeldung mehr: alle Zugriffe laufen ohne Konto
+    STATE.open = version >= 5; Api.setOpen(STATE.open);
+    if (STATE.open && Api.session) Api.dropSession();
     // Zugangslink: mit dem gespeicherten Schlüssel automatisch anmelden
-    if (STATE.engine === "ready" && !Api.session && Api.hasAccess()) {
+    if (STATE.engine === "ready" && !STATE.open && !Api.session && Api.hasAccess()) {
       try { await Api.accessLogin(); }
       catch (e) { if (e.network) throw e; if (e.accessInvalid) toast("Dieser Zugangslink gilt nicht mehr – es wurde ein neuer erstellt. Öffne den neuen Link oder melde dich an.", true); }
     }
-    if (STATE.engine === "ready" && !Api.session) { STATE.needAuth = true; STATE.loaded = true; route(); return; }
+    if (STATE.engine === "ready" && !STATE.open && !Api.session) { STATE.needAuth = true; STATE.loaded = true; route(); return; }
     STATE.needAuth = false;
-    if (STATE.engine === "ready") { try { const c = await Api.rpc("claim_legacy_data"); if (c && Object.keys(c).length && !c.skipped) console.info("Altdaten übernommen", c); } catch (e) { console.warn("Übernahme", e); } }
+    if (STATE.engine === "ready" && !STATE.open) { try { const c = await Api.rpc("claim_legacy_data"); if (c && Object.keys(c).length && !c.skipped) console.info("Altdaten übernommen", c); } catch (e) { console.warn("Übernahme", e); } }
     await loadAll();
     if (STATE.engine === "ready") {
       await loadEngine(); await normalizeEngine();
@@ -442,15 +445,15 @@ async function init(silent) {
     Api.flush();
   } catch (e) {
     const snap = Api.loadSnapshot();
-    if (e.network && snap) { restoreSnap(snap); STATE.offline = true; STATE.loaded = true; STATE.error = null; }
-    else if (e.status === 401 && STATE.engine === "ready") { STATE.needAuth = true; STATE.loaded = true; }
+    if (e.network && snap) { restoreSnap(snap); STATE.open = Api.isOpen; STATE.offline = true; STATE.loaded = true; STATE.error = null; }
+    else if (e.status === 401 && STATE.engine === "ready" && !STATE.open) { STATE.needAuth = true; STATE.loaded = true; }
     else { STATE.error = e && e.message ? e.message : String(e); STATE.loaded = false; }
   }
   route(); setTimeout(checkReminders, 1500);
 }
 window.init = init;
 const SNAP_KEYS = ["hw", "kl", "vo", "news", "noten", "log", "settings", "termine", "aend", "v2", "dbReady", "engine"];
-function saveSnap() { if (!STATE.loaded || STATE.offline || !Api.session) return; const d = { es: ES }; SNAP_KEYS.forEach(k => d[k] = STATE[k]); Api.saveSnapshot(d); }
+function saveSnap() { if (!STATE.loaded || STATE.offline || (!Api.session && !STATE.open)) return; const d = { es: ES }; SNAP_KEYS.forEach(k => d[k] = STATE[k]); Api.saveSnapshot(d); }
 function restoreSnap(s) { const d = s.data; SNAP_KEYS.forEach(k => { if (d[k] !== undefined) STATE[k] = d[k]; }); Object.assign(ES, d.es || {}); STATE.snapshotAt = s.at; bump(); }
 let SNAP_VER = -1; setInterval(() => { if (SNAP_VER !== ES_VER) { SNAP_VER = ES_VER; saveSnap(); } }, 30000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveSnap(); });
@@ -462,7 +465,7 @@ window.addEventListener("online", () => { if (STATE.offline) init(true); });
    geladen – nur, wenn nichts mehr auf dem Weg zum Server ist. */
 let SYNCING = false, hiddenAt = 0;
 async function refreshData(reason) {
-  if (SYNCING || !STATE.loaded || STATE.offline || STATE.needAuth || STATE.engine !== "ready" || !Api.session) return;
+  if (SYNCING || !STATE.loaded || STATE.offline || STATE.needAuth || STATE.engine !== "ready" || (!Api.session && !STATE.open)) return;
   SYNCING = true;
   try {
     await Api.idle(); if (Api.pending) return;

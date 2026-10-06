@@ -88,3 +88,17 @@ npm test             # Lern-Engine (Unit) + Migrationen/RLS gegen echtes Postgre
 npm run test:e2e     # Ende-zu-Ende im Browser (Playwright/Chromium) gegen ein Test-Supabase im Speicher
 deno test --node-modules-dir=auto supabase/functions/ai-tutor/handler.test.ts
 ```
+
+## Ohne Anmeldung (Migration 005)
+
+`supabase/migrations/005_ohne_anmeldung.sql` im SQL Editor ausführen. Danach
+zeigt die App keine Login-Seite mehr: Alle Zugriffe laufen mit dem
+anon-Schlüssel, neue Zeilen gehören automatisch dem Besitzer der Installation.
+
+Achtung: Der anon-Schlüssel steht im Quelltext der Seite. Jeder, der ihn
+kennt, kann danach alle Daten lesen und ändern.
+
+Rückgängig machen:
+1. `004_lockdown_legacy.sql` erneut ausführen.
+2. Die Policies `*_open` löschen.
+3. `lern_engine_version` wieder auf 4 setzen.
