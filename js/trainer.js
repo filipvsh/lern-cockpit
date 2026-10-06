@@ -9,7 +9,7 @@ const LS_TS = "lc_ts_v3";
 let TS = lsGet(LS_TS, null);
 let UI = (TS && TS.ui) || {};
 const MODE_NAMES = { vocab: "Vokabeln", errors: "Fehlertraining", mixed: "Gemischtes Training", topic: "Üben", exam: "Prüfungsmodus", free: "Freie Lernzeit" };
-const modeName = t => { t = t || TS; return !t ? "" : t.test === "probe" ? "Probetest" : t.test ? "Vokabeltest" : MODE_NAMES[t.mode]; };
+const modeName = t => { t = t || TS; return !t ? "" : t.mockOwn ? "Probeklausur" : t.test === "probe" ? "Probetest" : t.test ? "Vokabeltest" : MODE_NAMES[t.mode]; };
 const testDir = examId => lsGet("lc_vtdir_" + examId, "reverse");   // Vokabeltest: standardmäßig Deutsch → Fremdsprache
 const AUTO_PAUSE_MIN = 10;   // länger im Hintergrund → Pause ab dem Verlassen (nicht im Prüfungsmodus)
 
@@ -121,10 +121,16 @@ function buildSessionFromConfig(cfg) {
     const col = k ? linkedCollections(k)[0] : null;
     scope = { exam_id: k ? k.id : null, collection_id: col ? col.id : null, subject: k ? k.fach : null };
     testKind = cfg.mode === "test" ? "learn" : "probe"; sessDir = tdir;
+  } else if (cfg.mode === "mock") {
+    // Probeklausur mit echter Aufgabe (Buch, alte Klausur, von Claude erstellt): Zeitlimit, Abgabe, dann Auswertung
+    const k = klById(cfg.exam_id);
+    items = [{ kind: "mock_own", key: "mock", task: cfg.task || "", answer: "" }];
+    timeLimitS = (+cfg.minutes || 90) * 60; feedback = false; hints = false;
+    label = k ? k.fach + "-Klausur am " + fmtD(k.datum) : "Probeklausur"; scope = { exam_id: k ? k.id : null, subject: k ? k.fach : null };
   } else if (cfg.mode === "free") {
     label = cfg.label || "Freie Lernzeit"; scope = { exam_id: cfg.exam_id || null, subject: cfg.subject || null };
   }
-  const mode = cfg.mode === "test" ? "vocab" : cfg.mode === "testexam" ? "exam" : cfg.mode;
+  const mode = cfg.mode === "test" ? "vocab" : cfg.mode === "testexam" || cfg.mode === "mock" ? "exam" : cfg.mode;
   const s = Engine.createSession({ mode, items, label, direction: sessDir || dir, timeLimitS, feedback, hints, scope, now });
   if (testKind) s.test = testKind;
   if (round) {
@@ -133,6 +139,7 @@ function buildSessionFromConfig(cfg) {
     s.stageBefore = {}; Object.keys(round.prog).forEach(id => { const c = cardById(id); if (c) s.stageBefore[id] = Engine.stageOf(c).n; });
   }
   s.masteryBefore = {}; items.forEach(i => { if (i.subtopic_id) s.masteryBefore[i.subtopic_id] = masteryOf(i.subtopic_id).score; });
+  if (cfg.mode === "mock") { s.mockOwn = true; if (scope.exam_id != null) subsOfExam(scope.exam_id).forEach(st => { s.masteryBefore[st.id] = masteryOf(st.id).score; }); }
   s.planKey = cfg.planKey || null;
   return s;
 }
@@ -171,7 +178,10 @@ function tsPause() { if (!TS) return; if (TS.status === "active") Engine.pause(T
 async function tsFinish(status, silent) {
   if (!TS) return;
   const now = Date.now();
-  if (status === "completed" && TS.mode === "exam" && !TS.evaluated) { Engine.finish(TS, now, "completed"); TS.evalPending = true; tsSave(); tsSync(); renderSessionStage(); return; }
+  if (status === "completed" && TS.mode === "exam" && !TS.evaluated) {
+    if (TS.mockOwn && !TS.answers.length) Engine.recordAnswer(TS, { result: null, verdict: "mock", pending: true, given: TS.items[0].answer }, now);
+    Engine.finish(TS, now, "completed"); TS.evalPending = true; tsSave(); tsSync(); renderSessionStage(); return;
+  }
   Engine.finish(TS, now, status);
   const subs = Object.keys(TS.masteryBefore || {}); syncMasteryCache(subs);
   tsSave(); tsSync();
@@ -181,7 +191,9 @@ function confirmEnd() {
   if (!TS) return;
   if (TS.status === "completed" || TS.status === "abandoned") { leaveTrainer(); return; }
   const sum = Engine.summary(TS, Date.now());
-  openModal("Training beenden?", '<p class="hint">' + (sum.answered ? sum.answered + " von " + sum.total + " Aufgaben bearbeitet. Deine Antworten sind gespeichert." : "Noch keine Aufgabe bearbeitet.") + '</p>',
+  const inMission = TS.planKey && todayPlan().items.some(i => i.key === TS.planKey && !i.done);
+  const rp = TS.round ? Engine.roundProgress(TS) : null;
+  openModal(inMission ? "Wirklich aufhören?" : "Training beenden?", '<p class="hint">' + (rp && rp.left ? "Noch " + rp.left + "× richtig, dann ist die Runde geschafft. " : "") + (sum.answered ? sum.answered + " von " + sum.total + " Aufgaben bearbeitet. Deine Antworten sind gespeichert." : "Noch keine Aufgabe bearbeitet.") + (inMission ? "<br><b>Dieser Schritt gehört zu deinem Auftrag für heute.</b> Wenn du jetzt aufhörst, bleibt er offen." : "") + '</p>',
     '<button class="btn" id="ce_no">Weiterlernen</button><button class="btn primary" id="ce_yes">' + (TS.mode === "exam" ? "Abgeben" : "Beenden") + '</button>', () => {
       document.getElementById("ce_no").onclick = closeModal;
       document.getElementById("ce_yes").onclick = async () => { closeModal(); await tsFinish(TS.mode === "exam" || TS.mode === "free" || TS.index >= TS.items.length ? "completed" : "abandoned"); };
@@ -281,11 +293,12 @@ function renderSessionStage() {
   sessTick();
   const pb = document.getElementById("ts_pause"); if (pb) { pb.textContent = TS.status === "paused" ? "Fortsetzen" : "Pause"; pb.style.display = (TS.status === "completed" || TS.status === "abandoned") ? "none" : ""; }
   if (TS.status === "paused") { setStage('<div class="fx-done"><div class="eyebrow">' + esc(TS.label) + '</div><h2 class="fx-title" style="margin-top:var(--s3)">Pausiert</h2><p class="lead" style="margin:var(--s3) auto 0">Die Zeit steht. Deine Antworten sind gespeichert.</p></div>', '<span class="grow"></span><button class="btn primary lg" id="ts_resume">Fortsetzen</button>'); document.getElementById("ts_resume").onclick = tsPause; return; }
-  if (TS.evalPending) return renderEvaluation();
+  if (TS.evalPending) return TS.mockOwn ? renderMockEval() : renderEvaluation();
   if (TS.status === "completed" || TS.status === "abandoned") return renderSummary();
   if (TS.mode === "free") return renderFree();
   const item = Engine.current(TS); if (!item) { tsFinish("completed"); return; }
   if (item.kind === "vocab" || item.kind === "vocab_study") return renderVocab(item);
+  if (item.kind === "mock_own") return renderMockOwn(item);
   if (item.kind === "vocab_mc") return renderChoice(item, item.prompt, item.options, item.correct_index, "Welche Übersetzung stimmt?");
   if (item.kind === "vocab_match") return renderMatch(item, item.pairs);
   const ex = item.exercise;
@@ -502,6 +515,46 @@ function renderFree() {
   document.getElementById("fk_done").onclick = () => tsFinish("completed");
 }
 
+/* Probeklausur mit eigener Aufgabe */
+function renderMockOwn(item) {
+  const k = klById(TS.scope.exam_id);
+  setStage('<div class="fx-ctx">' + esc(TS.label) + '</div><h1 class="fx-title">Schreib jetzt – wie in der Klausur</h1><p class="lead">Keine Hilfen, kein Handy. Du kannst hier tippen oder auf Papier schreiben. Die Zeit oben läuft.</p>' +
+    '<div class="fx-card"><div class="kind">Aufgabe</div>' + (item.task ? '<div class="task" style="white-space:pre-wrap;font-size:16px">' + esc(item.task) + '</div>' : '<div class="t-sub">Die Aufgabe liegt vor dir (Buch, alte Klausur oder Claude). ' + (k ? '<button class="linkbtn" id="mo_claude">Aufgabe bei Claude erstellen</button>' : '') + '</div>') +
+    '<textarea id="mo_ans" style="min-height:300px;margin-top:var(--s4)" placeholder="Deine Lösung … (oder auf Papier)">' + esc(item.answer || "") + '</textarea></div>',
+    '<span class="grow"></span><button class="btn primary lg" id="mo_done">Abgeben</button>');
+  const ta = document.getElementById("mo_ans");
+  ta.oninput = () => { item.answer = ta.value; tsSaveDebounced(); };
+  const c = document.getElementById("mo_claude"); if (c) c.onclick = () => openInClaude(mockPrompt(k, Math.round(TS.time_limit_s / 60)));
+  document.getElementById("mo_done").onclick = () => {
+    openModal("Probeklausur abgeben?", '<p class="hint">Danach bewertest du deine Lösung – Thema für Thema.</p>', '<button class="btn" id="md_no">Weiterschreiben</button><button class="btn primary" id="md_yes">Abgeben</button>', () => {
+      document.getElementById("md_no").onclick = closeModal;
+      document.getElementById("md_yes").onclick = () => { closeModal(); tsFinish("completed"); };
+    });
+  };
+}
+const MOCK_RATE = [[1, "Gut"], [0.5, "Teils"], [0, "Schlecht"]];
+/** Auswertung: jedes Thema ehrlich einschätzen (zählt wie eine Prüfungssimulation im Lernstand) */
+function renderMockEval() {
+  const k = klById(TS.scope.exam_id); const item = TS.items[0]; const subs = k ? subsOfExam(k.id) : [];
+  TS.mockRatings = TS.mockRatings || {};
+  const all = subs.every(s => TS.mockRatings[s.id] != null);
+  setStage('<div class="fx-ctx">' + esc(TS.label) + '</div><h1 class="fx-title">Auswertung</h1><p class="lead">Vergleiche mit dem Erwartungshorizont (Buch, Lehrkraft) oder lass Claude korrigieren. Dann schätz jedes Thema ehrlich ein – daraus plant die App die nächsten Tage.</p>' +
+    '<div class="card tight" style="margin-top:var(--s5)"><h2>Korrektur durch Claude</h2><p class="t-sub">Kopiert Aufgabe und Lösung und öffnet claude.ai. Claude vergibt Punkte, nennt die wichtigsten Fehler und was du noch üben solltest.</p><button class="btn" id="me_claude" style="margin-top:var(--s3)">' + ICO.ki + 'Mit Claude korrigieren</button>' +
+    '<label class="fld" style="margin-top:var(--s4)">Punkte (0–15, optional)<input id="me_pts" type="number" min="0" max="15" value="' + (TS.mockPoints != null ? TS.mockPoints : "") + '" style="max-width:120px"></label></div>' +
+    '<div class="card tight" style="margin-top:var(--s4)"><h2>Wie lief es pro Thema?</h2>' + (subs.length ? subs.map(s => '<div class="mrate"><span>' + esc(s.title) + '</span><div class="choice">' + MOCK_RATE.map(r => '<button data-mr="' + esc(s.id) + ':' + r[0] + '" class="' + (TS.mockRatings[s.id] === r[0] ? "on" : "") + '">' + r[1] + '</button>').join("") + '</div></div>').join("") : '<p class="t-sub">Für diese Klausur sind noch keine Themen eingetragen.</p>') + '</div>',
+    '<span class="grow"></span><button class="btn primary lg" id="me_done"' + (all ? "" : " disabled") + '>' + (all ? "Auswertung speichern" : "Erst alle Themen bewerten") + '</button>');
+  document.getElementById("me_claude").onclick = () => openInClaude(correctionPrompt(k, item.task, item.answer));
+  document.getElementById("me_pts").oninput = e => { const v = e.target.value; TS.mockPoints = v === "" ? null : Math.max(0, Math.min(15, +v)); tsSave(); };
+  document.querySelectorAll("[data-mr]").forEach(b => b.onclick = () => { const [id, v] = b.dataset.mr.split(":"); TS.mockRatings[id] = +v; tsSave(); renderMockEval(); });
+  document.getElementById("me_done").onclick = () => {
+    const vals = subs.map(s => TS.mockRatings[s.id]);
+    subs.forEach(s => logEvent({ type: "exam_result", result: TS.mockRatings[s.id], exam_id: k.id, topic_id: s.topic_id, subtopic_id: s.id, subject: k.fach, session_id: TS.id, difficulty: 2, detail: { mode: "mock", points: TS.mockPoints, question: "Probeklausur" } }));
+    const a = TS.answers[0] || (Engine.recordAnswer(TS, { result: null, verdict: "mock", given: item.answer }, Date.now()), TS.answers[0]);
+    a.result = vals.length ? vals.reduce((x, y) => x + y, 0) / vals.length : null; a.pending = false;
+    TS.evalPending = false; TS.evaluated = true; tsSave(); tsFinish("completed");
+  };
+}
+
 /* Prüfungsmodus: Auswertung offener Antworten */
 function renderEvaluation() {
   const open = TS.answers.map((a, idx) => ({ a, idx, item: TS.items[a.index] })).filter(x => x.a.pending);
@@ -569,6 +622,7 @@ function renderRoundSummary(sum, mins) {
   const k = TS.test ? klById(TS.scope.exam_id) : null; const col = TS.scope.collection_id ? colById(TS.scope.collection_id) : null;
   const pool = k ? testCards(k) : col ? cardsOf(col.id) : STATE.vo;
   const day = k ? { open: testQueueOf(k).length, tomorrow: 0 } : dayStatus(pool);
+  const nextPlan = todayPlan().items.find(i => !i.done && i.key !== TS.planKey);
   const stages = ["new", "learning", "short", "mid", "long"]; const names = { new: "Neu", learning: "Lernen", short: "Kurzzeit", mid: "Gefestigt", long: "Langzeit" };
   const cnt = {}; pool.forEach(v => { const st = Engine.stageOf(v).key; cnt[st] = (cnt[st] || 0) + 1; });
   const ladder = '<div class="ladder">' + stages.map(st => '<div class="rung ' + st + '"><b>' + (cnt[st] || 0) + '</b><span>' + names[st] + '</span></div>').join("") + '</div>';
@@ -580,8 +634,9 @@ function renderRoundSummary(sum, mins) {
     '<div class="t-headline" style="margin-top:var(--s4)">' + (ids.length - firstWrong) + ' beim ersten Versuch richtig · ' + firstWrong + ' nachgelernt' + (up ? ' · ' + plural(up, "Wort", "Wörter") + ' eine Stufe höher' : '') + '</div></div>' +
     '<div class="card tight" style="margin-top:var(--s6)"><h2>' + esc(k ? vtName(k) : col ? col.name : "Alle Vokabeln") + ' im Gedächtnis</h2>' + ladder + '<p class="t-sub" style="margin-top:var(--s3)">' + esc(nextTxt) + '</p></div>' +
     (TS.test ? testReviewList() : ''),
-    '<button class="btn" id="sm_close">Schließen</button><span class="grow"></span>' + (day.open ? '<button class="btn primary lg" id="sm_again">' + ICO.play + 'Nächste Runde</button>' : '<button class="btn primary lg" id="sm_done">Fertig</button>'));
+    '<button class="btn" id="sm_close">Schließen</button><span class="grow"></span>' + (day.open ? '<button class="btn primary lg" id="sm_again">' + ICO.play + 'Nächste Runde</button>' : nextPlan ? '<button class="btn primary lg" id="sm_next">Weiter: ' + esc(nextPlan.title) + '</button>' : '<button class="btn primary lg" id="sm_done">Fertig</button>'));
   document.getElementById("sm_close").onclick = leaveTrainer;
+  const nx = document.getElementById("sm_next"); if (nx) nx.onclick = () => { TS = null; UI = {}; tsSave(); startPlanItem(nextPlan); };
   const d = document.getElementById("sm_done"); if (d) d.onclick = leaveTrainer;
   const a = document.getElementById("sm_again"); if (a) a.onclick = () => { const cfg = TS.cfg; TS = null; UI = {}; tsSave(); startTraining(Object.assign({}, cfg, { force: true })); };
 }
@@ -593,7 +648,12 @@ function examReviewList() {
 /* ---------------- Tagesplan starten ---------------- */
 function startPlanItem(it) {
   if (!it) return;
-  if (it.kind === "test") startTraining({ mode: "test", exam_id: it.exam_id, planKey: it.key });
+  const k = it.exam_id != null ? klById(it.exam_id) : null;
+  if (it.kind === "setup" && k) topicAssistant(k);
+  else if (it.kind === "mock" && k) mockModal(k);
+  else if (it.kind === "probe" && k) probeModal(k);
+  else if ((it.kind === "review" || it.kind === "final") && k) { if (it.subtopic_id) startTraining({ mode: "topic", subtopic_id: it.subtopic_id, planKey: it.key }); else topicAssistant(k); }
+  else if (it.kind === "test") startTraining({ mode: "test", exam_id: it.exam_id, planKey: it.key });
   else if (it.kind === "vocab") startTraining({ mode: "vocab", direction: "forward", count: 30, planKey: it.key });
   else if (it.kind === "errors") startTraining({ mode: "errors", direction: "forward", planKey: it.key });
   else if (it.kind === "subtopic") startTraining({ mode: "topic", subtopic_id: it.subtopic_id, planKey: it.key });

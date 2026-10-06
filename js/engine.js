@@ -539,6 +539,47 @@
     if (left >= 5 && (o.troubleCount || 0) > 0) items.push({ key: "errors", kind: "errors", minutes: Math.min(10, left), title: "Fehlertraining", sub: plural(o.troubleCount, "Aufgabe mit Fehlern", "Aufgaben mit Fehlern"), reasons: ["Fehler gezielt wiederholen"] });
     return { budget, planned: items.reduce((a, i) => a + i.minutes, 0), items };
   }
+  /* ===================================================================
+     5b. KLAUSUR-FAHRPLAN – fester Ablauf, damit klar ist, was wann dran ist
+     Grundlage: Übungstests und verteiltes Lernen sind die wirksamsten
+     Lernstrategien (Dunlosky u. a. 2013, „high utility“); eine Probeklausur
+     unter echten Bedingungen zeigt Lücken, solange noch Zeit zum Schließen ist.
+       ohne Themenliste → zuerst festlegen, was drankommt
+       ≥ 5 Tage vorher → üben (wichtigste/schwächste Unterthemen zuerst)
+       4 Tage vorher   → Probeklausur unter Zeitdruck (bei weniger Zeit: sofort)
+       Tag danach      → Fehler der Probeklausur nacharbeiten
+       Vortag          → locker wiederholen, nichts Neues, früh schlafen
+     o: { daysLeft, hasTopics, mockDoneDaysAgo (null = noch keine), reviewDone }
+     =================================================================== */
+  const MOCK_DAYS_BEFORE = 4;
+  const ROADMAP_TEXT = {
+    setup: ["Festlegen, was drankommt", "Ohne Themenliste kein Plan: Heft, Arbeitsblätter, Ansage im Unterricht – in 5 Minuten eintragen."],
+    learn: ["Üben: die wichtigsten Unterthemen", "Aufgaben aus dem Kopf lösen, nicht nur lesen – die App wählt, was am meisten bringt."],
+    mock: ["Probeklausur unter Zeitdruck", "Wie echt: Zeitlimit, keine Hilfen. Danach siehst du genau, wo die Lücken sind."],
+    review: ["Probeklausur nacharbeiten", "Die schwächsten Bereiche gezielt üben, bis sie sitzen."],
+    final: ["Locker wiederholen, früh schlafen", "20 Minuten die zwei schwächsten Themen. Nichts Neues mehr – Schlaf festigt das Gelernte."],
+    exam: ["Klausur", "Frühstück, Wasser, Stifte – du bist vorbereitet."]
+  };
+  function examRoadmap(o) {
+    const d = Math.max(0, o.daysLeft); const out = [];
+    const mockDone = o.mockDoneDaysAgo != null;
+    // Tag der Probeklausur (in Tagen vor der Klausur); null = keine mehr
+    const mockLeft = mockDone ? null : d >= MOCK_DAYS_BEFORE ? MOCK_DAYS_BEFORE : d >= 2 ? d : null;
+    for (let i = 0; i <= d; i++) {
+      const left = d - i; let kind;
+      if (left === 0) kind = "exam";
+      else if (left === 1) kind = "final";
+      else if (left === mockLeft) kind = "mock";
+      else if (mockLeft != null && left === mockLeft - 1) kind = "review";
+      else if (i === 0 && mockDone && o.mockDoneDaysAgo === 0) kind = "mock";                       // heute geschrieben
+      else if (mockDone && !o.reviewDone && i === Math.max(0, 1 - o.mockDoneDaysAgo)) kind = "review";  // am Tag danach nacharbeiten
+      else kind = "learn";
+      const step = { day: i, left, kind, label: ROADMAP_TEXT[kind][0], sub: ROADMAP_TEXT[kind][1] };
+      if (i === 0 && !o.hasTopics && kind !== "exam") out.push({ day: 0, left, kind: "setup", label: ROADMAP_TEXT.setup[0], sub: ROADMAP_TEXT.setup[1] });
+      out.push(step);
+    }
+    return out;
+  }
   function plural(n, s, p) { return n + " " + (n === 1 ? s : p); }
 
   /* ===================================================================
@@ -669,7 +710,7 @@
     isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, roundProgress, diffParts,
     STATUSES, createSession, elapsedMs, remainingMs, isExpired, pause, resume, finish, current, recordAnswer, requeue, advance, summary,
     MASTERY, subtopicMastery, examReadiness,
-    prioritize, dailyPlan,
+    prioritize, dailyPlan, examRoadmap, MOCK_DAYS_BEFORE,
     HINT_PENALTY, withHints, checkExercise, vocabSides, makeMC, makeMatching, TEMPLATES, templateItems, exerciseItem, buildTopicItems, buildMixedItems, buildExamItems,
     streak, milestones, guessLanguage
   };

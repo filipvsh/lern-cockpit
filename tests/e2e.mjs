@@ -113,7 +113,7 @@ await scenario("Vokabeln: Sammlung anlegen, Vokabel anlegen, bearbeiten, lösche
   const col = b.db.vocab_collections.find(c => c.name === "Unité 4"); assert.ok(col);
   await page.click("#v_new");
   await page.fill("#e_term", "le quartier"); await page.fill("#e_tr", "das Viertel"); await page.fill("#e_alt", "der Stadtteil"); await page.click("#e_save");
-  await page.waitForTimeout(300); await page.click("#e_cancel"); await page.waitForTimeout(200);
+  await page.waitForFunction(() => STATE.vo.some(x => x.begriff === "le quartier"), null, { timeout: 5000 }); await page.click("#e_cancel"); await page.waitForTimeout(200);
   const v = b.db.vokabeln.find(x => x.begriff === "le quartier"); assert.ok(v, "gespeichert"); assert.equal(v.collection_id, col.id); assert.deepEqual(v.alternatives, ["der Stadtteil"]);
   await page.click(`[data-editvo="${v.id}"]`); await page.fill("#e_tr", "das Stadtviertel"); await page.click("#e_save"); await page.waitForTimeout(300);
   assert.equal(b.db.vokabeln.find(x => x.id === v.id).bedeutung, "das Stadtviertel");
@@ -349,7 +349,7 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   await shot(page, "vt-02-detail");
   // Tagesplan: Test steht oben
   await go(page, "#/dashboard"); await page.waitForSelector(".dash");
-  assert.ok((await page.textContent(".a-today")).includes("Vokabeltest in 4 Tagen"));
+  assert.ok((await page.textContent(".mission")).includes("Vokabeltest in 4 Tagen"));
   assert.ok((await page.textContent(".a-cont")).includes("Voc. 7A p. 222/223"), "Als Nächstes: der Test");
   // Lernen: Deutsch → Französisch, eine Antwort falsch
   await go(page, "#/lernplan/" + k.id); await page.click("#vt_learn"); await page.waitForSelector(".fx-card");
@@ -374,6 +374,9 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   await page.waitForSelector(".fx-done");
   assert.ok((await page.textContent("#fxStage")).includes("Probetest"));
   assert.ok(await page.evaluate(() => TS.items.length === 9), "keine Wiederholungen im Probetest");
+  // Vortag des Tests: Auftrag = alle Wörter wiederholen + Probetest (heute schon geschrieben → abgehakt)
+  const steps = await page.evaluate(id => { const k = klById(id); k.datum = addDays(todayISO(), 1); bump(); return todayPlan().items.filter(i => String(i.exam_id) === String(id)).map(i => i.kind + (i.kind === "probe" ? ":" + i.done : "")); }, k.id);
+  assert.deepEqual(steps, ["test", "probe:true"], steps.join());
   await ctx.close();
 });
 
@@ -448,6 +451,61 @@ await scenario("Lernrunde: einprägen, 3× richtig, Fehler abtippen und später 
   // Vokabelseite: Fertig für heute (4 von 10 neuen genutzt, Sammlung leer) bzw. Stufen
   await page.click("#sm_close").catch(() => {}); await go(page, "#/vokabeln/" + colId); await page.waitForSelector(".stage");
   assert.ok((await page.textContent("#view")).includes("Lernen"), "Stufe sichtbar");
+  await ctx.close();
+});
+
+await scenario("Auftrag für heute: Themen festlegen, Probeklausur schreiben und auswerten, nächster Schritt", async () => {
+  const b = new MockBackend();
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  b.db.klausuren[0].datum = day(4);                                  // Englisch: Probeklausur heute fällig
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-000000000009", fach: "Mathe", thema: "Klausur Nr. 1", datum: day(7), nr: 1, themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
+  const { ctx, page } = await open(b); await login(page);
+  await page.waitForSelector(".mission");
+  let t = await page.textContent(".mission");
+  assert.ok(t.includes("Festlegen, was in Mathe drankommt"), "zuerst Themen festlegen");
+  assert.ok(t.includes("Probeklausur Englisch"), "Probeklausur 4 Tage vorher");
+  assert.ok(t.indexOf("Festlegen") < t.indexOf("Probeklausur"), "Reihenfolge");
+  await shot(page, "au-01-auftrag");
+  // 1. Themen festlegen über den großen Knopf
+  await page.click("#plan_go"); await page.waitForSelector(".pickchip");
+  await page.click('[data-pick="1"]'); await page.click('[data-pick="4"]');
+  await page.fill("#ta_more", "Integrale (Ausblick)");
+  await shot(page, "au-02-themen");
+  await page.click("#ta_save"); await page.waitForTimeout(400); await page.evaluate(() => Api.idle());
+  const mathTopic = b.db.topics.find(x => x.exam_id === "11111111-aaaa-4aaa-8aaa-000000000009");
+  assert.deepEqual(b.db.subtopics.filter(x => x.topic_id === mathTopic.id).map(x => x.title), ["Ableitungsregeln", "Kurvendiskussion", "Integrale (Ausblick)"]);
+  t = await page.textContent(".mission");
+  assert.ok(!t.includes("Festlegen, was in Mathe"), "Schritt erledigt: " + t);
+  // 2. Probeklausur Englisch mit eigener Aufgabe
+  const mi = await page.evaluate(() => todayPlan().items.findIndex(i => i.kind === "mock"));
+  await page.click(`[data-plan="${mi}"]`); await page.waitForSelector("#mk_task");
+  const prompt = await page.evaluate(() => mockPrompt(klById("11111111-aaaa-4aaa-8aaa-000000000001"), 90));
+  assert.ok(prompt.includes("Englisch") && prompt.includes("Narrative Perspective") && prompt.includes("90 Minuten"));
+  await page.fill("#mk_task", "Analyse the narrative perspective of the short story.");
+  await page.click("#mk_go"); await page.waitForSelector("#mo_ans");
+  await page.fill("#mo_ans", "The story is told by a first-person narrator ...");
+  await shot(page, "au-03-probeklausur");
+  await page.click("#mo_done"); await page.click("#md_yes"); await page.waitForSelector(".mrate");
+  assert.ok(await page.$eval("#me_done", x => x.disabled), "erst alle Themen bewerten");
+  const subs = await page.$$eval("[data-mr]", xs => [...new Set(xs.map(x => x.dataset.mr.split(":")[0]))]);
+  for (const [i, id] of subs.entries()) await page.click(`[data-mr="${id}:${i === 0 ? 0 : 1}"]`);
+  await page.fill("#me_pts", "9");
+  const corr = await page.evaluate(() => correctionPrompt(klById(TS.scope.exam_id), TS.items[0].task, TS.items[0].answer));
+  assert.ok(corr.includes("first-person narrator") && corr.includes("Analyse the narrative"));
+  await shot(page, "au-04-auswertung");
+  await page.click("#me_done"); await page.waitForSelector(".fx-done");
+  await page.evaluate(() => Api.idle());
+  const ev = b.db.learning_events.filter(e => e.type === "exam_result" && e.detail.mode === "mock");
+  assert.equal(ev.length, subs.length); assert.equal(ev[0].detail.points, 9);
+  assert.ok(b.db.training_sessions.some(x => x.mode === "exam" && x.status === "completed" && x.exam_id === "11111111-aaaa-4aaa-8aaa-000000000001"));
+  assert.ok(await page.$("#sm_next"), "direkt weiter zum nächsten Schritt");
+  // Auftrag: Probeklausur abgehakt
+  await page.click("#sm_close"); await go(page, "#/dashboard"); await page.waitForSelector(".mission");
+  assert.ok(await page.$eval(".mstep.done", x => x.textContent.includes("Probeklausur Englisch")));
+  // Fahrplan der Klausurseite: morgen nacharbeiten
+  await go(page, "#/lernplan/11111111-aaaa-4aaa-8aaa-000000000001"); await page.waitForSelector(".tl");
+  const tl = await page.textContent(".tl");
+  assert.ok(tl.includes("Probeklausur nacharbeiten") && tl.includes("Locker wiederholen"), tl);
   await ctx.close();
 });
 

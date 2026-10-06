@@ -124,8 +124,8 @@ V.dashboard = () => {
   } else exam = '<div class="card exam">' + emptyState("flag", "Keine Prüfung geplant", "Trag die nächste ein, sobald der Klausurplan hängt.", '<a class="btn sm" href="#/lernplan">Zum Lernplan</a>') + '</div>';
   const un = unreadNews(); const t = todayISO(); const term = STATE.termine.filter(x => x.datum >= t && x.datum <= addDays(t, 10)).slice(0, 3);
   const info = (un.length || term.length) ? '<div class="a-info">' + sectionHead("Hinweise", '<a class="shl" href="#/info">Alle</a>') + '<div class="list">' + un.slice(0, 2).map(nw => '<a class="li" href="#/info"><div class="li-main"><div class="li-title">' + esc(nw.titel) + '</div><div class="li-sub">' + esc(nw.quelle || "Info") + (nw.info ? " · " + esc(nw.info) : "") + '</div></div><span class="dot" style="background:var(--accent)"></span></a>').join("") + term.map(x => '<a class="li" href="#/info"><div class="li-main"><div class="li-title">' + esc(x.titel) + '</div><div class="li-sub">' + esc(relDay(x.datum)) + (x.uhrzeit ? " · " + esc(x.uhrzeit) : "") + '</div></div>' + ((x.art === "pflicht" || x.art === "frist") ? '<span class="pill p-red">' + (x.art === "pflicht" ? "Pflicht" : "Frist") + '</span>' : '') + '</a>').join("") + '</div></div>' : '';
-  return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + contCard(continueItem()) + '</div><div class="a-exam">' + exam + '</div>' +
-    '<div class="a-today">' + sectionHead("Heute", '<button class="shl" id="plan_new" title="Plan mit aktuellen Daten neu berechnen">Neu planen</button>') + planList(plan) + hwToday() + laterHW() + '</div>' +
+  return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + (tsActive() ? contCard(continueItem()) : missionCard(plan)) + '</div><div class="a-exam">' + exam + '</div>' +
+    '<div class="a-today">' + sectionHead("Heute", '<button class="shl" id="plan_new" title="Plan mit aktuellen Daten neu berechnen">Neu planen</button>') + (hwToday() || '<div class="card">' + emptyState("check", "Keine Hausaufgaben für morgen", "").replace('class="empty"', 'class="empty sm"') + '</div>') + laterHW() + '</div>' +
     '<div class="a-weak">' + sectionHead("Deine Schwachstellen", '<a class="shl" href="#/fortschritt">Fortschritt</a>') + '<div class="card tight">' + weakList(3) + '</div></div>' + lessonsToday() + info + '</div>';
 };
 function bindDashboard() {
@@ -135,6 +135,7 @@ function bindDashboard() {
   document.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => startPlanItem(plan.items[+b.dataset.plan]));
   const go = document.getElementById("plan_go"); if (go) go.onclick = startNextPlanItem;
   const nw = document.getElementById("plan_new"); if (nw) nw.onclick = () => { todayPlan(true); route(); toast("Plan neu berechnet"); };
+  const nt = document.getElementById("ms_notify"); if (nt) nt.onclick = async () => { try { const p = await Notification.requestPermission(); toast(p === "granted" ? "Erinnerung an – um " + setting("erinnerung_uhrzeit", "18:00") + " Uhr, falls der Auftrag noch offen ist" : "Erinnerungen sind im Browser blockiert", p !== "granted"); } catch (e) {} route(); };
 }
 
 /* =====================================================================

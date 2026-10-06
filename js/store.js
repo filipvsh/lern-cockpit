@@ -242,22 +242,31 @@ const budgetMinutes = () => (ES.profile && ES.profile.daily_minutes) || 30;
 function todayPlan(forceNew) {
   const key = "lc_plan_" + todayISO();
   let plan = forceNew ? null : lsGet(key, null);
-  if (!plan || plan.v !== 4) {
+  // neu berechnen, sobald neue Themen/Prüfungen/Sammlungen dazukommen (z. B. nach dem Themen-Assistenten)
+  const sig = ES.subtopics.length + ":" + upcomingKL().length + ":" + ES.collections.length;
+  if (!plan || plan.v !== 4 || plan.sig !== sig) {
     // Sammlungen eines anstehenden Vokabeltests plant der Test selbst
     const tcols = new Set(upcomingTests().flatMap(k => linkedCollections(k).map(c => c.id)));
     const focus = focusCollections(); const fresh = Math.min(newLeftToday(), STATE.vo.filter(v => Engine.isNew(v) && !tcols.has(v.collection_id) && (!focus || focus.includes(v.collection_id))).length);
     const p = Engine.dailyPlan({ budgetMin: budgetMinutes(), vocabDue: vocabDue().filter(x => !tcols.has(x.id)), vocabNew: fresh, priorities: priorities(), troubleCount: troubleCards().length + troubleExercises().length });
-    plan = { v: 4, budget: p.budget, items: p.items.map(i => ({ key: i.key, kind: i.kind, minutes: i.minutes, title: i.title, sub: i.sub, reasons: i.reasons, subtopic_id: i.ref ? i.ref.subtopic.id : null })) };
+    plan = { v: 4, sig, budget: p.budget, items: p.items.map(i => ({ key: i.key, kind: i.kind, minutes: i.minutes, title: i.title, sub: i.sub, reasons: i.reasons, subtopic_id: i.ref ? i.ref.subtopic.id : null })) };
     lsSet(key, plan);
   }
-  // Vokabeltests stehen immer oben und werden live berechnet (nicht im Tages-Cache)
-  const tests = upcomingTests().map(testPlanItem).filter(Boolean);
-  plan = Object.assign({}, plan, { items: tests.concat(plan.items.filter(i => i.kind !== "test")) });
+  // Auftrag für heute: Themen festlegen → Vokabeltests → Probeklausur/Nacharbeiten/Vortag → Rest.
+  // Live berechnet (nicht im Tages-Cache), damit erledigte Schritte sofort abgehakt sind.
+  const exams = upcomingKL().filter(k => !isVocabTest(k));
+  const examItems = exams.flatMap(examMissionItems);
+  const setup = examItems.filter(i => i.kind === "setup"), phase = examItems.filter(i => i.kind !== "setup");
+  const tests = upcomingTests().flatMap(testPlanItems);
+  // Am Tag der Probeklausur und am Vortag keine zusätzlichen Einzelthemen derselben Klausur
+  const busy = new Set(phase.filter(i => i.kind === "mock" || i.kind === "final").map(i => String(i.exam_id)));
+  const rest = plan.items.filter(i => i.kind !== "test" && !(i.kind === "subtopic" && busy.has(String((examOfSub(subById(i.subtopic_id)) || {}).id))));
+  plan = Object.assign({}, plan, { items: setup.concat(tests, phase, rest) });
   // Reihenfolge bleibt stabil; Begründungen und Fortschritt sind immer aktuell
   const prio = priorities();
   plan.items.forEach(i => {
     if (i.kind === "subtopic") { const p = prio.find(x => x.subtopic.id === i.subtopic_id); const st = subById(i.subtopic_id); if (p) i.reasons = p.reasons; if (st) i.title = st.title; }
-    if (i.kind === "test") return;
+    if (["test", "probe", "setup", "mock", "review", "final"].includes(i.kind)) return;
     i.doneMin = i.kind === "vocab" ? minutesTodayFor(s => s.mode === "vocab" && s.status === "completed" && s.exam_id == null)
       : i.kind === "errors" ? minutesTodayFor(s => s.mode === "errors")
       : minutesTodayFor(s => s.subtopic_id === i.subtopic_id);
@@ -269,6 +278,52 @@ function todayPlan(forceNew) {
     } else i.done = i.doneMin >= i.minutes * 0.8;
   });
   return plan;
+}
+/* ---------------- Klausur-Fahrplan (Engine.examRoadmap) ---------------- */
+const KLAUSUR_HORIZON = 21;   // ab 3 Wochen vorher plant die App mit
+const sameDay = iso => iso && isoLocal(new Date(iso)) === todayISO();
+function mockInfo(k) {
+  const ms = ES.sessions.filter(s => s.mode === "exam" && String(s.exam_id) === String(k.id) && s.status === "completed" && s.started_at).map(s => s.started_at).sort();
+  const last = ms[ms.length - 1]; if (!last) return null;
+  return { at: last, daysAgo: Engine.calDays(new Date(last).getTime(), Date.now()) };
+}
+const reviewSessions = (k, mock) => mock ? ES.sessions.filter(s => String(s.exam_id) === String(k.id) && ["topic", "mixed", "errors"].includes(s.mode) && s.status === "completed" && s.started_at > mock.at) : [];
+function roadmapOf(k) {
+  const mock = mockInfo(k);
+  return Engine.examRoadmap({ daysLeft: daysUntil(k.datum), hasTopics: subsOfExam(k.id).length > 0, mockDoneDaysAgo: mock ? mock.daysAgo : null, reviewDone: reviewSessions(k, mock).length > 0 });
+}
+const weakestSubs = (k, n) => subsOfExam(k.id).map(s => ({ s, m: masteryOf(s.id).score })).sort((a, b) => (a.m == null ? -1 : a.m) - (b.m == null ? -1 : b.m)).slice(0, n || 2).map(x => x.s);
+const mockMinutes = k => Math.min(k.dauer || 90, 135);
+/** Schritte einer Klausur für heute (Themen festlegen, Probeklausur, Nacharbeiten, Vortag) */
+function examMissionItems(k) {
+  const d = daysUntil(k.datum); if (d < 1 || d > KLAUSUR_HORIZON) return [];
+  const when = d === 1 ? "morgen" : "in " + d + " Tagen";
+  const base = (kind, minutes, title, sub, reasons, done) => ({ key: kind + ":" + k.id, kind, exam_id: k.id, minutes, title, sub: k.fach + "-Klausur " + when + " · " + sub, reasons, done, doneMin: done ? minutes : 0 });
+  const today = roadmapOf(k).filter(s => s.day === 0).map(s => s.kind);
+  const mock = mockInfo(k); const out = [];
+  if (today.includes("setup")) out.push(base("setup", 5, "Festlegen, was in " + k.fach + " drankommt", "Themen aus Heft und Unterricht ankreuzen", ["Ohne Themenliste weiß die App nicht, was du üben sollst"], false));
+  if (today.includes("mock") || (mock && mock.daysAgo === 0)) out.push(base("mock", mockMinutes(k), "Probeklausur " + k.fach, mockMinutes(k) + " Min. wie echt, ohne Hilfen", ["Zeigt die Lücken, solange noch Zeit ist (" + Engine.MOCK_DAYS_BEFORE + " Tage vorher)"], !!(mock && mock.daysAgo === 0)));
+  const rv = reviewSessions(k, mock);
+  if (today.includes("review") || rv.some(s => sameDay(s.started_at))) {
+    const w = weakestSubs(k, 1)[0];
+    out.push(Object.assign(base("review", 15, "Probeklausur nacharbeiten" + (w ? ": " + w.title : ""), "dein schwächster Bereich", ["Fehler direkt nach der Probeklausur schließen"], rv.some(s => sameDay(s.started_at))), { subtopic_id: w ? w.id : null }));
+  }
+  if (today.includes("final")) {
+    const min = minutesTodayFor(s => String(s.exam_id) === String(k.id));
+    const w = weakestSubs(k, 2);
+    out.push(Object.assign(base("final", 20, "Letzte Wiederholung " + k.fach, w.length ? w.map(s => s.title).join(" · ") : "die zwei schwächsten Themen", ["Am Vortag nur festigen, nichts Neues – dann früh schlafen"], min >= 15), { subtopic_id: w[0] ? w[0].id : null, doneMin: min }));
+  }
+  return out;
+}
+/** Vokabeltest: Lernrunde, am Vortag zusätzlich Probetest */
+function testPlanItems(k) {
+  const it = testPlanItem(k); if (!it) return [];
+  const out = [it]; const d = daysUntil(k.datum);
+  if (d <= 1) {
+    const probe = ES.sessions.find(s => s.mode === "exam" && String(s.exam_id) === String(k.id) && s.status === "completed" && sameDay(s.started_at));
+    out.push({ key: "probe:" + k.id, kind: "probe", exam_id: k.id, minutes: 15, title: "Probetest: " + vtName(k), sub: "Vokabeltest " + (d === 0 ? "heute" : "morgen") + " · alle Wörter, mit Zeitlimit, wie in der Schule" + (probe && probe.score != null ? " · " + Math.round(probe.score * 100) + " %" : ""), reasons: ["Prüft, ob es ohne Hilfe klappt – Fehlerwörter kommen danach in die Lernrunde"], done: !!probe, doneMin: probe ? 15 : 0 });
+  }
+  return out;
 }
 function testPlanItem(k) {
   const cards = testCards(k); if (!cards.length) return null;
