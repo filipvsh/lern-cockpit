@@ -843,7 +843,7 @@ const APP_VERSION="3.0";
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
-Api.configure(SB_URL,SB_KEY);
+Api.configure(SB_URL,SB_KEY);Api.takeAccessFromHash();
 /* Bestehende Helfer laufen über die Datenschicht (js/api.js): Token des Nutzers, Erneuerung, Fehlerobjekte */
 const sbGet=(tbl,qs)=>Api.get(tbl,qs);
 const sbInsert=(tbl,obj)=>Api.insert(tbl,obj);

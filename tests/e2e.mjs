@@ -509,6 +509,34 @@ await scenario("Auftrag für heute: Themen festlegen, Probeklausur schreiben und
   await ctx.close();
 });
 
+await scenario("Zugangslink: ohne Login-Seite rein, neuer Link macht den alten ungültig", async () => {
+  const b = new MockBackend();
+  const A = await open(b); await login(A.page);
+  await go(A.page, "#/einstellungen"); await A.page.click("#s_link_new"); await A.page.click("#al_yes");
+  await A.page.waitForSelector("#s_link");
+  const link1 = await A.page.inputValue("#s_link");
+  assert.match(link1, /#zugang=[A-Za-z0-9_-]+$/);
+  assert.notEqual(b.users["filip@example.org"].password, "geheim123", "neues Zufallspasswort");
+  // neues Gerät: Link öffnen → direkt im Dashboard, keine Anmeldung, Schlüssel aus der Adresse entfernt
+  const B = await open(b, { hash: link1.slice(link1.indexOf("#")) });
+  await B.page.waitForSelector(".dash", { timeout: 15000 });
+  assert.ok(!(await B.page.$("#auth_form")));
+  assert.equal(await B.page.evaluate(() => location.hash), "#/dashboard");
+  // Sitzung läuft ab → automatisch wieder drin
+  await B.page.evaluate(() => { localStorage.removeItem("lc_auth"); }); await B.page.reload(); await B.page.waitForSelector(".dash", { timeout: 15000 });
+  // neuer Link auf Gerät A → alter Link funktioniert nicht mehr
+  await A.page.click("#s_link_new"); await A.page.click("#al_yes"); await A.page.waitForTimeout(400);
+  const link2 = await A.page.inputValue("#s_link"); assert.notEqual(link2, link1);
+  const C = await open(b, { hash: link1.slice(link1.indexOf("#")) });
+  await C.page.waitForSelector("#auth_form", { timeout: 15000 });
+  const D = await open(b, { hash: link2.slice(link2.indexOf("#")) });
+  await D.page.waitForSelector(".dash", { timeout: 15000 });
+  // Abmelden vergisst den Link auf diesem Gerät
+  await go(D.page, "#/einstellungen"); await D.page.click("#s_logout"); await D.page.waitForSelector("#auth_form");
+  assert.equal(await D.page.evaluate(() => Api.hasAccess()), false);
+  for (const x of [A, B, C, D]) await x.ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);
