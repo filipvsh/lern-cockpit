@@ -537,6 +537,26 @@ await scenario("Zugangslink: ohne Login-Seite rein, neuer Link macht den alten u
   for (const x of [A, B, C, D]) await x.ctx.close();
 });
 
+await scenario("Ohne Anmeldung (Migration 005): direkt im Dashboard, Daten speichern und lesen", async () => {
+  const b = new MockBackend({ open: true });
+  b.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; });
+  const { ctx, page } = await open(b);
+  await page.waitForSelector(".dash", { timeout: 15000 });
+  assert.ok(!(await page.$("#auth_form")), "keine Login-Seite");
+  // Vokabel anlegen und lernen funktioniert ohne Konto
+  await page.evaluate(() => startTraining({ mode: "vocab", count: 5 })); await page.waitForSelector(".fx-card");
+  await page.evaluate(() => Api.idle());
+  assert.ok(b.db.training_sessions.length >= 1, "Session gespeichert");
+  // Einstellungen: kein Konto/Abmelden, Hinweis auf offenen Zugang
+  await page.evaluate(() => { TS = null; tsSave(); }); await go(page, "#/einstellungen"); await page.waitForTimeout(300);
+  const t = await page.textContent("#view");
+  assert.ok(t.includes("ohne Anmeldung")); assert.ok(!(await page.$("#s_logout")));
+  // zweites Gerät sieht denselben Stand, ebenfalls ohne Login
+  const B = await open(b); await B.page.waitForSelector(".dash", { timeout: 15000 });
+  assert.ok(await B.page.evaluate(() => ES.sessions.length >= 1));
+  await ctx.close(); await B.ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 const dir = new URL("../supabase/migrations/", import.meta.url);
 const m003 = readFileSync(new URL("003_learning_engine.sql", dir), "utf8");
 const m004 = readFileSync(new URL("004_lockdown_legacy.sql", dir), "utf8");
+const m005 = readFileSync(new URL("005_ohne_anmeldung.sql", dir), "utf8");
 const A = "11111111-1111-1111-1111-111111111111", B = "22222222-2222-2222-2222-222222222222";
 
 const db = new PGlite();
@@ -86,4 +87,19 @@ assert.equal((await as(A, "select count(*)::int c from public.vokabeln")).rows[0
 await as(null, "insert into public.hausaufgaben(aufgabe) values ('von Routine')");
 const own = await db.query("select user_id from public.hausaufgaben where aufgabe='von Routine'"); assert.equal(own.rows[0].user_id, A); ok("Routine (service_role, ohne Nutzer) → Zeile gehört automatisch dem Besitzer");
 await fails(() => as(B, "insert into public.vokabeln(begriff, bedeutung, user_id) values ('x','y',$1)", [A]), "Fremdes Konto kann keine Vokabeln für andere anlegen");
+
+console.log("Migration 005 (ohne Anmeldung)");
+await db.exec(m005); await db.exec(m005); ok("läuft durch und ist wiederholbar");
+assert.equal((await as("anon", "select count(*)::int c from public.vokabeln")).rows[0].c, 2); ok("Ohne Anmeldung: Vokabeln lesbar");
+assert.equal((await as("anon", "select count(*)::int c from public.klausuren")).rows[0].c, 1); ok("Ohne Anmeldung: Klausuren lesbar");
+const ex5 = (await db.query("select id from public.klausuren limit 1")).rows[0].id;
+const t5 = await as("anon", "insert into public.topics(title, exam_id) values ('Gesprächsanalyse', $1) returning id, user_id", [ex5]);
+assert.equal(t5.rows[0].user_id, A); ok("Ohne Anmeldung angelegte Zeilen gehören dem Besitzer");
+const s5 = await as("anon", "insert into public.subtopics(topic_id, title) values ($1, 'Watzlawick') returning user_id", [t5.rows[0].id]);
+assert.equal(s5.rows[0].user_id, A); ok("… auch Unterthemen");
+const v5 = await as("anon", "insert into public.vokabeln(begriff, bedeutung) values ('la rentrée','der Schulbeginn') returning user_id");
+assert.equal(v5.rows[0].user_id, A); ok("… und Vokabeln (Alt-Tabelle, Trigger)");
+assert.equal((await as("anon", "update public.vokabeln set level = 1 where begriff = 'la rentrée' returning id")).rows.length, 1); ok("Ohne Anmeldung: ändern erlaubt");
+assert.equal((await as("anon", "select public.lern_engine_version() v")).rows[0].v, 5); ok("Version 5 = App ohne Login-Seite");
+assert.equal((await as(A, "select count(*)::int c from public.topics")).rows[0].c, 1); ok("Angemeldeter Besitzer sieht dieselben Daten");
 console.log(`\n${n} Prüfungen bestanden.`);

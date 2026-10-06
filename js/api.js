@@ -33,6 +33,7 @@
 
   /* ---------------- Auth ---------------- */
   let session = ls.get(LS_AUTH, null);
+  let openMode = (() => { try { return localStorage.getItem("lc_open") === "1"; } catch (e) { return false; } })();   // Migration 005: Zugriff ohne Anmeldung
   let refreshing = null;
   const nowS = () => Math.floor(Date.now() / 1000);
   function setSession(s) {
@@ -202,7 +203,7 @@
       while (outbox.length) {
         const op = outbox[0];
         // Puffer eines anderen Kontos nie unter dem aktuellen Konto senden
-        if (op.uid && (!session || !session.user || session.user.id !== op.uid)) { if (!session) break; outbox.shift(); saveOutbox(); continue; }
+        if (op.uid && !openMode && (!session || !session.user || session.user.id !== op.uid)) { if (!session) break; outbox.shift(); saveOutbox(); continue; }
         try { await sendOp(op); outbox.shift(); saveOutbox(); }
         catch (e) {
           if (e.network || e.retryable) { op.tries++; saveOutbox(); break; }
@@ -219,8 +220,8 @@
   }
 
   /* ---------------- Snapshot ---------------- */
-  function saveSnapshot(data) { if (!session) return; ls.set(LS_SNAP, { user: session.user && session.user.id, at: Date.now(), data }); }
-  function loadSnapshot() { const s = ls.get(LS_SNAP, null); if (!s || !session || !session.user || s.user !== session.user.id) return null; return s; }
+  function saveSnapshot(data) { if (!session && !openMode) return; ls.set(LS_SNAP, { user: openMode ? "open" : session.user && session.user.id, at: Date.now(), data }); }
+  function loadSnapshot() { const s = ls.get(LS_SNAP, null); if (!s) return null; if (s.user === "open" || openMode) return s; if (!session || !session.user || s.user !== session.user.id) return null; return s; }
 
   /* ---------------- Edge Functions ---------------- */
   /** Fehlerarten: not_deployed · offline · unauthorized · rate_limited · unavailable · bad_request */
@@ -250,6 +251,8 @@
     ApiError, on, ls,
     get session() { return session; }, get user() { return session && session.user; },
     signIn, signUp, signOut, recover, updatePassword, refresh, handleRedirect,
+    dropSession: () => setSession(null), get isOpen() { return openMode; },
+    setOpen(v) { openMode = !!v; try { localStorage.setItem("lc_open", v ? "1" : "0"); } catch (e) {} },
     takeAccessFromHash, hasAccess, accessLogin, createAccessLink, accessLink, forgetAccess: () => ls.del(LS_ACCESS),
     request, get, getAll, insert, patch, del, rpc, tableExists,
     write, flush, idle, get pending() { return outbox.length; }, failed: () => ls.get(LS_FAILED, []), clearFailed: () => ls.del(LS_FAILED),

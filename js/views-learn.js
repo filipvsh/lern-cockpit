@@ -404,6 +404,7 @@ V.einstellungen = () => {
   const access = '<div class="card mt"><h2>Zugangslink</h2><div class="hint">Mit diesem Link kommst du auf jedem Gerät sofort rein, ohne Anmeldung. Wer nur die normale Adresse kennt, sieht deine Daten nicht. Gib den Link nur weiter, wenn die Person alles sehen und ändern darf.</div>' +
     (link ? '<div class="inline-add" style="grid-template-columns:1fr auto;margin-top:var(--s3)"><input id="s_link" readonly value="' + esc(link) + '"><button class="btn" id="s_link_copy">Kopieren</button></div>' : '') +
     '<div style="display:flex;gap:var(--s2);margin-top:var(--s3);flex-wrap:wrap"><button class="btn sm' + (link ? '' : ' primary') + '" id="s_link_new">' + (link ? "Neuen Link erstellen (alter wird ungültig)" : "Zugangslink erstellen") + '</button></div></div>';
+  if (STATE.open) return '<div class="card"><h2>Zugang</h2><div class="hint">Die App ist ohne Anmeldung nutzbar: Jeder mit der Adresse kann alles sehen und ändern. Zurück zum Schutz per Login: in Supabase <code>004_lockdown_legacy.sql</code> ausführen und die Regeln „*_open“ löschen (docs/SETUP.md).</div></div>' + learn + sync + ai + '<div class="mt">' + V_einstellungen_base() + '</div>';
   return acc + access + learn + sync + ai + '<div class="mt">' + V_einstellungen_base() + '</div>';
 };
 bindEinstellungen = function () {
