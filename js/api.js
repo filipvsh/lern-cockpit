@@ -17,7 +17,7 @@
 (function (root) {
   "use strict";
   let URL_ = "", KEY = "";
-  const LS_AUTH = "lc_auth", LS_OUTBOX = "lc_outbox", LS_FAILED = "lc_outbox_failed", LS_SNAP = "lc_snapshot_v3";
+  const LS_AUTH = "lc_auth", LS_ACCESS = "lc_zugang", LS_OUTBOX = "lc_outbox", LS_FAILED = "lc_outbox_failed", LS_SNAP = "lc_snapshot_v3";
   const ls = {
     get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
@@ -95,6 +95,39 @@
     history.replaceState(null, "", location.pathname + "#/dashboard");
     return { type: p.get("type") || "signin" };
   }
+
+  /* ---------------- Zugangslink ----------------
+     Persönlicher Link „…/#zugang=<Schlüssel>“: Wer ihn öffnet, wird ohne Login-Seite angemeldet.
+     Der Schlüssel enthält E-Mail und ein zufälliges Passwort, das nur für diesen Link erzeugt wird.
+     Er steht hinter „#“ und wird daher nie an einen Server geschickt. Das Gerät merkt sich den
+     Schlüssel. Ein neuer Link setzt ein neues Passwort, damit wird der alte ungültig. */
+  const b64u = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64u = s => decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/"))));
+  function decodeAccess(t) { try { const [email, password] = unb64u(t).split("\n"); return email && password ? { email, password } : null; } catch (e) { return null; } }
+  /** Schlüssel aus der Adresse übernehmen (vor dem Router aufrufen) */
+  function takeAccessFromHash() {
+    const m = /^#\/?zugang=([A-Za-z0-9_-]+)/.exec(location.hash || ""); if (!m) return false;
+    if (decodeAccess(m[1])) ls.set(LS_ACCESS, m[1]);
+    history.replaceState(null, "", location.pathname + "#/dashboard");
+    return true;
+  }
+  const hasAccess = () => !!ls.get(LS_ACCESS, null);
+  /** Mit dem gespeicherten Schlüssel anmelden. true = angemeldet; ungültiger Schlüssel wird entfernt */
+  async function accessLogin() {
+    const a = decodeAccess(ls.get(LS_ACCESS, "") || ""); if (!a) return false;
+    try { await signIn(a.email, a.password); return true; }
+    catch (e) { if (!e.network) { ls.del(LS_ACCESS); e.accessInvalid = true; } throw e; }
+  }
+  /** Neuen Link erzeugen: zufälliges Passwort setzen, Link zurückgeben (alter Link wird ungültig) */
+  async function createAccessLink(base) {
+    if (!session || !session.user || !session.user.email) throw new ApiError("Nicht angemeldet.", { status: 401 });
+    const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const rnd = crypto.getRandomValues(new Uint8Array(28)); let pw = ""; rnd.forEach(x => { pw += abc[x % abc.length]; });
+    await updatePassword(pw);
+    const t = b64u(session.user.email + "\n" + pw); ls.set(LS_ACCESS, t);
+    return base + "#zugang=" + t;
+  }
+  const accessLink = base => { const t = ls.get(LS_ACCESS, null); return t ? base + "#zugang=" + t : null; };
 
   /* ---------------- REST ---------------- */
   function headers(extra) { return Object.assign({ apikey: KEY, Authorization: "Bearer " + (session ? session.access_token : KEY), "Content-Type": "application/json" }, extra || {}); }
@@ -217,6 +250,7 @@
     ApiError, on, ls,
     get session() { return session; }, get user() { return session && session.user; },
     signIn, signUp, signOut, recover, updatePassword, refresh, handleRedirect,
+    takeAccessFromHash, hasAccess, accessLogin, createAccessLink, accessLink, forgetAccess: () => ls.del(LS_ACCESS),
     request, get, getAll, insert, patch, del, rpc, tableExists,
     write, flush, idle, get pending() { return outbox.length; }, failed: () => ls.get(LS_FAILED, []), clearFailed: () => ls.del(LS_FAILED),
     saveSnapshot, loadSnapshot, invoke

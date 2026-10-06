@@ -400,12 +400,26 @@ V.einstellungen = () => {
   const learn = '<div class="card mt"><h2>Lernzeit pro Tag</h2><div class="form c2"><label class="fld">Zeitbudget für den Tagesplan (Minuten)<input id="s_budget" type="number" min="5" max="240" step="5" value="' + budgetMinutes() + '"></label></div><div class="hint" style="margin-top:var(--s2)">Der Tagesplan verteilt diese Zeit auf fällige Vokabeln und deine wichtigsten Unterthemen.</div><button class="btn primary mini" id="s_budget_save" style="margin-top:var(--s3)">Speichern</button></div>';
   const sync = '<div class="card mt"><h2>Synchronisation</h2><div class="inforow"><span class="d">Status</span><span class="x">' + (STATE.offline ? "Offline – Änderungen werden lokal gesammelt" : Api.pending ? Api.pending + " Änderungen warten auf Übertragung" : "Alles gespeichert") + '</span></div>' + (failed.length ? '<div class="inforow"><span class="d" style="color:var(--red)">Fehlgeschlagen</span><span class="x">' + failed.slice(-5).map(f => esc(f.method + " " + f.path.split("?")[0].replace("/rest/v1/", "") + ": " + f.error)).join("<br>") + '</span></div>' : '') + '<div style="display:flex;gap:var(--s2);margin-top:var(--s4);flex-wrap:wrap"><button class="btn sm" id="s_sync">Jetzt synchronisieren</button>' + (failed.length ? '<button class="btn sm" id="s_clearfail">Fehlerliste leeren</button>' : '') + '</div></div>';
   const ai = '<div class="card mt"><h2>KI</h2><div class="hint">Die KI läuft über eine Supabase Edge Function. Der API-Schlüssel liegt nur auf dem Server.</div><div style="margin-top:var(--s3);display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap"><span class="pill ' + (AI.state === "ok" ? "p-green" : AI.state === "unavailable" ? "p-amber" : "") + '">' + (AI.state === "ok" ? "verbunden" : AI.state === "unavailable" ? "nicht eingerichtet" : "noch nicht geprüft") + '</span><button class="btn sm" id="s_aitest">Verbindung testen</button></div></div>';
-  return acc + learn + sync + ai + '<div class="mt">' + V_einstellungen_base() + '</div>';
+  const link = Api.accessLink(location.origin + location.pathname);
+  const access = '<div class="card mt"><h2>Zugangslink</h2><div class="hint">Mit diesem Link kommst du auf jedem Gerät sofort rein, ohne Anmeldung. Wer nur die normale Adresse kennt, sieht deine Daten nicht. Gib den Link nur weiter, wenn die Person alles sehen und ändern darf.</div>' +
+    (link ? '<div class="inline-add" style="grid-template-columns:1fr auto;margin-top:var(--s3)"><input id="s_link" readonly value="' + esc(link) + '"><button class="btn" id="s_link_copy">Kopieren</button></div>' : '') +
+    '<div style="display:flex;gap:var(--s2);margin-top:var(--s3);flex-wrap:wrap"><button class="btn sm' + (link ? '' : ' primary') + '" id="s_link_new">' + (link ? "Neuen Link erstellen (alter wird ungültig)" : "Zugangslink erstellen") + '</button></div></div>';
+  return acc + access + learn + sync + ai + '<div class="mt">' + V_einstellungen_base() + '</div>';
 };
 bindEinstellungen = function () {
   bindEinstellungen_base();
   const q = id => document.getElementById(id);
-  const lo = q("s_logout"); if (lo) lo.onclick = async () => { if (tsActive()) await tsFinish("abandoned", true); TS = null; tsSave(); await Api.signOut(); STATE.needAuth = true; AUTH_MODE = "login"; location.hash = "#/dashboard"; route(); };
+  const lc = q("s_link_copy"); if (lc) lc.onclick = async () => { try { await navigator.clipboard.writeText(q("s_link").value); toast("Link kopiert – auf dem Handy öffnen und als Lesezeichen oder auf dem Home-Bildschirm speichern"); } catch (e) { q("s_link").select(); } };
+  const ln = q("s_link_new"); if (ln) ln.onclick = () => openModal("Zugangslink erstellen", '<p class="hint">Die App erzeugt dafür ein neues, zufälliges Passwort für dein Konto. Ab dann kommst du über den Link rein. Dein bisheriges Passwort gilt danach nicht mehr, und ein älterer Link auch nicht. Geräte, die gerade angemeldet sind, bleiben es.</p>',
+    '<button class="btn" id="al_no">Abbrechen</button><button class="btn primary" id="al_yes">Link erstellen</button>', () => {
+      q("al_no").onclick = closeModal;
+      q("al_yes").onclick = async () => {
+        q("al_yes").classList.add("loading");
+        try { const l = await Api.createAccessLink(location.origin + location.pathname); try { await navigator.clipboard.writeText(l); } catch (e) {} closeModal(); route(); toast("Zugangslink erstellt und kopiert"); }
+        catch (e) { q("al_yes").classList.remove("loading"); toast(e.network ? "Keine Verbindung – versuch es gleich noch einmal." : "Das hat nicht geklappt: " + e.message, true); }
+      };
+    });
+  const lo = q("s_logout"); if (lo) lo.onclick = async () => { if (tsActive()) await tsFinish("abandoned", true); TS = null; tsSave(); Api.forgetAccess(); await Api.signOut(); STATE.needAuth = true; AUTH_MODE = "login"; location.hash = "#/dashboard"; route(); };
   const pw = q("s_pw"); if (pw) pw.onclick = () => { AUTH_MODE = "newpw"; STATE.needAuth = true; route(); };
   const bs = q("s_budget_save"); if (bs) bs.onclick = async () => { const v = Math.min(240, Math.max(5, +val("s_budget") || 30)); if (ES.profile) await dbPatchProfile({ daily_minutes: v }); todayPlan(true); toast("Gespeichert"); };
   const sy = q("s_sync"); if (sy) sy.onclick = async () => { await Api.flush(); route(); toast(Api.pending ? "Noch nicht alles übertragen – keine Verbindung?" : "Alles gespeichert"); };

@@ -30,7 +30,7 @@ let AUTH_MODE = "login";
 V.auth = () => {
   const m = AUTH_MODE;
   const title = m === "signup" ? "Konto erstellen" : m === "reset" ? "Passwort zurücksetzen" : m === "newpw" ? "Neues Passwort" : "Anmelden";
-  const sub = m === "signup" ? "Dein Lernstand wird in deinem Konto gespeichert – nur du kannst ihn sehen." : m === "reset" ? "Wir schicken dir einen Link per E-Mail." : m === "newpw" ? "Wähle ein neues Passwort für dein Konto." : "Melde dich an, um weiterzulernen.";
+  const sub = m === "signup" ? "Dein Lernstand wird in deinem Konto gespeichert – nur du kannst ihn sehen." : m === "reset" ? "Wir schicken dir einen Link per E-Mail." : m === "newpw" ? "Wähle ein neues Passwort für dein Konto." : "Melde dich an, um weiterzulernen. Hast du einen Zugangslink? Dann öffne einfach den – ohne Anmeldung.";
   return '<div class="auth"><div class="auth-card"><div class="brand" style="padding:0 0 var(--s6)"><div class="logo">' + document.querySelector(".brand .logo").innerHTML + '</div><div><b>Lern-Cockpit</b></div></div><h1 class="t-title">' + title + '</h1><p class="t-callout" style="margin:6px 0 var(--s6)">' + sub + '</p>' +
     '<form id="auth_form" class="form" novalidate>' +
     (m === "signup" ? '<label class="fld">Name<input id="a_name" autocomplete="name" placeholder="Filip"></label>' : '') +
@@ -403,7 +403,11 @@ function bindPage(name) {
 window.addEventListener("hashchange", () => { closeModal(); const prev = ROUTE.name + "/" + ROUTE.sub; parseRoute(); if (ROUTE.name + "/" + ROUTE.sub !== prev) VOK_FILTER = ""; route(); });
 window.addEventListener("resize", debounce(() => { if (ROUTE.name === "stundenplan") route(); }, 200));
 Api.on("outbox", () => { if (!document.getElementById("mbg") && !document.body.classList.contains("focus") && ["dashboard", "vokabeln", "trainer"].includes(ROUTE.name)) { const n = document.querySelector("#view .notice"); if (n || Api.pending === 0) route(); } });
-Api.on("auth", s => { if (!s && STATE.engine === "ready" && !STATE.needAuth) { STATE.needAuth = true; route(); } });
+Api.on("auth", s => {
+  if (s || STATE.engine !== "ready" || STATE.needAuth) return;
+  if (Api.hasAccess()) { init(true); return; }   // Sitzung abgelaufen → mit dem Zugangslink neu anmelden
+  STATE.needAuth = true; route();
+});
 
 /* =====================================================================
    START
@@ -418,6 +422,11 @@ async function init(silent) {
     try { version = await Api.rpc("lern_engine_version"); }
     catch (e) { if (e.network) throw e; version = 0; }
     STATE.engine = version >= 3 ? "ready" : "missing"; STATE.engineVersion = version;
+    // Zugangslink: mit dem gespeicherten Schlüssel automatisch anmelden
+    if (STATE.engine === "ready" && !Api.session && Api.hasAccess()) {
+      try { await Api.accessLogin(); }
+      catch (e) { if (e.network) throw e; if (e.accessInvalid) toast("Dieser Zugangslink gilt nicht mehr – es wurde ein neuer erstellt. Öffne den neuen Link oder melde dich an.", true); }
+    }
     if (STATE.engine === "ready" && !Api.session) { STATE.needAuth = true; STATE.loaded = true; route(); return; }
     STATE.needAuth = false;
     if (STATE.engine === "ready") { try { const c = await Api.rpc("claim_legacy_data"); if (c && Object.keys(c).length && !c.skipped) console.info("Altdaten übernommen", c); } catch (e) { console.warn("Übernahme", e); } }
