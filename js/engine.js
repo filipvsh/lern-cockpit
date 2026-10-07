@@ -134,6 +134,17 @@
   FSRS.decay = -FSRS.w[20];
   FSRS.factor = Math.pow(0.9, 1 / FSRS.decay) - 1;
   const SRS = { newPerSession: 10, secureFrom: 60, againMinutes: FSRS.relearnMinutes };
+  /* Durchgänge über den Tag (Spacing-Effekt, Cepeda u. a. 2006/2008): Ein Wort, das du morgens
+     einmal gesehen hast, sitzt besser, wenn es einige Stunden später noch einmal kommt – statt
+     erst am nächsten Tag. Vor einem Vokabeltest kommt deshalb jedes Wort am selben Tag mit
+     Abstand wieder: 2 Durchgänge pro Tag (≥ 4 Std.), am Vortag 3 (≥ 3 Std.).
+     Nach 22 Uhr entfällt der Zusatz-Durchgang, dann gilt der normale Abstand (morgen). */
+  const PASSES = { perDay: 2, gapMin: 240, perDayLast: 3, gapMinLast: 180, latestHour: 22 };
+  /** Durchgänge pro Tag und Mindestabstand (Minuten) – abhängig von den Tagen bis zum Test; ab Testtag keine */
+  function passPlan(daysLeft) {
+    if (!(daysLeft >= 1)) return { perDay: 1, gapMin: 0 };
+    return daysLeft === 1 ? { perDay: PASSES.perDayLast, gapMin: PASSES.gapMinLast } : { perDay: PASSES.perDay, gapMin: PASSES.gapMin };
+  }
   const GRADE = { wrong: 1, almost: 2, correct: 3 };
   const clampD = d => Math.min(10, Math.max(1, d));
   const clampS = x => Math.max(0.001, x);
@@ -204,6 +215,7 @@
    * (Wiederholung in derselben Lernrunde), danach plant die nächste richtige Antwort.
    * opts.cap: späteste Fälligkeit (z. B. Vortag eines Tests); opts.retry: Wiederholung in
    * derselben Runde – ändert das Gedächtnis (FSRS-Kurzzeitformel), aber nicht die Zähler.
+   * opts.sameDayMin: Mindestabstand (Min.) bis zum nächsten Durchgang am selben Tag (siehe passPlan).
    */
   function srsSchedule(card, verdict, now, opts) {
     const o = opts || {}; const g = GRADE[verdict] || 1;
@@ -216,6 +228,8 @@
       const days = Math.min(FSRS.maxInterval, Math.max(1, Math.round(fsrsInterval(m.S))));
       next = startOfDay(now) + days * DAY;
       if (o.cap != null) next = Math.min(next, Math.max(startOfDay(now) + DAY, toMs(o.cap)));
+      // Durchgang über den Tag: Wort kommt nach sameDayMin Minuten noch einmal, wenn das vor dem Abend liegt
+      if (o.sameDayMin > 0) { const t = now + o.sameDayMin * MIN; if (t < startOfDay(now) + PASSES.latestHour * 60 * MIN) next = Math.min(next, t); }
     }
     const S = Math.round(m.S * 100) / 100, D = Math.round(m.D * 100) / 100;
     return {
@@ -280,6 +294,12 @@
       q = q.concat(rest);
     }
     return o.limit ? q.slice(0, o.limit) : q;
+  }
+  /** Wann kommt heute noch ein Durchgang? Früheste Fälligkeit nach jetzt, noch am selben Tag (ms) oder null */
+  function nextPassAt(cards, now) {
+    const end = startOfDay(now) + DAY; let best = null;
+    cards.forEach(c => { if (isNew(c) || !c.next_review_at) return; const t = toMs(c.next_review_at); if (t > now && t < end && (best == null || t < best)) best = t; });
+    return best;
   }
   /** Nächste Wiederholung spätestens am Tag vor dem Test (frühestens morgen) */
   function testCap(nextIso, testDay, now) {
@@ -707,7 +727,7 @@
     DAY, uuid, shuffle, isoDay, startOfDay, daysBetween,
     LANG_NAMES, normalize, stripAccents, answerVariants, levenshtein, checkAnswer,
     SRS, FSRS, GRADE, fsrsStep, fsrsRetrievability, fsrsInterval, memoryOf, recallProbability, stageOf, calDays, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
-    isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, roundProgress, diffParts,
+    PASSES, passPlan, nextPassAt, isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, roundProgress, diffParts,
     STATUSES, createSession, elapsedMs, remainingMs, isExpired, pause, resume, finish, current, recordAnswer, requeue, advance, summary,
     MASTERY, subtopicMastery, examReadiness,
     prioritize, dailyPlan, examRoadmap, MOCK_DAYS_BEFORE,

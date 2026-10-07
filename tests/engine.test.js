@@ -227,6 +227,30 @@ test("Vokabeltest: Wiederholung spätestens am Tag vor dem Test, frühestens mor
   const tomorrowTest = new Date(E.startOfDay(NOW) + DAY);
   assert.equal(new Date(E.testCap(far, tomorrowTest.getTime(), NOW)).getTime(), E.startOfDay(NOW) + DAY);
 });
+test("Durchgänge: Anzahl und Abstand je nach Tagen bis zum Test", () => {
+  assert.deepEqual(E.passPlan(4), { perDay: 2, gapMin: 240 });
+  assert.deepEqual(E.passPlan(2), { perDay: 2, gapMin: 240 });
+  assert.deepEqual(E.passPlan(1), { perDay: 3, gapMin: 180 });
+  assert.equal(E.passPlan(0).gapMin, 0, "am Testtag kein Zusatz-Durchgang");
+});
+test("Durchgänge: richtig → nach 4 Std. noch einmal; spät abends, falsch und ohne Option wie bisher", () => {
+  const card = { reps: 0, last_reviewed_at: null };
+  const at = new Date("2026-10-07T16:30:00").getTime(), cap = E.startOfDay(at) + DAY;
+  const r = E.srsSchedule(card, "correct", at, { cap, sameDayMin: 240 });
+  assert.equal(new Date(r.next_review_at).getTime(), at + 240 * 60000);
+  const late = new Date("2026-10-07T20:30:00").getTime();   // +4 Std. wäre nach Mitternacht
+  assert.equal(new Date(E.srsSchedule(card, "correct", late, { cap: E.startOfDay(late) + DAY, sameDayMin: 240 }).next_review_at).getTime(), E.startOfDay(late) + DAY);
+  assert.equal(new Date(E.srsSchedule(card, "wrong", at, { sameDayMin: 240 }).next_review_at).getTime(), at + 10 * 60000);
+  assert.equal(new Date(E.srsSchedule(card, "correct", at, { cap }).next_review_at).getTime(), cap, "ohne Option unverändert");
+  assert.equal(new Date(E.srsSchedule(card, "almost", at, { cap, sameDayMin: 180 }).next_review_at).getTime(), at + 180 * 60000);
+});
+test("Durchgänge: nächster Durchgang heute = früheste Fälligkeit nach jetzt, noch vor Mitternacht", () => {
+  const at = new Date("2026-10-07T16:30:00").getTime(), seen = { reps: 1, last_reviewed_at: at };
+  const cards = [tcard(1), tcard(2, Object.assign({ next_review_at: new Date(at + 5 * 3600e3).toISOString() }, seen)), tcard(3, Object.assign({ next_review_at: new Date(at + 4 * 3600e3).toISOString() }, seen)),
+    tcard(4, Object.assign({ next_review_at: new Date(E.startOfDay(at) + DAY).toISOString() }, seen)), tcard(5, Object.assign({ next_review_at: new Date(at - 60e3).toISOString() }, seen))];
+  assert.equal(E.nextPassAt(cards, at), at + 4 * 3600e3);
+  assert.equal(E.nextPassAt([tcard(1)], at), null);
+});
 test("Liste einfügen: übliche Trenner, Nummerierung, Bindestriche im Wort bleiben", () => {
   const r = E.parseVocabList("1. la gare – der Bahnhof\nest-ce que\tFrageformel\npeut-être = vielleicht\nréussir ; gelingen; schaffen\n• le copain / la copine - der Freund / die Freundin\n\nnur ein Wort");
   assert.deepEqual(r.items.map(x => x.begriff), ["la gare", "est-ce que", "peut-être", "réussir", "le copain / la copine"]);

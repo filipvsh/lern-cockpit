@@ -365,10 +365,17 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   assert.equal(reviewed.length, 3, "heute nur der Tagesanteil");
   const cap = await page.evaluate(d => new Date(d + "T00:00:00").getTime() - 864e5, testDay);
   assert.ok(reviewed.every(v => new Date(v.next_review_at).getTime() <= cap), "Wiederholung spätestens am Vortag");
+  // Durchgänge über den Tag: jedes Wort kommt nach 4 Std. noch einmal (wenn das vor 22 Uhr liegt), sonst morgen
+  const lateEnough = await page.evaluate(() => Date.now() + 240 * 60000 < Engine.startOfDay(Date.now()) + 22 * 3600e3);
+  const sod = ms => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  reviewed.forEach(v => { const t = new Date(v.next_review_at).getTime(), l = new Date(v.last_reviewed_at).getTime();
+    if (lateEnough) assert.ok(Math.abs(t - l - 240 * 60000) < 60000, "zweiter Durchgang nach 4 Std."); else assert.ok(t >= sod(l) + 864e5, "abends: morgen"); });
   const sess = b.db.training_sessions.find(s => String(s.exam_id) === String(k.id)); assert.equal(sess.mode, "vocab");
   // Probetest: alle Wörter, Zeitlimit, ohne Rückmeldung
   await page.click("#sm_close").catch(() => {}); await page.waitForTimeout(200);
-  await go(page, "#/lernplan/" + k.id); await page.click("#vt_probe"); await page.click("#pm_go"); await page.waitForSelector("#va");
+  await go(page, "#/lernplan/" + k.id);
+  if (lateEnough) assert.ok((await page.textContent("#view")).includes("Durchgang 2 ab "), "Plan nennt die Uhrzeit des nächsten Durchgangs");
+  await page.click("#vt_probe"); await page.click("#pm_go"); await page.waitForSelector("#va");
   assert.ok(await page.evaluate(() => TS.mode === "exam" && TS.items.length === 9 && !TS.feedback && TS.time_limit_s > 0));
   for (let i = 0; i < 9; i++) { await page.fill("#va", "x"); await page.click("#va_check"); }
   await page.waitForSelector(".fx-done");

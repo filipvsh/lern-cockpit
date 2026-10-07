@@ -220,8 +220,13 @@ const SRS_FIELDS = ["reps", "ease", "interval_days", "lapses", "next_review_at",
 /** SRS-Planung; gehört die Karte zu einem anstehenden Vokabeltest, kommt sie spätestens am Vortag wieder */
 function srsFor(card, verdict, retry) {
   const k = testForCollection(card.collection_id);
-  return Engine.srsSchedule(card, verdict, Date.now(), { retry: !!retry, cap: k ? new Date(k.datum + "T00:00:00").getTime() - Engine.DAY : null });
+  // Durchgänge über den Tag: vor dem Test kommt das Wort nach einigen Stunden noch einmal (Engine.passPlan)
+  let sameDayMin = 0;
+  if (k && verdict !== "wrong") { const pp = Engine.passPlan(daysUntil(k.datum)); if (pp.gapMin && passesToday(card.id) + (retry ? 0 : 1) < pp.perDay) sameDayMin = pp.gapMin; }
+  return Engine.srsSchedule(card, verdict, Date.now(), { retry: !!retry, cap: k ? new Date(k.datum + "T00:00:00").getTime() - Engine.DAY : null, sameDayMin });
 }
+/** Wie oft wurde diese Vokabel heute schon in einer Runde abgefragt? (ein Lernereignis je Runde; die laufende Runde ist erst nach dem ersten Abruf dabei) */
+function passesToday(cardId) { const t = todayISO(); return ES.events.filter(e => String(e.vocab_id) === String(cardId) && isoLocal(new Date(e.created_at)) === t).length; }
 function applyVocabResult(card, verdict, given, item) {
   const prev = {}; SRS_FIELDS.forEach(k => prev[k] = card[k]);
   const fresh = Engine.isNew(card);

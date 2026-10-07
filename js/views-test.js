@@ -18,7 +18,7 @@ function testModal(k, presetCol) {
     '<div class="form"><label class="fld">Was kommt dran?<input id="vt_name" value="' + esc(k ? vtName(k) : col0 ? col0.name : "") + '" placeholder="z. B. Voc. 7A p. 222/223" maxlength="80"></label>' +
     '<div class="form c2"><label class="fld">Fach<select id="vt_fach">' + TEST_LANGS.map(f => '<option' + (f === fach0 ? " selected" : "") + '>' + f + '</option>').join("") + '</select></label><label class="fld">Datum<input id="vt_date" type="date" value="' + esc(k ? k.datum : "") + '"></label></div>' +
     '<label class="fld">Vokabeln aus<select id="vt_col">' + colOpts(col0) + '</select></label>' +
-    '<p class="hint">Bis zum Test verteilt die App alle Wörter auf die Tage, fragt falsche öfter ab und sagt dir vorher, wie viel Prozent du im Test voraussichtlich weißt.</p></div>',
+    '<p class="hint">Bis zum Test verteilt die App alle Wörter auf die Tage und lässt jedes Wort mit einigen Stunden Abstand mehrmals am Tag drankommen. Falsche kommen öfter, und du siehst vorher, wie viel Prozent du im Test voraussichtlich weißt.</p></div>',
     (isNew ? '' : '<button class="btn danger left" id="vt_del">Löschen</button>') + '<button class="btn" id="vt_cancel">Abbrechen</button><button class="btn primary" id="vt_save">' + (isNew ? "Test eintragen" : "Speichern") + '</button>', () => {
       const q = id => document.getElementById(id);
       q("vt_cancel").onclick = closeModal;
@@ -110,12 +110,15 @@ function importModal(colId) {
 /** Ablauf bis zum Test: wie viele neue Wörter an welchem Tag (Schätzung nach heutigem Stand) */
 function testSchedule(k) {
   const d = daysUntil(k.datum); let unseen = testStatusOf(k).unseen; const out = [];
+  // Durchgänge über den Tag (Engine.passPlan): jedes Wort kommt mit Stunden Abstand mehrfach – das merkt sich das Gehirn besser als ein einziger Block
+  const nextPass = nextPassOf(k);
   for (let i = 0; i <= d; i++) {
-    const left = d - i; const date = addDays(todayISO(), i);
-    if (left === 0) { out.push({ date, label: "Test", sub: "Kurz vorher alles einmal durchgehen" }); break; }
-    if (left === 1) { out.push({ date, label: "Alles wiederholen + Probetest", sub: "Jede Vokabel noch einmal – unsichere zuerst" }); continue; }
+    const left = d - i; const date = addDays(todayISO(), i); const pp = Engine.passPlan(left); const std = pp.gapMin / 60;
+    if (left === 0) { out.push({ date, label: "Test", sub: "Morgens kurz vor dem Test alles einmal durchgehen" }); break; }
+    if (left === 1) { out.push({ date, label: "Alles wiederholen + Probetest", sub: pp.perDay + " Durchgänge, je ≥ " + std + " Std. Abstand (z. B. morgens · nachmittags · abends), unsichere Wörter zuerst. Probetest in einem davon" + (i === 0 && nextPass ? " · nächster Durchgang ab " + hhmm(nextPass) + " Uhr" : "") }); continue; }
     const n = Engine.testNewQuota(unseen, left); unseen -= n;
-    out.push({ date, label: n ? plural(n, "neue Vokabel", "neue Vokabeln") + (i ? " + Wiederholung" : "") : "Wiederholung", sub: n ? "Falsche kommen nach 10 Minuten noch einmal" : "Was fällig ist und was noch nicht sitzt" });
+    const second = i === 0 && nextPass ? "Durchgang 2 ab " + hhmm(nextPass) + " Uhr" : "Durchgang 2 mindestens " + std + " Std. später (z. B. abends)";
+    out.push({ date, label: n ? plural(n, "neue Vokabel", "neue Vokabeln") + (i ? " + Wiederholung" : "") : "Wiederholung", sub: (n ? "Durchgang 1: neue Wörter lernen · " : "Durchgang 1: was fällig ist · ") + second + " · falsche kommen nach 10 Min. wieder" });
   }
   return out;
 }
@@ -133,7 +136,7 @@ function testDetail(k) {
     '<div class="ph-actions">' + (!past && cards.length ? '<button class="btn primary" id="vt_learn">' + ICO.play + (q.length ? "Heute lernen · " + plural(q.length, "Karte", "Karten") : "Zusatzrunde") + '</button><button class="btn" id="vt_probe">' + ICO.clock + 'Probetest</button>' : '') + '<button class="btn" id="vt_edit">Bearbeiten</button></div></div>' +
     '<div class="topic-stats">' + (past ? '<div class="stat"><div class="num">' + (k.punkte != null ? k.punkte : "—") + '</div><small>Punkte</small></div>' : '<div class="stat"><div class="num">' + d + '</div><small>' + (d === 1 ? "Tag" : "Tage") + ' bis zum Test</small></div>' + (cards.length ? '<div class="stat">' + ring((st.expected || 0) / 100, 88, 7, (st.expected == null ? "—" : st.expected + "%"), "erwartet") + '</div>' : '')) + '</div></div>';
   if (!cards.length) return netNotice() + head + '<div class="card">' + emptyState("vokabeln", "Trag die Vokabeln ein", "Am schnellsten: die ganze Liste auf einmal einfügen – eine Vokabel pro Zeile, z. B. „la rentrée - der Schulbeginn“.", (col ? '<button class="btn primary sm" id="vt_import">Liste einfügen</button> <button class="btn sm" id="vt_add">Einzeln hinzufügen</button>' : '<button class="btn primary sm" id="vt_edit2">Sammlung wählen</button>')) + '</div>';
-  const status = past ? '' : '<div class="notice"><span class="dot" style="background:' + (q.length ? "var(--accent)" : "var(--green)") + '"></span><span>' + (q.length ? '<b>Heute:</b> ' + [q.filter(Engine.isNew).length ? plural(q.filter(Engine.isNew).length, "neue Vokabel", "neue Vokabeln") : "", q.filter(c => !Engine.isNew(c)).length ? plural(q.filter(c => !Engine.isNew(c)).length, "Wiederholung", "Wiederholungen") : ""].filter(Boolean).join(" und ") + '. ' : '<b>Für heute erledigt.</b> ') + (st.expected == null ? "Noch keine Vorhersage – lern die ersten Wörter." : 'Wenn der Test so wäre wie jetzt, wüsstest du etwa <b>' + st.expected + ' %</b> der Wörter. ' + st.secure + ' von ' + st.total + ' sitzen sicher (≥ 90 % am Testtag)') + (st.wrong ? ', ' + st.wrong + ' zuletzt falsch' : '') + '.</span></div>';
+  const status = past ? '' : '<div class="notice"><span class="dot" style="background:' + (q.length ? "var(--accent)" : "var(--green)") + '"></span><span>' + (q.length ? '<b>Heute:</b> ' + [q.filter(Engine.isNew).length ? plural(q.filter(Engine.isNew).length, "neue Vokabel", "neue Vokabeln") : "", q.filter(c => !Engine.isNew(c)).length ? plural(q.filter(c => !Engine.isNew(c)).length, "Wiederholung", "Wiederholungen") : ""].filter(Boolean).join(" und ") + '. ' : '<b>Für heute erledigt.</b> ' + (nextPassOf(k) ? 'Nächster Durchgang ab ' + hhmm(nextPassOf(k)) + ' Uhr. ' : '')) + (st.expected == null ? "Noch keine Vorhersage – lern die ersten Wörter." : 'Wenn der Test so wäre wie jetzt, wüsstest du etwa <b>' + st.expected + ' %</b> der Wörter. ' + st.secure + ' von ' + st.total + ' sitzen sicher (≥ 90 % am Testtag)') + (st.wrong ? ', ' + st.wrong + ' zuletzt falsch' : '') + '.</span></div>';
   const dirSw = '<div class="dirsw" style="margin-bottom:var(--s4)"><span class="t-sub">Abfrage</span><div class="seg"><button class="' + (dir === "reverse" ? "on" : "") + '" data-vtdir="reverse">' + esc(dirLabel(col, "reverse")) + '</button><button class="' + (dir === "forward" ? "on" : "") + '" data-vtdir="forward">' + esc(dirLabel(col, "forward")) + '</button></div></div>';
   const sched = past ? '' : '<div>' + sectionHead("Bis zum Test") + '<div class="card"><div class="tl">' + testSchedule(k).map((s, i) => '<div class="tls ' + (i === 0 ? "now" : "") + '"><div class="d">' + (i === 0 ? "Heute · " : "") + esc(fmtD(s.date)) + '</div><div class="x">' + esc(s.label) + '</div><div class="y">' + esc(s.sub) + '</div></div>').join("") + '</div></div></div>';
   const tday = testDayMs(k);

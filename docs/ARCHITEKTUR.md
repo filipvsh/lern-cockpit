@@ -176,6 +176,18 @@ mit genau einer Sammlung in `vokabel_lektionen`. Keine zusätzliche Migration.
   10 Minuten erneut.
 - Wiederholungsabstände von Testkarten enden spätestens am Vortag
   (frühestens morgen), damit keine Karte über den Testtermin „springt“.
+- **Durchgänge über den Tag** (Spacing-Effekt, Cepeda u. a. 2006/2008; `Engine.passPlan`):
+  Wer ein Wort morgens einmal sieht und mittags/abends noch einmal, behält es
+  besser als nach einem einzigen Block. Vor einem Test kommt deshalb jedes
+  richtig beantwortete Wort am selben Tag nach einigen Stunden wieder:
+  - ab 2 Tagen vor dem Test: 2 Durchgänge pro Tag, mindestens 4 Std. Abstand
+  - am Vortag: 3 Durchgänge, mindestens 3 Std. Abstand
+  - am Testtag: kein Zusatz-Durchgang (alles einmal kurz vorher)
+  - nach 22 Uhr entfällt der Zusatz-Durchgang (dann gilt „morgen“)
+  - falsche Wörter kommen weiter nach 10 Minuten wieder
+  - gezählt wird je Wort und Tag über die Lernereignisse (ein Ereignis je Runde)
+  Dashboard und Testseite nennen die Uhrzeit des nächsten Durchgangs
+  (`Engine.nextPassAt`).
 - Vortag und Testtag: jede Karte, die an diesem Tag noch nicht dran war.
 - Probetest: alle Karten zufällig, Zeitlimit, keine Rückmeldung bis zum Ende,
   Ergebnisse zählen normal für die Wiederholungsplanung.
