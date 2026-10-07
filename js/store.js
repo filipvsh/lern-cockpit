@@ -191,6 +191,9 @@ const upcomingTests = () => upcomingKL().filter(isVocabTest);
 const testCards = k => { const ids = linkedCollections(k).map(c => c.id); return STATE.vo.filter(v => ids.includes(v.collection_id)); };
 const testDayMs = k => new Date(k.datum + "T08:00:00").getTime();
 function testStatusOf(k) { return memo("ts:" + k.id, () => Engine.testStatus(testCards(k), testDayMs(k))); }
+const hhmm = ms => new Date(ms).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+/** Wann kommt heute noch ein Durchgang dieses Vokabeltests dran? (ms oder null) */
+const nextPassOf = k => Engine.nextPassAt(testCards(k), Date.now());
 function testQueueOf(k) { return memo("tq:" + k.id, () => Engine.testQueue(testCards(k), { now: Date.now(), daysLeft: daysUntil(k.datum), testDay: testDayMs(k) })); }
 /** Anstehender Test, zu dem diese Sammlung gehört (für die Begrenzung der Wiederholungsabstände) */
 const testForCollection = colId => upcomingTests().find(k => linkedCollections(k).some(c => c.id === colId)) || null;
@@ -332,7 +335,7 @@ function testPlanItem(k) {
   const doneMin = minutesTodayFor(s => String(s.exam_id) === String(k.id));
   const when = d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen";
   return { key: "test:" + k.id, kind: "test", exam_id: k.id, minutes: Math.max(5, Math.min(25, Math.ceil(Math.max(q.length, 1) * 0.4))),
-    title: vtName(k), sub: "Vokabeltest " + when + " · " + (q.length ? (fresh ? fresh + " neue" : "") + (fresh && rev ? " + " : "") + (rev ? rev + " Wiederholungen" : "") : "für heute erledigt") + " · " + (st.expected == null ? "noch nicht begonnen" : "erwartet " + st.expected + " % im Test"),
+    title: vtName(k), sub: "Vokabeltest " + when + " · " + (q.length ? (fresh ? fresh + " neue" : "") + (fresh && rev ? " + " : "") + (rev ? rev + " Wiederholungen" : "") : "für heute erledigt" + (nextPassOf(k) ? ", nächster Durchgang ab " + hhmm(nextPassOf(k)) + " Uhr" : "")) + " · " + (st.expected == null ? "noch nicht begonnen" : "erwartet " + st.expected + " % im Test"),
     reasons: [d <= 1 ? "Letzte Runde: alle Wörter noch einmal" : "Verteilt bis zum Test"], doneMin, done: !q.length };
 }
 /** Schwachstellen: geübte Unterthemen unter 70 % und Sammlungen mit Fehlerkarten */
