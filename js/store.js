@@ -185,7 +185,9 @@ function linkedCollections(k) {
 }
 /* ---------------- Vokabeltests (Prüfung mit fester Sammlung, z. B. „Voc. 7A p. 222/223“) ---------------- */
 const VT_PREFIX = "Vokabeltest: ";
-const isVocabTest = k => !!k && (k.description === "Vokabeltest" || /^vokabeltest\b/i.test(k.thema || ""));
+// Erkennt auch Tests, die per Foto/Aushang eingetragen wurden („Voc. 7A …“, „test de vocabulaire“, „Vokabeltest Unit 3“)
+const VT_RE = /vokabel|vocab|\bvoc\.|test de vocabulaire|lexique/i;
+const isVocabTest = k => !!k && (k.description === "Vokabeltest" || VT_RE.test(k.thema || "") || VT_RE.test(k.description || ""));
 const vtName = k => String(k.thema || "").replace(/^vokabeltest:?\s*/i, "") || "Vokabeltest";
 const upcomingTests = () => upcomingKL().filter(isVocabTest);
 const testCards = k => { const ids = linkedCollections(k).map(c => c.id); return STATE.vo.filter(v => ids.includes(v.collection_id)); };
@@ -266,7 +268,7 @@ function todayPlan(forceNew) {
   const prio = priorities();
   plan.items.forEach(i => {
     if (i.kind === "subtopic") { const p = prio.find(x => x.subtopic.id === i.subtopic_id); const st = subById(i.subtopic_id); if (p) i.reasons = p.reasons; if (st) i.title = st.title; }
-    if (["test", "probe", "setup", "mock", "review", "final"].includes(i.kind)) return;
+    if (["test", "testsetup", "probe", "setup", "mock", "review", "final"].includes(i.kind)) return;
     i.doneMin = i.kind === "vocab" ? minutesTodayFor(s => s.mode === "vocab" && s.status === "completed" && s.exam_id == null)
       : i.kind === "errors" ? minutesTodayFor(s => s.mode === "errors")
       : minutesTodayFor(s => s.subtopic_id === i.subtopic_id);
@@ -318,6 +320,7 @@ function examMissionItems(k) {
 /** Vokabeltest: Lernrunde, am Vortag zusätzlich Probetest */
 function testPlanItems(k) {
   const it = testPlanItem(k); if (!it) return [];
+  if (it.kind === "testsetup") return [it];
   const out = [it]; const d = daysUntil(k.datum);
   if (d <= 1) {
     const probe = ES.sessions.find(s => s.mode === "exam" && String(s.exam_id) === String(k.id) && s.status === "completed" && sameDay(s.started_at));
@@ -326,7 +329,13 @@ function testPlanItems(k) {
   return out;
 }
 function testPlanItem(k) {
-  const cards = testCards(k); if (!cards.length) return null;
+  const cards = testCards(k);
+  if (!cards.length) {
+    // Ohne Wörter kann nicht abgefragt werden – dann ist das Eintragen der erste Schritt
+    const d = daysUntil(k.datum);
+    return { key: "testsetup:" + k.id, kind: "testsetup", exam_id: k.id, minutes: 5, title: "Vokabeln eintragen: " + vtName(k),
+      sub: "Vokabeltest " + (d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen") + " · Liste einfügen, dann geht's los", reasons: ["Ohne die Wörter kann die App dich nicht abfragen"], done: false, doneMin: 0 };
+  }
   const d = daysUntil(k.datum); const q = testQueueOf(k); const st = testStatusOf(k);
   const fresh = q.filter(Engine.isNew).length, rev = q.length - fresh;
   const doneMin = minutesTodayFor(s => String(s.exam_id) === String(k.id));

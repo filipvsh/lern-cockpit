@@ -653,6 +653,7 @@ function startPlanItem(it) {
   else if (it.kind === "mock" && k) mockModal(k);
   else if (it.kind === "probe" && k) probeModal(k);
   else if ((it.kind === "review" || it.kind === "final") && k) { if (it.subtopic_id) startTraining({ mode: "topic", subtopic_id: it.subtopic_id, planKey: it.key }); else topicAssistant(k); }
+  else if (it.kind === "testsetup" && k) { location.hash = "#/lernplan/" + k.id; setTimeout(() => startTestImport(k), 200); }
   else if (it.kind === "test") startTraining({ mode: "test", exam_id: it.exam_id, planKey: it.key });
   else if (it.kind === "vocab") startTraining({ mode: "vocab", direction: "forward", count: 30, planKey: it.key });
   else if (it.kind === "errors") startTraining({ mode: "errors", direction: "forward", planKey: it.key });
