@@ -557,6 +557,32 @@ await scenario("Ohne Anmeldung (Migration 005): direkt im Dashboard, Daten speic
   await ctx.close(); await B.ctx.close();
 });
 
+await scenario("Vokabeltest per Aushang eingetragen (ohne Wörter): sichtbar, Wörter eintragen, lernen", async () => {
+  const b = new MockBackend();
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000aa", fach: "Französisch", thema: "Voc. 8B test de vocabulaire", datum: day(3), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b); await login(page);
+  await page.waitForSelector(".mission");
+  assert.ok((await page.textContent(".mission")).includes("Vokabeln eintragen: Voc. 8B"), "Test im Auftrag, obwohl noch ohne Wörter");
+  await go(page, "#/vokabeln"); await page.waitForSelector(".li");
+  const vt = await page.textContent("#view");
+  assert.ok(vt.includes("Vokabeltests") && vt.includes("noch keine Vokabeln eingetragen"), "Vokabelseite zeigt den Test");
+  await go(page, "#/dashboard"); await page.waitForSelector(".mission");
+  const i = await page.evaluate(() => todayPlan().items.findIndex(x => x.kind === "testsetup"));
+  await page.click(`[data-plan="${i}"]`);
+  await page.waitForSelector("#im_txt", { timeout: 8000 });
+  await page.fill("#im_txt", "la cantine - die Kantine\nle collège - die Gesamtschule\nla récré - die Pause"); await page.waitForTimeout(300);
+  await page.click("#im_go"); await page.waitForSelector("#vt_learn");
+  await page.evaluate(() => Api.idle());
+  const k = b.db.klausuren.find(x => x.id === "11111111-aaaa-4aaa-8aaa-0000000000aa");
+  assert.equal(k.vokabel_lektionen.length, 1, "Sammlung verknüpft");
+  assert.equal(b.db.vokabeln.filter(v => v.sprache === k.vokabel_lektionen[0]).length, 3);
+  await go(page, "#/dashboard"); await page.waitForSelector(".mission");
+  const kinds = await page.evaluate(() => todayPlan().items.filter(x => x.exam_id === "11111111-aaaa-4aaa-8aaa-0000000000aa").map(x => x.kind));
+  assert.deepEqual(kinds, ["test"], "jetzt: Lernrunde für den Test");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

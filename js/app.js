@@ -185,7 +185,11 @@ V.vokabeln = () => {
   const order = ["fr", "en", "la", "es", "de"].filter(l => groups[l]).concat(Object.keys(groups).filter(l => !["fr", "en", "la", "es", "de"].includes(l)));
   const body = order.map(l => { const cols = groups[l].sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true })); const cards = cols.flatMap(colCards); const st = Engine.vocabStats(cards, now);
     return '<div class="section"><div class="lang-h"><h2>' + esc(groupName(l)) + '</h2><span class="t-sub">' + plural(st.total, "Karte", "Karten") + ' · ' + st.secure + ' sicher</span></div><div class="tiles">' + cols.map(colTile).join("") + '</div></div>'; }).join("");
-  return netNotice() + head + daily + search + (ES.collections.length ? body : '<div class="section"><div class="card">' + emptyState("vokabeln", "Noch keine Sammlung", "Eine Sammlung ist wie ein Ordner, z. B. „Unité 4“.", '<button class="btn primary sm" id="col_new2">Sammlung anlegen</button>') + '</div></div>');
+  // Anstehende Vokabeltests ganz oben – mit direktem Weg zum Lernen
+  const tests = upcomingTests();
+  const testsBox = tests.length ? '<div class="section" style="margin-top:0">' + sectionHead("Vokabeltests") + '<div class="list">' + tests.map(k => { const d = daysUntil(k.datum); const n = testCards(k).length; const st = n ? testStatusOf(k) : null; const q = n ? testQueueOf(k).length : 0;
+    return '<a class="li" href="#/lernplan/' + esc(k.id) + '"><span class="ico accent">' + ICO.vokabeln + '</span><div class="li-main"><div class="li-title">' + esc(vtName(k)) + '</div><div class="li-sub">' + esc(k.fach) + ' · ' + (d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen") + ' · ' + (!n ? '<span style="color:var(--orange)">noch keine Vokabeln eingetragen</span>' : (q ? q + " heute dran" : "heute erledigt") + (st.expected != null ? " · erwartet " + st.expected + " %" : "")) + '</div></div><span class="li-trail"><span class="btn ' + (n && !q ? "" : "primary ") + 'sm">' + (!n ? "Vokabeln eintragen" : q ? "Lernen" : "Ansehen") + '</span></span></a>'; }).join("") + '</div></div>' : '';
+  return netNotice() + head + testsBox + daily + search + (ES.collections.length ? body : '<div class="section"><div class="card">' + emptyState("vokabeln", "Noch keine Sammlung", "Eine Sammlung ist wie ein Ordner, z. B. „Unité 4“.", '<button class="btn primary sm" id="col_new2">Sammlung anlegen</button>') + '</div></div>');
 };
 function vokCollection(id) {
   let c = colById(id);

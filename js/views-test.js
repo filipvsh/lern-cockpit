@@ -132,7 +132,7 @@ function testDetail(k) {
   const head = '<a class="backlink" href="#/lernplan">' + ICO.back + 'Lernplan</a><div class="topic-head"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:' + fcol(k.fach) + ';margin-right:6px"></span>' + esc(k.fach) + ' · Vokabeltest</div><h1 class="t-large">' + esc(vtName(k)) + '</h1><div class="meta">' + esc(fmtDL(k.datum)) + (col ? ' · Sammlung <a href="#/vokabeln/' + esc(col.id) + '">' + esc(col.name) + '</a>' : '') + '</div>' +
     '<div class="ph-actions">' + (!past && cards.length ? '<button class="btn primary" id="vt_learn">' + ICO.play + (q.length ? "Heute lernen · " + plural(q.length, "Karte", "Karten") : "Zusatzrunde") + '</button><button class="btn" id="vt_probe">' + ICO.clock + 'Probetest</button>' : '') + '<button class="btn" id="vt_edit">Bearbeiten</button></div></div>' +
     '<div class="topic-stats">' + (past ? '<div class="stat"><div class="num">' + (k.punkte != null ? k.punkte : "—") + '</div><small>Punkte</small></div>' : '<div class="stat"><div class="num">' + d + '</div><small>' + (d === 1 ? "Tag" : "Tage") + ' bis zum Test</small></div>' + (cards.length ? '<div class="stat">' + ring((st.expected || 0) / 100, 88, 7, (st.expected == null ? "—" : st.expected + "%"), "erwartet") + '</div>' : '')) + '</div></div>';
-  if (!cards.length) return netNotice() + head + '<div class="card">' + emptyState("vokabeln", "Trag die Vokabeln ein", "Am schnellsten: die ganze Liste auf einmal einfügen – eine Vokabel pro Zeile, z. B. „la rentrée - der Schulbeginn“.", (col ? '<button class="btn primary sm" id="vt_import">Liste einfügen</button> <button class="btn sm" id="vt_add">Einzeln hinzufügen</button>' : '<button class="btn primary sm" id="vt_edit2">Sammlung wählen</button>')) + '</div>';
+  if (!cards.length) return netNotice() + head + '<div class="card">' + emptyState("vokabeln", "Trag die Vokabeln ein", "Am schnellsten: die ganze Liste auf einmal einfügen – eine Vokabel pro Zeile, z. B. „la rentrée - der Schulbeginn“.", (col ? '<button class="btn primary sm" id="vt_import">Liste einfügen</button> <button class="btn sm" id="vt_add">Einzeln hinzufügen</button>' : '<button class="btn primary sm" id="vt_newlist">Liste einfügen</button> <button class="btn sm" id="vt_edit2">Vorhandene Sammlung wählen</button>')) + '</div>';
   const status = past ? '' : '<div class="notice"><span class="dot" style="background:' + (q.length ? "var(--accent)" : "var(--green)") + '"></span><span>' + (q.length ? '<b>Heute:</b> ' + [q.filter(Engine.isNew).length ? plural(q.filter(Engine.isNew).length, "neue Vokabel", "neue Vokabeln") : "", q.filter(c => !Engine.isNew(c)).length ? plural(q.filter(c => !Engine.isNew(c)).length, "Wiederholung", "Wiederholungen") : ""].filter(Boolean).join(" und ") + '. ' : '<b>Für heute erledigt.</b> ') + (st.expected == null ? "Noch keine Vorhersage – lern die ersten Wörter." : 'Wenn der Test so wäre wie jetzt, wüsstest du etwa <b>' + st.expected + ' %</b> der Wörter. ' + st.secure + ' von ' + st.total + ' sitzen sicher (≥ 90 % am Testtag)') + (st.wrong ? ', ' + st.wrong + ' zuletzt falsch' : '') + '.</span></div>';
   const dirSw = '<div class="dirsw" style="margin-bottom:var(--s4)"><span class="t-sub">Abfrage</span><div class="seg"><button class="' + (dir === "reverse" ? "on" : "") + '" data-vtdir="reverse">' + esc(dirLabel(col, "reverse")) + '</button><button class="' + (dir === "forward" ? "on" : "") + '" data-vtdir="forward">' + esc(dirLabel(col, "forward")) + '</button></div></div>';
   const sched = past ? '' : '<div>' + sectionHead("Bis zum Test") + '<div class="card"><div class="tl">' + testSchedule(k).map((s, i) => '<div class="tls ' + (i === 0 ? "now" : "") + '"><div class="d">' + (i === 0 ? "Heute · " : "") + esc(fmtD(s.date)) + '</div><div class="x">' + esc(s.label) + '</div><div class="y">' + esc(s.sub) + '</div></div>').join("") + '</div></div></div>';
@@ -152,7 +152,19 @@ function probeModal(k) {
     document.getElementById("pm_go").onclick = () => startTraining({ mode: "testexam", exam_id: k.id, minutes: min });
   });
 }
+/** Test ohne Sammlung: Sammlung mit dem Namen des Tests anlegen, verknüpfen, Liste einfügen */
+async function startTestImport(k) {
+  let col = linkedCollections(k)[0];
+  if (!col) {
+    const code = LANG_CODE[k.fach] || "fr"; const base = vtName(k).slice(0, 70);
+    let nm = base, n = 2; while (ES.collections.some(c => c.name.toLowerCase() === nm.toLowerCase())) nm = base + " (" + n++ + ")";
+    try { col = (await dbInsert("vocab_collections", { name: nm, source_language: code, target_language: "de", subject_id: subjectId(k.fach) })).row; await saveKL(k, { vokabel_lektionen: [col.name] }); bump(); route(); }
+    catch (e) { toast("Sammlung konnte nicht angelegt werden: " + e.message, true); return; }
+  }
+  if (!cardsOf(col.id).length) importModal(col.id);
+}
 function bindTestDetail(k) {
+  const nl = document.getElementById("vt_newlist"); if (nl) nl.onclick = () => startTestImport(k);
   const q = id => document.getElementById(id); const col = linkedCollections(k)[0] || null;
   ["vt_edit", "vt_edit2"].forEach(id => { const b = q(id); if (b) b.onclick = () => testModal(k); });
   const l = q("vt_learn"); if (l) l.onclick = () => startTraining({ mode: "test", exam_id: k.id, planKey: "test:" + k.id });
