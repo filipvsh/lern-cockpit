@@ -583,6 +583,24 @@ await scenario("Vokabeltest per Aushang eingetragen (ohne Wörter): sichtbar, W�
   await ctx.close();
 });
 
+await scenario("Vokabeln in beide Richtungen gemischt: jedes Wort in beide Richtungen, Handy ohne Querscrollen", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const col = b.db.vocab_collections.find(c => c.name === "Unité 1");
+  await go(page, "#/vokabeln/" + col.id); await page.waitForSelector('[data-vdir="both"]');
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "kein Querscrollen");
+  await page.click('[data-vdir="both"]'); await page.waitForSelector('[data-vdir="both"].on');
+  await page.click('[data-vstart="vocab"]'); await page.waitForSelector("#vs_go");
+  assert.ok((await page.textContent("#vs_body")).includes("in beide Richtungen richtig"));
+  await page.click("#vs_go"); await page.waitForSelector(".fx-card");
+  await playRoundUI(page);
+  await page.waitForSelector(".done-mark");
+  const dirs = await page.evaluate(() => { const m = {}; TS.answers.forEach(a => { const it = TS.items[a.index]; (m[it.vocab_id] = m[it.vocab_id] || new Set()).add(it.direction); }); return Object.values(m).map(x => x.size); });
+  assert.ok(dirs.length > 0 && dirs.every(n => n === 2), "jedes Wort in beide Richtungen: " + dirs);
+  await page.evaluate(() => Api.idle());
+  assert.equal(b.db.training_sessions.at(-1).direction, null, "DB bekommt keinen ungültigen Wert");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

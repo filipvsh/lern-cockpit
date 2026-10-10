@@ -304,19 +304,23 @@
      • Fehler: richtige Lösung zeigen, einmal richtig abtippen, dann nach einigen
        anderen Karten erneut aus dem Kopf – bis es sitzt.
      Die Runde endet, wenn jedes Wort sein Ziel erreicht hat. */
+  /** „both“ = beide Richtungen gemischt → für eine einzelne Abfrage eine konkrete Richtung wählen */
+  const flipDir = d => d === "reverse" ? "forward" : "reverse";
+  const pickDir = (dir, i) => dir === "both" ? (i % 2 ? "forward" : "reverse") : (dir || "forward");
   const ROUND = { newCriterion: 3, reviewCriterion: 1, gapStudy: 2, gapCorrect: [4, 8], gapWrong: 7, maxNew: 8, maxCards: 25 };
   function buildRound(cards, o) {
-    o = o || {}; const dir = o.direction || "forward";
+    o = o || {}; const dir = o.direction || "forward"; const both = dir === "both";
     const reviews = cards.filter(c => !isNew(c)), fresh = cards.filter(isNew);
-    const items = [], prog = {};
-    const rec = c => ({ kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: dir });
-    reviews.forEach(c => { prog[c.id] = { need: ROUND.reviewCriterion, got: 0, wrong: 0, fresh: false }; });
-    fresh.forEach(c => { prog[c.id] = { need: ROUND.newCriterion, got: 0, wrong: 0, fresh: true }; });
+    const items = [], prog = {}; let n = 0;
+    const rec = c => ({ kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: pickDir(dir, n++) });
+    // Beide Richtungen: Wiederholungen je 1× pro Richtung, neue Wörter 3× (abwechselnd) – beide Wege müssen sitzen
+    reviews.forEach(c => { prog[c.id] = { need: both ? 2 : ROUND.reviewCriterion, got: 0, wrong: 0, fresh: false, both, dirs: [] }; });
+    fresh.forEach(c => { prog[c.id] = { need: ROUND.newCriterion, got: 0, wrong: 0, fresh: true, both, dirs: [] }; });
     // Neue Wörter zwischen die Wiederholungen streuen (je 2 Wiederholungen ein neues)
     let r = 0, f = 0;
     while (r < reviews.length || f < fresh.length) {
       for (let k = 0; k < 2 && r < reviews.length; k++) items.push(rec(reviews[r++]));
-      if (f < fresh.length) { const c = fresh[f++]; items.push({ kind: "vocab_study", key: "s:" + c.id, vocab_id: c.id, direction: dir }); }
+      if (f < fresh.length) { const c = fresh[f++]; items.push({ kind: "vocab_study", key: "s:" + c.id, vocab_id: c.id, direction: pickDir(dir, n++) }); }
     }
     return { items, prog };
   }
@@ -324,11 +328,15 @@
   /** Nach einer Karte der Runde: nächsten Abruf einplanen. outcome: "studied" | "correct" | "wrong" */
   function roundAfter(s, item, outcome) {
     const p = s.prog && s.prog[item.vocab_id]; if (!p) return s;
-    const recall = (retry) => ({ kind: "vocab", key: "v:" + item.vocab_id, vocab_id: item.vocab_id, direction: item.direction, retry: !!retry });
+    // Nach Fehler: dieselbe Richtung noch einmal. Nach richtig (beide Richtungen): die andere Richtung
+    const recall = (retry, d) => ({ kind: "vocab", key: "v:" + item.vocab_id, vocab_id: item.vocab_id, direction: d || item.direction, retry: !!retry });
     if (outcome === "studied") { insertAt(s, ROUND.gapStudy, recall(false)); return s; }
     if (outcome === "wrong") { p.wrong++; insertAt(s, ROUND.gapWrong, recall(true)); return s; }
     p.got++;
-    if (p.got < p.need) insertAt(s, ROUND.gapCorrect[Math.min(p.got - 1, ROUND.gapCorrect.length - 1)], recall(true));
+    if (p.both) { p.dirs = p.dirs || []; if (!p.dirs.includes(item.direction)) p.dirs.push(item.direction); }
+    const missingDir = p.both && p.got >= p.need && (p.dirs || []).length < 2;
+    if (missingDir) p.need = p.got + 1;   // fertig erst, wenn beide Richtungen mindestens einmal richtig waren
+    if (p.got < p.need) insertAt(s, ROUND.gapCorrect[Math.min(p.got - 1, ROUND.gapCorrect.length - 1)], recall(true, p.both ? flipDir(item.direction) : null));
     return s;
   }
   function roundProgress(s) {
@@ -647,13 +655,15 @@
   }
   /** Gemischtes Training: Vokabeln in drei Formen + Übungen, abwechselnd */
   function buildMixedItems(o) {
-    const rng = o.rng || Math.random; const dir = o.direction || "forward";
+    const rng = o.rng || Math.random; const dirAll = o.direction || "forward"; let dn = 0;
+    const dirNext = () => pickDir(dirAll, dn++); const dir = dirAll === "both" ? "forward" : dirAll;
     const cards = o.cards || [];
     const v = [];
     const typed = cards.slice(0, 6), mcPool = o.pool || cards;
     typed.forEach((c, i) => {
-      if (i % 3 === 1) { const mc = makeMC(c, mcPool, dir, rng); if (mc) { v.push(mc); return; } }
-      v.push({ kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: dir });
+      const d = dirNext();
+      if (i % 3 === 1) { const mc = makeMC(c, mcPool, d, rng); if (mc) { v.push(mc); return; } }
+      v.push({ kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: d });
     });
     const match = makeMatching(cards.slice(6, 11).length >= 3 ? cards.slice(6, 11) : cards.slice(0, 5), dir, rng);
     if (match) v.push(match);
@@ -707,7 +717,7 @@
     DAY, uuid, shuffle, isoDay, startOfDay, daysBetween,
     LANG_NAMES, normalize, stripAccents, answerVariants, levenshtein, checkAnswer,
     SRS, FSRS, GRADE, fsrsStep, fsrsRetrievability, fsrsInterval, memoryOf, recallProbability, stageOf, calDays, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
-    isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, roundProgress, diffParts,
+    isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, pickDir, flipDir, roundProgress, diffParts,
     STATUSES, createSession, elapsedMs, remainingMs, isExpired, pause, resume, finish, current, recordAnswer, requeue, advance, summary,
     MASTERY, subtopicMastery, examReadiness,
     prioritize, dailyPlan, examRoadmap, MOCK_DAYS_BEFORE,
