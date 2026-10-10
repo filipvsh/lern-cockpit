@@ -445,7 +445,8 @@ a.card.plan-card,.plan-card{display:grid;grid-template-columns:1fr auto;gap:var(
 .vrow:hover .iconbtn{opacity:1}
 .lvl{display:inline-flex;gap:3px}.lvl i{width:6px;height:6px;border-radius:50%;background:var(--fill-3)}.lvl i.on{background:var(--accent)}
 .dirsw{display:flex;align-items:center;gap:var(--s3)}
-.dirsw .t-sub{white-space:nowrap}
+.dirsw .t-sub{white-space:nowrap}.dirsw{min-width:0;max-width:100%}
+@media(max-width:560px){.dirsw{flex-direction:column;align-items:stretch;gap:6px;width:100%}.dirsw .seg{display:flex;width:100%}.dirsw .seg button{flex:1;white-space:normal;line-height:1.2;font-size:13px;padding:7px 4px;height:auto;min-height:36px}}
 
 /* =====================================================================
    TRAINER · Fokusmodus

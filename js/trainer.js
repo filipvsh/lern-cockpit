@@ -55,7 +55,10 @@ function reconcileSession(remote) {
 }
 
 /* ---------------- Session anlegen ---------------- */
-const dirLabel = (col, dir) => { if (isTermCollection(col)) return dir === "reverse" ? "Erklärung → Begriff" : "Begriff → Erklärung"; const s = col ? langName(col.source_language) : "Fremdsprache", t = col ? langName(col.target_language) : "Deutsch"; return dir === "reverse" ? t + " → " + s : s + " → " + t; };
+const dirLabel = (col, dir) => {
+  const term = isTermCollection(col); const s = term ? "Begriff" : col ? langName(col.source_language) : "Fremdsprache", t = term ? "Erklärung" : col ? langName(col.target_language) : "Deutsch";
+  return dir === "both" ? "Beide Richtungen" : dir === "reverse" ? t + " → " + s : s + " → " + t;
+};
 function vocabItem(c, dir) { return { kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: dir }; }
 function topicItemsFor(st, max) { return Engine.buildTopicItems(st, topicById(st.topic_id), ES.exercises, lastExerciseResult, max); }
 /** cfg: {mode, collection_id, subtopic_id, exam_id, topic_id, direction, count, minutes, ref, label} */
@@ -100,7 +103,7 @@ function buildSessionFromConfig(cfg) {
     const subs = t ? subsOfTopic(t.id) : ex ? subsOfExam(ex.id) : [];
     const prio = priorities().filter(p => subs.some(s => s.id === p.subtopic.id));
     items = Engine.buildExamItems({ priorities: prio, subtopics: subs, itemsFor: s => topicItemsFor(s, 4), count: +cfg.count || 6 });
-    if (ex) { const cards = STATE.vo.filter(v => linkedCollections(ex).some(c => c.id === v.collection_id)); const m = Engine.makeMatching(Engine.shuffle(cards).slice(0, 5), dir); if (m) items.push(m); }
+    if (ex) { const cards = STATE.vo.filter(v => linkedCollections(ex).some(c => c.id === v.collection_id)); const m = Engine.makeMatching(Engine.shuffle(cards).slice(0, 5), dir === "both" ? "forward" : dir); if (m) items.push(m); }
     timeLimitS = (+cfg.minutes || 45) * 60; feedback = false; hints = false;
     label = (ex ? ex.fach + " · " : "") + (t ? t.title : ex ? klTitle(ex) : "Prüfung");
     scope = { exam_id: ex ? ex.id : null, topic_id: t ? t.id : null, subject: ex ? ex.fach : null };
@@ -114,7 +117,7 @@ function buildSessionFromConfig(cfg) {
       if (!q.length) { q = cards.filter(c => !Engine.isNew(c)).map(v => [v, Engine.recallProbability(v, testDayMs(k))]).sort((a, b) => a[1] - b[1]).slice(0, 10).map(x => x[0]); label = " · Zusatzrunde"; extraRound = true; }
       round = Engine.buildRound(q, { direction: tdir }); items = round.items;
     } else {
-      items = Engine.shuffle(cards).slice(0, 80).map(c => vocabItem(c, tdir));
+      items = Engine.shuffle(cards).slice(0, 80).map((c, i) => vocabItem(c, Engine.pickDir(tdir, i)));
       timeLimitS = (+cfg.minutes || 15) * 60; feedback = false; hints = false;
     }
     label = (k ? vtName(k) : "Vokabeltest") + label;
@@ -150,7 +153,7 @@ function startTraining(cfg) {
   TS = s; UI = {}; tsSave();
   const row = { id: s.id, mode: s.mode, status: "active", label: s.label, subject: s.scope.subject || null, subject_id: s.scope.subject ? subjectId(s.scope.subject) : null,
     exam_id: s.scope.exam_id ?? null, topic_id: s.scope.topic_id || null, subtopic_id: s.scope.subtopic_id || null, collection_id: s.scope.collection_id || null,
-    direction: s.direction, started_at: new Date(s.started_at).toISOString(), time_limit_s: s.time_limit_s, question_count: s.items.length, active_seconds: 0 };
+    direction: s.direction === "both" ? null : s.direction, started_at: new Date(s.started_at).toISOString(), time_limit_s: s.time_limit_s, question_count: s.items.length, active_seconds: 0 };
   dbInsert("training_sessions", row).catch(e => console.warn(e));
   if (s.scope.subtopic_id) setLast({ kind: "subtopic", sub: s.scope.subtopic_id });
   else if (s.scope.collection_id) setLast({ kind: "collection", col: s.scope.collection_id });

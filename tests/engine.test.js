@@ -337,3 +337,18 @@ test("Fahrplan: Probeklausur geschrieben → am nächsten Tag nacharbeiten, kein
 test("Fahrplan: Probeklausur heute geschrieben → heute abgehakt, morgen nacharbeiten", () => {
   assert.deepEqual(kinds({ daysLeft: 4, hasTopics: true, mockDoneDaysAgo: 0, reviewDone: false }), ["mock", "review", "learn", "final", "exam"]);
 });
+test("Lernrunde beide Richtungen: jedes Wort in beide Richtungen richtig, sonst nicht fertig", () => {
+  const cards = [tcard("n1"), tcard("r1", { reps: 2, last_reviewed_at: "x" }), tcard("r2", { reps: 2, last_reviewed_at: "x" })];
+  const r = E.buildRound(cards, { direction: "both" });
+  const s = E.createSession({ mode: "vocab", items: r.items, now: NOW }); s.prog = r.prog;
+  const seen = {}; let guard = 0;
+  while (s.index < s.items.length && guard++ < 200) {
+    const it = E.current(s);
+    assert.ok(it.direction === "forward" || it.direction === "reverse", "immer konkrete Richtung");
+    if (it.kind === "vocab_study") E.roundAfter(s, it, "studied");
+    else { (seen[it.vocab_id] = seen[it.vocab_id] || new Set()).add(it.direction); E.roundAfter(s, it, "correct"); }
+    E.advance(s);
+  }
+  for (const id of ["n1", "r1", "r2"]) assert.equal(seen[id].size, 2, id + " in beide Richtungen abgefragt");
+  assert.equal(E.roundProgress(s).left, 0);
+});
