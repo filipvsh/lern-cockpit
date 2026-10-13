@@ -123,7 +123,7 @@ V.dashboard = () => {
     exam = '<a class="card exam link" href="#/lernplan/' + esc(next.id) + '"><div class="eyebrow">Deine nächste Prüfung</div><div><div class="t-sub"><span class="dot" style="background:' + fcol(next.fach) + ';margin-right:6px"></span>' + esc(next.fach) + '</div><h3>' + esc(klTitle(next)) + '</h3><div class="meta">' + esc(fmtDL(next.datum)) + (next.uhrzeit ? " · " + esc(next.uhrzeit) : "") + '</div></div><div class="exam-days"><div><div class="t-sub" style="margin-bottom:6px">Noch</div><span class="num xl">' + d + '</span><span class="unit">' + (d === 1 ? "Tag" : "Tage") + '</span></div>' + (r.score != null ? ring(r.score / 100, 84, 7, r.score + "%", "bereit") : '') + '</div>' + (r.score == null ? '<div class="t-sub">' + (r.total ? "Noch nicht genug Lernaktivität für eine zuverlässige Einschätzung." : "Noch keine Unterthemen – lege sie im Lernplan an.") + '</div>' : '<div class="t-sub">Basis: ' + r.withData + ' von ' + r.total + ' Bereichen geübt</div>') + (kl.length > 1 ? '<div class="others">' + kl.slice(1, 3).map(k => '<span style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-2)"><span><b style="font-weight:500;color:var(--text)">' + esc(k.fach) + '</b> · ' + esc(klTitle(k)) + '</span><span>' + daysLabel(daysUntil(k.datum)) + '</span></span>').join("") + '</div>' : '') + '</a>';
   } else exam = '<div class="card exam">' + emptyState("flag", "Keine Prüfung geplant", "Trag die nächste ein, sobald der Klausurplan hängt.", '<a class="btn sm" href="#/lernplan">Zum Lernplan</a>') + '</div>';
   const un = unreadNews(); const t = todayISO(); const term = STATE.termine.filter(x => x.datum >= t && x.datum <= addDays(t, 10)).slice(0, 3);
-  const info = (un.length || term.length) ? '<div class="a-info">' + sectionHead("Hinweise", '<a class="shl" href="#/info">Alle</a>') + '<div class="list">' + un.slice(0, 2).map(nw => '<a class="li" href="#/info"><div class="li-main"><div class="li-title">' + esc(nw.titel) + '</div><div class="li-sub">' + esc(nw.quelle || "Info") + (nw.info ? " · " + esc(nw.info) : "") + '</div></div><span class="dot" style="background:var(--accent)"></span></a>').join("") + term.map(x => '<a class="li" href="#/info"><div class="li-main"><div class="li-title">' + esc(x.titel) + '</div><div class="li-sub">' + esc(relDay(x.datum)) + (x.uhrzeit ? " · " + esc(x.uhrzeit) : "") + '</div></div>' + ((x.art === "pflicht" || x.art === "frist") ? '<span class="pill p-red">' + (x.art === "pflicht" ? "Pflicht" : "Frist") + '</span>' : '') + '</a>').join("") + '</div></div>' : '';
+  const info = '';   // Hinweise/Neuigkeiten nicht mehr auf dem Dashboard
   return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + (tsActive() ? contCard(continueItem()) : missionCard(plan)) + '</div><div class="a-exam">' + exam + '</div>' +
     '<div class="a-today">' + sectionHead("Heute", '<button class="shl" id="plan_new" title="Plan mit aktuellen Daten neu berechnen">Neu planen</button>') + (hwToday() || '<div class="card">' + emptyState("check", "Keine Hausaufgaben für morgen", "").replace('class="empty"', 'class="empty sm"') + '</div>') + laterHW() + '</div>' +
     '<div class="a-weak">' + sectionHead("Deine Schwachstellen", '<a class="shl" href="#/fortschritt">Fortschritt</a>') + '<div class="card tight">' + weakList(3) + '</div></div>' + lessonsToday() + info + '</div>';
@@ -145,7 +145,7 @@ let VOK_FILTER = "", VOK_LANG = "";
 const colCards = c => cardsOf(c.id);
 function colTile(c) {
   const cards = colCards(c); const st = Engine.vocabStats(cards, Date.now());
-  return '<a class="tile" href="#/vokabeln/' + esc(c.id) + '">' + (st.due ? '<span class="due" title="fällig">' + st.due + '</span>' : '') + '<div><div class="tn">' + esc(c.name) + '</div><div class="tm">' + plural(st.total, "Karte", "Karten") + (st.fresh ? " · " + st.fresh + " neu" : "") + '</div></div><div class="tf">' + progBar(st.mastery, "thin") + '<span>' + st.secure + ' sicher</span></div></a>';
+  return '<a class="tile" href="#/vokabeln/' + esc(c.id) + '">' + (st.due ? '<span class="due" title="fällig">' + st.due + '</span>' : '') + '<div><div class="tn">' + esc(c.name) + '</div><div class="tm">' + plural(st.total, "Karte", "Karten") + (st.fresh ? " · " + st.fresh + " neu" : "") + '</div></div><div class="tf">' + miniStages(cards) + '</div></a>';
 }
 function vocabRow(v, showCol) {
   const col = colById(v.collection_id); const now = Date.now();
@@ -166,22 +166,38 @@ const HOWTO = '<details class="card howto"><summary>So lernst du hier – und wa
   '<li><b>Wiederholung zur richtigen Zeit:</b> Ein Wort kommt wieder, kurz bevor du es vergessen würdest (FSRS). Jedes Mal hält es länger: Lernen → Kurzzeit → Gefestigt → Langzeit.</li>' +
   '<li><b>Verteilt statt gepaukt:</b> Zweimal 10 Minuten an zwei Tagen bringen mehr als 20 Minuten am Stück. Schlaf dazwischen hilft beim Festigen.</li></ol>' +
   '<div class="src">Grundlagen: Karpicke & Roediger 2008 (Abrufen statt Wiederlesen) · Rawson & Dunlosky 2011 (3 richtige Abrufe, dann Wiederholen an späteren Tagen) · Pashler u. a. 2005 (Rückmeldung mit Lösung) · Cepeda u. a. 2008 (Abstände) · FSRS-6, getestet an ~727 Mio. echten Wiederholungen (open-spaced-repetition).</div></details>';
+/** Wie viele Wörter auf welcher Gedächtnisstufe – statt eines Durchschnitts in Prozent */
+const STAGES = [["new", "Neu"], ["learning", "Lernen"], ["short", "Kurzzeit"], ["mid", "Gefestigt"], ["long", "Langzeit"]];
+function stageBar(cards) {
+  if (!cards.length) return "";
+  const cnt = {}; cards.forEach(v => { const k = Engine.stageOf(v).key; cnt[k] = (cnt[k] || 0) + 1; });
+  const sure = (cnt.mid || 0) + (cnt.long || 0);
+  return '<div class="stagebar"><div class="sb-head"><b>' + sure + '</b> von ' + cards.length + ' Wörtern sitzen fest<span class="t-sub"> · gefestigt oder Langzeit</span></div>' +
+    '<div class="sb-track">' + STAGES.map(([k]) => cnt[k] ? '<i class="' + k + '" style="flex:' + cnt[k] + '" title="' + cnt[k] + '"></i>' : '').join("") + '</div>' +
+    '<div class="sb-legend">' + STAGES.map(([k, l]) => '<span><i class="' + k + '"></i>' + l + ' <b>' + (cnt[k] || 0) + '</b></span>').join("") + '</div></div>';
+}
+function miniStages(cards) {
+  if (!cards.length) return '<span class="t-cap">leer</span>';
+  const cnt = {}; cards.forEach(v => { const k = Engine.stageOf(v).key; cnt[k] = (cnt[k] || 0) + 1; });
+  return '<div class="sb-track mini">' + STAGES.map(([k]) => cnt[k] ? '<i class="' + k + '" style="flex:' + cnt[k] + '"></i>' : '').join("") + '</div><span>' + ((cnt.mid || 0) + (cnt.long || 0)) + ' fest</span>';
+}
 function lvlDots(m) { const n = Math.round((m || 0) / 20); let h = '<span class="lvl" title="Lernstand ' + (m || 0) + ' %">'; for (let i = 1; i <= 5; i++) h += '<i class="' + (i <= n ? "on" : "") + '"></i>'; return h + '</span>'; }
 V.vokabeln = () => {
   if (!engineReady()) return pageHead("Vokabeln") + setupCard();
   if (ROUTE.sub) return vokCollection(decodeURIComponent(ROUTE.sub));
-  const now = Date.now(); const all = Engine.vocabStats(STATE.vo, now); const due = vocabDue().reduce((a, x) => a + x.count, 0);
-  const langs = [...new Set(ES.collections.map(c => c.source_language))];
-  const head = pageHead("Vokabeln", { sub: all.total ? plural(all.total, "Karte", "Karten") + " in " + plural(ES.collections.length, "Sammlung", "Sammlungen") + " · " + all.secure + " sicher · " + due + " fällig" : "Lege deine erste Sammlung an.", actions: '<button class="btn" id="vt_new">' + ICO.plus + 'Test eintragen</button><button class="btn" id="col_new">' + ICO.plus + 'Sammlung</button><button class="btn primary" id="v_new">' + ICO.plus + 'Vokabel</button>' });
+  const now = Date.now(); const all = Engine.vocabStats(activeCards(), now); const due = vocabDue().reduce((a, x) => a + x.count, 0);
+  const cols = activeCols(), archived = ES.collections.filter(c => isArchived(c.id));
+  const langs = [...new Set(cols.map(c => c.source_language))];
+  const head = pageHead("Vokabeln", { sub: all.total ? plural(all.total, "Karte", "Karten") + " in " + plural(cols.length, "Sammlung", "Sammlungen") + " · " + all.secure + " sicher · " + due + " fällig" : "Lege deine erste Sammlung an.", actions: '<button class="btn" id="vt_new">' + ICO.plus + 'Test eintragen</button><button class="btn" id="col_new">' + ICO.plus + 'Sammlung</button><button class="btn primary" id="v_new">' + ICO.plus + 'Vokabel</button>' });
   const day = dayStatus();
-  const daily = '<div class="card daily">' + ring(all.total ? all.mastery / 100 : 0, 64, 6, all.mastery + "%", "Ø") + '<div class="dm"><div class="t-headline">' + (day.open ? "Heute: " + [day.due ? plural(day.due, "Wiederholung", "Wiederholungen") : "", day.fresh ? plural(day.fresh, "neues Wort", "neue Wörter") : ""].filter(Boolean).join(" + ") : "Fertig für heute ✓") + '</div><div class="t-sub">' + (day.open ? "Etwa " + Math.max(3, Math.round(day.due * 0.4 + day.fresh * 1.2)) + " Minuten. Die Runde endet, wenn jedes Wort sitzt." : (day.tomorrow ? "Morgen " + (day.tomorrow === 1 ? "kommt 1 Wort" : "kommen " + day.tomorrow + " Wörter") + " wieder dran." : "Die nächsten Wörter kommen, kurz bevor du sie vergessen würdest.") + " Freiwillig üben geht trotzdem.") + '</div></div><div class="dact">' + (all.trouble ? '<button class="btn" data-vstart="errors">Fehlertraining</button>' : '') + '<button class="btn primary" data-vstart="vocab">' + (day.open ? "Lernrunde starten" : "Zusatzrunde") + '</button></div></div>' + HOWTO;
+  const daily = '<div class="card daily">' + '<div class="dm"><div class="t-headline">' + (day.open ? "Heute: " + [day.due ? plural(day.due, "Wiederholung", "Wiederholungen") : "", day.fresh ? plural(day.fresh, "neues Wort", "neue Wörter") : ""].filter(Boolean).join(" + ") : "Fertig für heute ✓") + '</div><div class="t-sub">' + (day.open ? "Etwa " + Math.max(3, Math.round(day.due * 0.4 + day.fresh * 1.2)) + " Minuten. Die Runde endet, wenn jedes Wort sitzt." : (day.tomorrow ? "Morgen " + (day.tomorrow === 1 ? "kommt 1 Wort" : "kommen " + day.tomorrow + " Wörter") + " wieder dran." : "Die nächsten Wörter kommen, kurz bevor du sie vergessen würdest.") + " Freiwillig üben geht trotzdem.") + '</div></div><div class="dact">' + (all.trouble ? '<button class="btn" data-vstart="errors">Fehlertraining</button>' : '') + '<button class="btn primary" data-vstart="vocab">' + (day.open ? "Lernrunde starten" : "Zusatzrunde") + '</button></div>' + stageBar(activeCards()) + '</div>' + HOWTO;
   const search = '<div class="coll-tools" style="margin-top:var(--s7)"><label class="search"><span>' + ICO.search + '</span><input id="v_filter" placeholder="Alle Vokabeln durchsuchen" value="' + esc(VOK_FILTER) + '"></label>' + (langs.length > 1 ? '<div class="seg"><button class="' + (!VOK_LANG ? "on" : "") + '" data-vlang="">Alle</button>' + langs.map(l => '<button class="' + (VOK_LANG === l ? "on" : "") + '" data-vlang="' + esc(l) + '">' + esc(groupName(l)) + '</button>').join("") + '</div>' : '') + '</div>';
   if (VOK_FILTER.trim()) {
     const f = Engine.normalize(VOK_FILTER);
     const res = STATE.vo.filter(v => (!VOK_LANG || (colById(v.collection_id) || {}).source_language === VOK_LANG) && (Engine.normalize(v.begriff).includes(f) || Engine.normalize(v.bedeutung).includes(f) || (v.alternatives || []).some(a => Engine.normalize(a).includes(f))));
     return head + daily + search + sectionHead("Suchergebnisse", '<span class="sub">' + res.length + '</span>') + (res.length ? '<div class="list">' + res.slice(0, 100).map(v => vocabRow(v, true)).join("") + '</div>' : '<div class="card">' + emptyState("search", "Nichts gefunden", "Keine Vokabel passt zu „" + esc(VOK_FILTER) + "“.") + '</div>');
   }
-  const groups = {}; ES.collections.filter(c => !VOK_LANG || c.source_language === VOK_LANG).forEach(c => (groups[c.source_language] = groups[c.source_language] || []).push(c));
+  const groups = {}; cols.filter(c => !VOK_LANG || c.source_language === VOK_LANG).forEach(c => (groups[c.source_language] = groups[c.source_language] || []).push(c));
   const order = ["fr", "en", "la", "es", "de"].filter(l => groups[l]).concat(Object.keys(groups).filter(l => !["fr", "en", "la", "es", "de"].includes(l)));
   const body = order.map(l => { const cols = groups[l].sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true })); const cards = cols.flatMap(colCards); const st = Engine.vocabStats(cards, now);
     return '<div class="section"><div class="lang-h"><h2>' + esc(groupName(l)) + '</h2><span class="t-sub">' + plural(st.total, "Karte", "Karten") + ' · ' + st.secure + ' sicher</span></div><div class="tiles">' + cols.map(colTile).join("") + '</div></div>'; }).join("");
@@ -189,7 +205,8 @@ V.vokabeln = () => {
   const tests = upcomingTests();
   const testsBox = tests.length ? '<div class="section" style="margin-top:0">' + sectionHead("Vokabeltests") + '<div class="list">' + tests.map(k => { const d = daysUntil(k.datum); const n = testCards(k).length; const st = n ? testStatusOf(k) : null; const q = n ? testQueueOf(k).length : 0;
     return '<a class="li" href="#/lernplan/' + esc(k.id) + '"><span class="ico accent">' + ICO.vokabeln + '</span><div class="li-main"><div class="li-title">' + esc(vtName(k)) + '</div><div class="li-sub">' + esc(k.fach) + ' · ' + (d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen") + ' · ' + (!n ? '<span style="color:var(--orange)">noch keine Vokabeln eingetragen</span>' : (q ? q + " heute dran" : "heute erledigt") + (st.expected != null ? " · erwartet " + st.expected + " %" : "")) + '</div></div><span class="li-trail"><span class="btn ' + (n && !q ? "" : "primary ") + 'sm">' + (!n ? "Vokabeln eintragen" : q ? "Lernen" : "Ansehen") + '</span></span></a>'; }).join("") + '</div></div>' : '';
-  return netNotice() + head + testsBox + daily + search + (ES.collections.length ? body : '<div class="section"><div class="card">' + emptyState("vokabeln", "Noch keine Sammlung", "Eine Sammlung ist wie ein Ordner, z. B. „Unité 4“.", '<button class="btn primary sm" id="col_new2">Sammlung anlegen</button>') + '</div></div>');
+  const archive = archived.length ? '<details class="section archive"><summary>' + ICO.inbox + 'Archiv · ' + plural(archived.length, "Sammlung", "Sammlungen") + '<span class="t-sub"> – alte Vokabeltests, nicht im Tagesplan</span></summary><div class="list" style="margin-top:var(--s3)">' + archived.map(c => '<div class="li"><div class="li-main"><a class="li-title" href="#/vokabeln/' + esc(c.id) + '">' + esc(c.name) + '</a><div class="li-sub">' + plural(cardsOf(c.id).length, "Karte", "Karten") + '</div></div><span class="li-trail"><button class="btn sm" data-unarch="' + esc(c.id) + '">Wiederherstellen</button></span></div>').join("") + '</div></details>' : '';
+  return netNotice() + head + testsBox + daily + search + (cols.length ? body + archive : '<div class="section"><div class="card">' + emptyState("vokabeln", "Noch keine Sammlung", "Eine Sammlung ist wie ein Ordner, z. B. „Unité 4“.", '<button class="btn primary sm" id="col_new2">Sammlung anlegen</button>') + '</div></div>');
 };
 function vokCollection(id) {
   let c = colById(id);
@@ -197,7 +214,7 @@ function vokCollection(id) {
   const cards = colCards(c); const st = Engine.vocabStats(cards, Date.now()); const f = Engine.normalize(VOK_FILTER);
   const list = cards.filter(v => !f || Engine.normalize(v.begriff).includes(f) || Engine.normalize(v.bedeutung).includes(f)).sort((a, b) => String(a.created_at || a.id).localeCompare(String(b.created_at || b.id)));
   const dir = dirPref(c.id); const vt = testForCollection(c.id);
-  const head = pageHead(esc(c.name), { back: ["#/vokabeln", "Vokabeln"], eyebrow: esc(isTermCollection(c) ? "Fachbegriffe" + (c.subject_id ? " · " + ((ES.subjects.find(x => x.id === c.subject_id) || {}).name || "") : "") : langName(c.source_language) + " → " + langName(c.target_language)), sub: plural(st.total, "Karte", "Karten") + " · " + st.due + " fällig · " + st.secure + " sicher · " + st.fresh + " neu" + (c.description ? " · " + esc(c.description) : ""), actions: '<button class="btn" id="col_edit">Bearbeiten</button>' + (isTermCollection(c) ? '' : '<button class="btn" id="vt_new">' + (vt ? "Zum Test" : "Test eintragen") + '</button>') + '<button class="btn" id="v_import">Liste einfügen</button><button class="btn" id="v_new">' + ICO.plus + 'Karte</button><button class="btn primary" data-vstart="vocab">' + ICO.play + 'Lernen</button>' });
+  const head = pageHead(esc(c.name), { back: ["#/vokabeln", "Vokabeln"], eyebrow: esc(isTermCollection(c) ? "Fachbegriffe" + (c.subject_id ? " · " + ((ES.subjects.find(x => x.id === c.subject_id) || {}).name || "") : "") : langName(c.source_language) + " → " + langName(c.target_language)), sub: plural(st.total, "Karte", "Karten") + " · " + st.due + " fällig · " + st.secure + " sicher · " + st.fresh + " neu" + (c.description ? " · " + esc(c.description) : ""), actions: '<button class="btn" id="col_edit">Bearbeiten</button><button class="btn" id="col_arch">' + (isArchived(c.id) ? "Wiederherstellen" : "Archivieren") + '</button>' + (isTermCollection(c) ? '' : '<button class="btn" id="vt_new">' + (vt ? "Zum Test" : "Test eintragen") + '</button>') + '<button class="btn" id="v_import">Liste einfügen</button><button class="btn" id="v_new">' + ICO.plus + 'Karte</button><button class="btn primary" data-vstart="vocab">' + ICO.play + 'Lernen</button>' });
   const tools = '<div class="coll-tools"><div class="dirsw"><span class="t-sub">Abfrage</span><div class="seg"><button class="' + (dir === "forward" ? "on" : "") + '" data-vdir="forward">' + esc(dirLabel(c, "forward")) + '</button><button class="' + (dir === "reverse" ? "on" : "") + '" data-vdir="reverse">' + esc(dirLabel(c, "reverse")) + '</button><button class="' + (dir === "both" ? "on" : "") + '" data-vdir="both" title="Beide Richtungen gemischt – jedes Wort muss in beide Richtungen sitzen">Beide ⇄</button></div></div><label class="search"><span>' + ICO.search + '</span><input id="v_filter" placeholder="In ' + esc(c.name) + ' suchen" value="' + esc(VOK_FILTER) + '"></label></div>';
   const rows = list.length ? '<div class="list">' + list.slice(0, 300).map(v => vocabRow(v)).join("") + '</div>' + (list.length > 300 ? '<div class="t-sub" style="padding:12px 4px">… und ' + (list.length - 300) + ' weitere. Nutze die Suche.</div>' : '') : '<div class="card">' + (cards.length ? emptyState("search", "Nichts gefunden", "Keine Karte passt zu „" + esc(VOK_FILTER) + "“.") : emptyState("vokabeln", "Leere Sammlung", "Füge die erste Karte hinzu.", '<button class="btn primary sm" id="v_new2">Karte hinzufügen</button>')) + '</div>';
   const vtNote = vt ? '<div class="notice"><span class="dot" style="background:var(--accent)"></span><span><b>Vokabeltest ' + esc(whenText(daysUntil(vt.datum))) + ':</b> ' + esc(vtName(vt)) + ' · ' + testStatusOf(vt).secure + ' von ' + testStatusOf(vt).total + ' sitzen</span><a class="btn primary sm" href="#/lernplan/' + esc(vt.id) + '">Zum Test</a></div>' : '';
@@ -258,9 +275,9 @@ function vocabModal(v, presetCol) {
 }
 /** Start-Dialog für Vokabel-Sessions: Sammlung, Modus, Richtung, Anzahl */
 function vocabStartModal(mode, colId) {
-  const cols = ES.collections; let sel = colId || "", dir = dirPref(sel), m = mode || "vocab", count = 20;
+  const cols = activeCols().concat(colId && isArchived(colId) ? [colById(colId)] : []); let sel = colId || "", dir = dirPref(sel), m = mode || "vocab", count = 20;
   const render = () => {
-    const c = sel ? colById(sel) : null; const pool = c ? colCards(c) : STATE.vo; const now = Date.now();
+    const c = sel ? colById(sel) : null; const pool = c ? colCards(c) : activeCards(); const now = Date.now();
     const ds = dayStatus(pool);
     const avail = m === "errors" ? pool.filter(Engine.isTrouble).length : m === "vocab" ? Math.min(ds.due, Engine.ROUND.maxCards) + Math.min(Engine.ROUND.maxNew, ds.fresh) : pool.length;
     return '<div class="form"><label class="fld">Sammlung<select id="vs_col"><option value="">Alle Sammlungen</option>' + cols.map(x => '<option value="' + esc(x.id) + '"' + (x.id === sel ? " selected" : "") + '>' + esc(x.name) + '</option>').join("") + '</select></label>' +
@@ -293,6 +310,8 @@ function bindVokabeln() {
   const im = q("v_import"); if (im) im.onclick = () => importModal(colId);
   document.querySelectorAll("[data-vstart]").forEach(b => b.onclick = () => vocabStartModal(b.dataset.vstart, colId));
   document.querySelectorAll("[data-vdir]").forEach(b => b.onclick = () => { setDirPref(colId, b.dataset.vdir); route(); });
+  document.querySelectorAll("[data-unarch]").forEach(b => b.onclick = async () => { await setArchived(b.dataset.unarch, false); route(); toast("Wiederhergestellt"); });
+  const ar = q("col_arch"); if (ar) ar.onclick = async () => { const on = !isArchived(colId); await setArchived(colId, on); toast(on ? "Archiviert – nicht mehr im Tagesplan" : "Wiederhergestellt"); location.hash = on ? "#/vokabeln" : "#/vokabeln/" + colId; route(); };
   document.querySelectorAll("[data-vlang]").forEach(b => b.onclick = () => { VOK_LANG = b.dataset.vlang; route(); });
   document.querySelectorAll("[data-editvo]").forEach(b => b.onclick = () => { const v = STATE.vo.find(x => String(x.id) === b.dataset.editvo); if (v) vocabModal(v); });
   const vf = q("v_filter"); if (vf) vf.oninput = debounce(() => { VOK_FILTER = vf.value; const pos = vf.selectionStart; route(); const nf = q("v_filter"); if (nf) { nf.focus(); nf.setSelectionRange(pos, pos); } }, 200);
@@ -364,7 +383,7 @@ function bindTrainer() {
    ===================================================================== */
 const ROUTE = { name: "dashboard", sub: "", id: "", query: {} };
 const ALIASES = { klausuren: "lernplan", klausur: "lernplan", statistik: "fortschritt" };
-const OWN_HEADER = ["dashboard", "vokabeln", "lernplan", "trainer", "ki", "fortschritt", "auth"];
+const OWN_HEADER = ["dashboard", "vokabeln", "lernplan", "trainer", "material", "spiele", "ki", "fortschritt", "auth"];
 const ENGINE_FREE = ["aufgaben", "stundenplan", "noten", "info", "ernaehrung", "einstellungen"];
 function parseRoute() {
   let h = location.hash.replace(/^#\/?/, ""); const qi = h.indexOf("?"); let q = {};
@@ -401,7 +420,7 @@ function route() {
   if (enter && !ROUTE.query.keep) window.scrollTo({ top: 0 });
 }
 function bindPage(name) {
-  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: () => {} }[name];
+  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: () => {} }[name];
   if (b) b();
 }
 window.addEventListener("hashchange", () => { closeModal(); const prev = ROUTE.name + "/" + ROUTE.sub; parseRoute(); if (ROUTE.name + "/" + ROUTE.sub !== prev) VOK_FILTER = ""; route(); });

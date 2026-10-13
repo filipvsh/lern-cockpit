@@ -69,7 +69,7 @@ function buildSessionFromConfig(cfg) {
   const st = cfg.subtopic_id ? subById(cfg.subtopic_id) : null;
   const exam = cfg.exam_id != null && cfg.exam_id !== "" ? klById(cfg.exam_id) : (st ? examOfSub(st) : null);
   const focus = focusCollections();
-  const pool = col ? cardsOf(col.id) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : STATE.vo;
+  const pool = col ? cardsOf(col.id) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : activeCards();
   if (cfg.mode === "vocab") {
     let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: Math.min(Engine.ROUND.maxNew, newLeftToday()) });
     if (!q.length || cfg.extra) {
@@ -623,7 +623,7 @@ function renderRoundSummary(sum, mins) {
   const fresh = ids.filter(id => TS.prog[id].fresh).length;
   const firstWrong = ids.filter(id => TS.prog[id].wrong > 0).length;
   const k = TS.test ? klById(TS.scope.exam_id) : null; const col = TS.scope.collection_id ? colById(TS.scope.collection_id) : null;
-  const pool = k ? testCards(k) : col ? cardsOf(col.id) : STATE.vo;
+  const pool = k ? testCards(k) : col ? cardsOf(col.id) : activeCards();
   const day = k ? { open: testQueueOf(k).length, tomorrow: 0 } : dayStatus(pool);
   const nextPlan = todayPlan().items.find(i => !i.done && i.key !== TS.planKey);
   const stages = ["new", "learning", "short", "mid", "long"]; const names = { new: "Neu", learning: "Lernen", short: "Kurzzeit", mid: "Gefestigt", long: "Langzeit" };

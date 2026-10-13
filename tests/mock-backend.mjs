@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 const DAY = 864e5;
 const iso = (d, base = Date.now()) => new Date(base + d * DAY).toISOString().slice(0, 10);
-const NEW_TABLES = ["subjects", "vocab_collections", "topics", "subtopics", "exercises", "learning_events", "training_sessions", "profiles"];
+const NEW_TABLES = ["dokumente", "subjects", "vocab_collections", "topics", "subtopics", "exercises", "learning_events", "training_sessions", "profiles"];
 
 export function seed() {
   const kl = [
@@ -22,7 +22,7 @@ export function seed() {
     klausuren: kl, vokabeln: vok,
     hausaufgaben: [{ id: "h1", aufgabe: "S. 42 Nr. 3–5", fach: "Mathe", faellig: iso(0), dauer: 30, prio: "Hoch", done: false, typ: "hausaufgabe" }],
     neuigkeiten: [], noten: [], lernlog: [], einstellungen: [], termine: [], stundenplan_aenderungen: [],
-    subjects: [], vocab_collections: [], topics: [], subtopics: [], exercises: [], learning_events: [], training_sessions: [], profiles: []
+    dokumente: [], subjects: [], vocab_collections: [], topics: [], subtopics: [], exercises: [], learning_events: [], training_sessions: [], profiles: []
   };
 }
 
@@ -32,6 +32,8 @@ export class MockBackend {
     this.engine = o.engine !== false;          // Migration 003 vorhanden?
     this.ai = o.ai !== false;                  // Edge Function vorhanden?
     this.open = !!o.open;                      // Migration 005: ohne Anmeldung (anon = Besitzer)
+    this.version = o.version || (this.open ? 5 : 3);
+    this.files = {};                           // Storage: "bucket/pfad" → { type, data }
     this.offline = false;
     this.users = { "filip@example.org": { id: "aaaaaaaa-0000-4000-8000-000000000001", password: "geheim123", name: "Filip" } };
     this.log = [];
@@ -59,6 +61,15 @@ export class MockBackend {
       if (p === "user") { const usr = Object.values(this.users).find(x => "tok-" + x.id === auth); if (!usr) return json(401, {}); usr.password = body.password; return json(200, { id: usr.id }); }
       return json(404, {});
     }
+    // ---- Storage
+    if (u.pathname.startsWith("/storage/v1/object/")) {
+      const rest = decodeURIComponent(u.pathname.slice("/storage/v1/object/".length));
+      if (this.version < 6) return json(404, { error: "Bucket not found" });
+      if (rest.startsWith("public/")) { const f = this.files[rest.slice(7)]; return f ? route.fulfill({ status: 200, contentType: f.type, headers: { "access-control-allow-origin": "*" }, body: f.data }) : json(404, { error: "not_found" }); }
+      if (method === "POST") { this.files[rest] = { type: req.headers()["content-type"], data: req.postDataBuffer() }; return json(200, { Key: rest }); }
+      if (method === "DELETE") { (body && body.prefixes || []).forEach(pth => delete this.files[rest + "/" + pth]); return json(200, []); }
+      return json(404, {});
+    }
     // ---- Edge Function
     if (u.pathname === "/functions/v1/ai-tutor") {
       if (!this.ai) return json(404, undefined);
@@ -69,7 +80,7 @@ export class MockBackend {
     if (u.pathname.startsWith("/rest/v1/rpc/")) {
       const fn = u.pathname.slice(13);
       if (!this.engine) return json(404, { code: "PGRST202", message: "Could not find the function" });
-      if (fn === "lern_engine_version") return json(200, this.open ? 5 : 3);
+      if (fn === "lern_engine_version") return json(200, this.version);
       if (fn === "claim_legacy_data") { if (!me) return json(401, { code: "42501" }); const r = {}; Object.keys(this.db).forEach(t => { if (NEW_TABLES.includes(t)) return; let c = 0; this.db[t].forEach(x => { if (!x.user_id) { x.user_id = me.id; c++; } }); if (c) r[t] = c; }); if (!this.db.profiles.length) this.db.profiles.push({ id: me.id, email: "filip@example.org", name: me.name, daily_minutes: 30 }); return json(200, r); }
       return json(404, {});
     }

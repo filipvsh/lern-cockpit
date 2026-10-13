@@ -102,3 +102,12 @@ Rückgängig machen:
 1. `004_lockdown_legacy.sql` erneut ausführen.
 2. Die Policies `*_open` löschen.
 3. `lern_engine_version` wieder auf 4 setzen.
+
+## Material: PDFs und Zeichenblätter (Migration 006)
+
+`supabase/migrations/006_material.sql` im SQL Editor ausführen (Voraussetzung: 005).
+Das legt zwei Dinge an:
+- den Dateispeicher `material` (öffentlich lesbar, max. 25 MB, PDF/PNG/JPG/WebP)
+- die Tabelle `dokumente`
+
+Danach gibt es in der App die Seite **Material**.

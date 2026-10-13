@@ -9,6 +9,7 @@ const dir = new URL("../supabase/migrations/", import.meta.url);
 const m003 = readFileSync(new URL("003_learning_engine.sql", dir), "utf8");
 const m004 = readFileSync(new URL("004_lockdown_legacy.sql", dir), "utf8");
 const m005 = readFileSync(new URL("005_ohne_anmeldung.sql", dir), "utf8");
+const m006 = readFileSync(new URL("006_material.sql", dir), "utf8");
 const A = "11111111-1111-1111-1111-111111111111", B = "22222222-2222-2222-2222-222222222222";
 
 const db = new PGlite();
@@ -20,6 +21,12 @@ create schema auth; grant usage on schema auth to anon, authenticated;
 create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb default '{}', created_at timestamptz default now());
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 grant execute on function auth.uid() to anon, authenticated;
+-- Supabase Storage (vereinfacht)
+create schema storage; grant usage on schema storage to anon, authenticated;
+create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+alter table storage.objects enable row level security;
+grant all on storage.objects to anon, authenticated;
 -- bestehende Tabellen (vereinfachter Altbestand)
 create table public.klausuren(id uuid primary key default gen_random_uuid(), fach text, thema text, datum date, themen jsonb default '[]', vokabel_lektionen jsonb default '[]', punkte int);
 create table public.vokabeln(id bigint generated always as identity primary key, begriff text, bedeutung text, sprache text, level int default 0, next date);
@@ -102,4 +109,15 @@ assert.equal(v5.rows[0].user_id, A); ok("… und Vokabeln (Alt-Tabelle, Trigger)
 assert.equal((await as("anon", "update public.vokabeln set level = 1 where begriff = 'la rentrée' returning id")).rows.length, 1); ok("Ohne Anmeldung: ändern erlaubt");
 assert.equal((await as("anon", "select public.lern_engine_version() v")).rows[0].v, 5); ok("Version 5 = App ohne Login-Seite");
 assert.equal((await as(A, "select count(*)::int c from public.topics")).rows[0].c, 1); ok("Angemeldeter Besitzer sieht dieselben Daten");
+
+console.log("Migration 006 (Material)");
+await db.exec(m006); await db.exec(m006); ok("läuft durch und ist wiederholbar");
+const bk = await db.query("select public, allowed_mime_types from storage.buckets where id='material'");
+assert.equal(bk.rows[0].public, true); assert.ok(bk.rows[0].allowed_mime_types.includes("application/pdf")); ok("Dateispeicher „material“ für PDFs und Bilder");
+await as("anon", "insert into storage.objects(bucket_id, name) values ('material', 'a.pdf')");
+await fails(() => as("anon", "insert into storage.objects(bucket_id, name) values ('anderer', 'x.pdf')"), "Nur der Material-Speicher ist offen");
+const d6 = await as("anon", "insert into public.dokumente(title, fach, path) values ('Analyse-Struktur','Deutsch','a.pdf') returning user_id, kind");
+assert.equal(d6.rows[0].user_id, A); assert.equal(d6.rows[0].kind, "pdf"); ok("Dokument ohne Anmeldung angelegt, gehört dem Besitzer");
+await fails(() => as("anon", "insert into public.dokumente(title, path, kind) values ('x','x','video')"), "Nur pdf/bild/skizze erlaubt");
+assert.equal((await as("anon", "select public.lern_engine_version() v")).rows[0].v, 6); ok("Version 6");
 console.log(`\n${n} Prüfungen bestanden.`);
