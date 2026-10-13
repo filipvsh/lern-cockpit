@@ -601,6 +601,100 @@ await scenario("Vokabeln in beide Richtungen gemischt: jedes Wort in beide Richt
   await ctx.close();
 });
 
+const openApp = async (o = {}) => { const b = new MockBackend(Object.assign({ open: true, version: 6 }, o)); b.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; }); const r = await open(b, o); await r.page.waitForSelector(".dash", { timeout: 15000 }); return Object.assign(r, { b }); };
+const MINI_PDF = Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF");
+
+await scenario("Material: PDF hochladen, ansehen, auf der Prüfungsseite; Zeichenblatt speichern und weiterzeichnen", async () => {
+  const { ctx, page, b } = await openApp();
+  await go(page, "#/material"); await page.waitForSelector("#mt_up");
+  await page.click("#mt_up"); await page.setInputFiles("#up_file", { name: "Analyse_Struktur.pdf", mimeType: "application/pdf", buffer: MINI_PDF });
+  assert.equal(await page.inputValue("#up_title"), "Analyse Struktur");
+  await page.selectOption("#up_fach", "Englisch"); await page.click("#up_go");
+  await page.waitForSelector("#pdfview"); await page.waitForSelector("#pdfview iframe, #pdfview canvas", { timeout: 12000 });
+  const d = b.db.dokumente[0]; assert.equal(d.title, "Analyse Struktur"); assert.equal(d.kind, "pdf"); assert.equal(d.fach, "Englisch");
+  assert.ok(b.files["material/" + d.path], "Datei im Speicher");
+  await go(page, "#/material"); await page.waitForSelector(".doc-tile");
+  await shot(page, "mat-01-liste");
+  await go(page, "#/lernplan/11111111-aaaa-4aaa-8aaa-000000000001"); await page.waitForSelector(".doc-list");
+  assert.ok((await page.textContent(".doc-list")).includes("Analyse Struktur"), "PDF auf der Englisch-Prüfungsseite");
+  // Zeichenblatt
+  await go(page, "#/material/zeichnen"); await page.waitForSelector("#sk_canvas");
+  const box = await page.$eval("#sk_canvas", c => { const r = c.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+  await page.mouse.move(box.x + 50, box.y + 50); await page.mouse.down();
+  for (let i = 1; i < 20; i++) await page.mouse.move(box.x + 50 + i * 15, box.y + 50 + Math.sin(i / 3) * 40);
+  await page.mouse.up();
+  await page.click('[data-skt="marker"]'); await page.mouse.move(box.x + 100, box.y + 150); await page.mouse.down(); await page.mouse.move(box.x + 300, box.y + 150); await page.mouse.up();
+  assert.equal(await page.evaluate(() => SKETCH.strokes.length), 2);
+  await page.click("#sk_undo"); assert.equal(await page.evaluate(() => SKETCH.strokes.length), 1, "Rückgängig");
+  await shot(page, "mat-02-zeichenblatt");
+  await page.click("#sk_save"); await page.fill("#sv_t", "Mindmap Kommunikation"); await page.selectOption("#sv_f", "Deutsch"); await page.click("#sv_s");
+  await page.waitForSelector(".imgview img");
+  const sk = b.db.dokumente.find(x => x.kind === "skizze"); assert.ok(sk); assert.equal(sk.fach, "Deutsch");
+  assert.equal(b.files["material/" + sk.path].type, "image/png");
+  const size1 = b.files["material/" + sk.path].data.length;
+  await go(page, "#/material/zeichnen-" + sk.id); await page.waitForSelector("#sk_canvas"); await page.waitForTimeout(300);
+  await page.mouse.move(box.x + 400, box.y + 300); await page.mouse.down(); await page.mouse.move(box.x + 600, box.y + 400); await page.mouse.up();
+  await page.click("#sk_save"); await page.waitForSelector(".imgview img");
+  assert.equal(b.db.dokumente.filter(x => x.kind === "skizze").length, 1, "überschrieben, nicht doppelt");
+  assert.notEqual(b.files["material/" + sk.path].data.length, size1);
+  await ctx.close();
+});
+
+await scenario("Material ohne Migration 006: Einrichtungshinweis statt Fehler", async () => {
+  const { ctx, page } = await openApp({ version: 5 });
+  await go(page, "#/material"); await page.waitForTimeout(300);
+  assert.ok((await page.textContent("#view")).includes("006_material.sql"));
+  await ctx.close();
+});
+
+await scenario("Spiele: Memory, Blitz und Buchstabensalat bis zum Ende, Bestwerte", async () => {
+  const { ctx, page } = await openApp();
+  await go(page, "#/spiele"); await page.waitForSelector(".game-tile");
+  await shot(page, "sp-01-spiele");
+  // Memory
+  await page.click('[data-game="memory"]'); await page.waitForSelector(".mem-card");
+  const pairs = await page.evaluate(() => { const m = {}; GAME.tiles.forEach((t, i) => (m[t.pair] = m[t.pair] || []).push(i)); return Object.values(m); });
+  for (const [a, c] of pairs) { await page.click(`[data-mem="${a}"]`); await page.click(`[data-mem="${c}"]`); }
+  await page.waitForSelector(".done-mark");
+  assert.equal(await page.evaluate(() => GAME.moves), pairs.length);
+  assert.ok((await page.textContent("#view")).includes("Neuer Bestwert"));
+  // Blitz
+  await go(page, "#/spiele"); await page.click('[data-game="blitz"]'); await page.waitForSelector("[data-bz]");
+  for (let i = 0; i < 3; i++) { const c = await page.evaluate(() => GAME.q.correct); await page.click(`[data-bz="${c}"]`); await page.waitForTimeout(450); }
+  const wrong = await page.evaluate(() => (GAME.q.correct + 1) % GAME.q.opts.length); await page.click(`[data-bz="${wrong}"]`);
+  assert.equal(await page.evaluate(() => GAME.right), 3); assert.ok(await page.evaluate(() => GAME.score) > 30, "Serienbonus");
+  await page.evaluate(() => { GAME.ends = Date.now() - 1; }); await page.waitForSelector(".done-mark", { timeout: 3000 });
+  assert.ok((await page.textContent("#view")).includes("Noch üben"));
+  // Buchstabensalat: mit Tipps lösen
+  await go(page, "#/spiele"); await page.click('[data-game="salat"]'); await page.waitForSelector(".sl-tile");
+  for (let guard = 0; guard < 200 && !(await page.$(".done-mark")); guard++) { const h = await page.$("#sl_hint"); if (h) await h.click(); await page.waitForTimeout(80); }
+  await page.waitForSelector(".done-mark");
+  await ctx.close();
+});
+
+await scenario("Aufräumen: kein „Geschrieben“, keine Hinweise; alte Vokabeltest-Sammlung im Archiv", async () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const b0 = { open: true, version: 6 };
+  const bb = new MockBackend(b0); bb.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; });
+  bb.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000bb", fach: "Französisch", thema: "Vokabeltest: Unité 1", datum: day(-3), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: ["Unité 1"], topics_migrated: true, user_id: "aaaaaaaa-0000-4000-8000-000000000001" });
+  bb.db.neuigkeiten.push({ id: "n1", titel: "Wandertag", gelesen: false, created: new Date().toISOString() });
+  const { ctx, page } = await open(bb); await page.waitForSelector(".dash", { timeout: 15000 });
+  assert.ok(!(await page.textContent("#view")).includes("Hinweise"), "keine Hinweise-Ecke");
+  await go(page, "#/lernplan"); await page.waitForTimeout(300);
+  assert.ok(!(await page.$('[data-lptab]')), "kein Tab „Geschrieben“");
+  await go(page, "#/vokabeln"); await page.waitForSelector(".archive");
+  const tiles = await page.$$eval(".tile .tn", xs => xs.map(x => x.textContent));
+  assert.ok(!tiles.includes("Unité 1"), "alte Test-Sammlung nicht mehr in der Liste");
+  assert.ok(await page.$(".stagebar"), "Stufen statt Prozent-Durchschnitt");
+  await shot(page, "auf-01-vokabeln");
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const h of ["#/vokabeln", "#/material", "#/material/zeichnen", "#/spiele"]) { await go(page, h); await page.waitForTimeout(250); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), h + " zu breit"); }
+  await page.setViewportSize({ width: 1280, height: 860 }); await go(page, "#/vokabeln"); await page.waitForSelector(".archive");
+  await page.click(".archive summary"); await page.click("[data-unarch]"); await page.waitForTimeout(400);
+  assert.ok((await page.$$eval(".tile .tn", xs => xs.map(x => x.textContent))).includes("Unité 1"), "wiederhergestellt");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

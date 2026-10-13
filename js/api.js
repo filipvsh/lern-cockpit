@@ -223,6 +223,21 @@
   function saveSnapshot(data) { if (!session && !openMode) return; ls.set(LS_SNAP, { user: openMode ? "open" : session.user && session.user.id, at: Date.now(), data }); }
   function loadSnapshot() { const s = ls.get(LS_SNAP, null); if (!s) return null; if (s.user === "open" || openMode) return s; if (!session || !session.user || s.user !== session.user.id) return null; return s; }
 
+  /* ---------------- Dateien (Supabase Storage) ---------------- */
+  const objPath = (bucket, path) => URL_ + "/storage/v1/object/" + bucket + "/" + path.split("/").map(encodeURIComponent).join("/");
+  async function upload(bucket, path, blob, contentType) {
+    await ensureFresh();
+    let r;
+    try { r = await fetch(objPath(bucket, path), { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + (session ? session.access_token : KEY), "Content-Type": contentType || blob.type || "application/octet-stream", "x-upsert": "true", "cache-control": "3600" }, body: blob }); }
+    catch (e) { throw new ApiError("Keine Verbindung – die Datei wurde nicht hochgeladen.", { network: true }); }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new ApiError(r.status === 413 || /size/i.test(j.message || "") ? "Die Datei ist zu groß (höchstens 25 MB)." : (j.message || j.error || "Hochladen fehlgeschlagen (" + r.status + ")"), { status: r.status, code: j.error || "" }); }
+    return true;
+  }
+  const publicUrl = (bucket, path) => URL_ + "/storage/v1/object/public/" + bucket + "/" + path.split("/").map(encodeURIComponent).join("/");
+  async function removeObject(bucket, path) {
+    try { await fetch(URL_ + "/storage/v1/object/" + bucket, { method: "DELETE", headers: { apikey: KEY, Authorization: "Bearer " + (session ? session.access_token : KEY), "Content-Type": "application/json" }, body: JSON.stringify({ prefixes: [path] }) }); } catch (e) {}
+  }
+
   /* ---------------- Edge Functions ---------------- */
   /** Fehlerarten: not_deployed · offline · unauthorized · rate_limited · unavailable · bad_request */
   async function invoke(fn, payload, o) {
@@ -256,6 +271,6 @@
     takeAccessFromHash, hasAccess, accessLogin, createAccessLink, accessLink, forgetAccess: () => ls.del(LS_ACCESS),
     request, get, getAll, insert, patch, del, rpc, tableExists,
     write, flush, idle, get pending() { return outbox.length; }, failed: () => ls.get(LS_FAILED, []), clearFailed: () => ls.del(LS_FAILED),
-    saveSnapshot, loadSnapshot, invoke
+    saveSnapshot, loadSnapshot, invoke, upload, publicUrl, removeObject
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -7,7 +7,7 @@
    Abhängigkeiten: Engine (js/engine.js), Api (js/api.js), STATE & Helfer
    aus index.html.
    ===================================================================== */
-const ES = { subjects: [], collections: [], topics: [], subtopics: [], exercises: [], events: [], sessions: [], profile: null };
+const ES = { subjects: [], collections: [], topics: [], subtopics: [], exercises: [], events: [], sessions: [], profile: null, docs: [] };
 let ES_VER = 0;                         // Version für Memo-Caches
 const bump = () => { ES_VER++; MEMO.clear(); };
 const MEMO = new Map();
@@ -40,7 +40,9 @@ async function loadEngine() {
     Api.getAll("training_sessions", "select=id,mode,status,label,subject,exam_id,topic_id,subtopic_id,collection_id,direction,started_at,completed_at,time_limit_s,active_seconds,question_count,correct_count,wrong_count,score&or=(started_at.gte." + since + ",status.in.(active,paused))&order=started_at.asc"),
     Api.get("profiles", "select=*&limit=1").then(r => r && r[0] || null)
   ]);
-  Object.assign(ES, { subjects, collections, topics, subtopics, exercises, events, sessions, profile });
+  // Material (Migration 006) – fehlt die Tabelle noch, bleibt die Liste leer
+  const docs = (STATE.engineVersion || 0) >= 6 ? await Api.getAll("dokumente", "select=*&order=created_at.desc").catch(() => []) : [];
+  Object.assign(ES, { subjects, collections, topics, subtopics, exercises, events, sessions, profile, docs });
   bump();
 }
 const normVO = r => ({
@@ -54,7 +56,7 @@ const normVO = r => ({
 });
 
 /* ---------------- Schreiben (optimistisch, mit Offline-Puffer) ---------------- */
-const TABLE_KEY = { subjects: "subjects", vocab_collections: "collections", topics: "topics", subtopics: "subtopics", exercises: "exercises", learning_events: "events", training_sessions: "sessions" };
+const TABLE_KEY = { dokumente: "docs", subjects: "subjects", vocab_collections: "collections", topics: "topics", subtopics: "subtopics", exercises: "exercises", learning_events: "events", training_sessions: "sessions" };
 function localList(table) { return table === "vokabeln" ? STATE.vo : ES[TABLE_KEY[table]]; }
 async function dbInsert(table, row, conflict) {
   row.id = row.id || Engine.uuid();
@@ -214,7 +216,7 @@ function focusCollections() { const tr = getTrainer(); if (!tr.on || !tr.lessons
 function vocabDue() {
   return memo("due", () => {
     const now = Date.now(); const focus = focusCollections();
-    return ES.collections.filter(c => !focus || focus.includes(c.id)).map(c => ({ id: c.id, name: c.name, count: cardsOf(c.id).filter(v => Engine.isDue(v, now)).length })).filter(x => x.count > 0);
+    return activeCols().filter(c => !focus || focus.includes(c.id)).map(c => ({ id: c.id, name: c.name, count: cardsOf(c.id).filter(v => Engine.isDue(v, now)).length })).filter(x => x.count > 0);
   });
 }
 /* ---------------- Tagesziel Vokabeln ----------------
@@ -229,7 +231,7 @@ const newLeftToday = () => Math.max(0, NEW_PER_DAY - newToday());
 const cardById = id => STATE.vo.find(v => String(v.id) === String(id));
 /** pool: Karten-Auswahl (Sammlung o. ä.) → was heute noch offen ist */
 function dayStatus(pool) {
-  const now = Date.now(); pool = pool || STATE.vo;
+  const now = Date.now(); pool = pool || activeCards();
   const due = pool.filter(v => Engine.isDue(v, now)).length;
   const fresh = Math.min(newLeftToday(), pool.filter(Engine.isNew).length);
   const tomorrowEnd = Engine.startOfDay(now) + 2 * Engine.DAY;
@@ -237,7 +239,35 @@ function dayStatus(pool) {
   const nextAt = pool.filter(v => !Engine.isNew(v) && v.next_review_at && new Date(v.next_review_at).getTime() > now).map(v => new Date(v.next_review_at).getTime()).sort((a, b) => a - b)[0] || null;
   return { due, fresh, open: due + fresh, done: due + fresh === 0, tomorrow, nextAt };
 }
-const troubleCards = () => STATE.vo.filter(Engine.isTrouble);
+/* ---------------- Archiv ----------------
+   Sammlungen vergangener Vokabeltests werden automatisch archiviert (nicht gelöscht):
+   nicht mehr in der Liste, im Tagesplan oder in Lernrunden. Wiederherstellen jederzeit.
+   Manuell: Einstellung „archiv_sammlungen“; zurückgeholt: „archiv_ausnahmen“. */
+function archivedIds() {
+  return memo("arch", () => {
+    const manual = setting("archiv_sammlungen", []) || [], keep = setting("archiv_ausnahmen", []) || [];
+    const set = new Set(manual);
+    const linked = k => (k.vokabel_lektionen || []).map(x => String(x).toLowerCase());
+    ES.collections.forEach(c => {
+      if (keep.includes(c.id)) return;
+      const n = c.name.toLowerCase();
+      const tests = STATE.kl.filter(k => isVocabTest(k) && linked(k).includes(n));
+      const upcoming = STATE.kl.some(k => linked(k).includes(n) && daysUntil(k.datum) >= 0 && k.punkte == null);
+      if (tests.length && !upcoming && tests.every(k => daysUntil(k.datum) < 0)) set.add(c.id);
+    });
+    return set;
+  });
+}
+const isArchived = colId => archivedIds().has(colId);
+const activeCols = () => ES.collections.filter(c => !isArchived(c.id));
+const activeCards = () => memo("activeCards", () => { const a = archivedIds(); return STATE.vo.filter(v => !a.has(v.collection_id)); });
+async function setArchived(colId, on) {
+  const manual = (setting("archiv_sammlungen", []) || []).filter(x => x !== colId);
+  const keep = (setting("archiv_ausnahmen", []) || []).filter(x => x !== colId);
+  if (on) manual.push(colId); else keep.push(colId);
+  await setSetting("archiv_sammlungen", manual); await setSetting("archiv_ausnahmen", keep); bump();
+}
+const troubleCards = () => activeCards().filter(Engine.isTrouble);
 const troubleExercises = () => ES.exercises.filter(e => { const r = lastExerciseResult(e.id); return r != null && r < 0.5; });
 const budgetMinutes = () => (ES.profile && ES.profile.daily_minutes) || 30;
 /** Tagesplan: einmal pro Tag berechnet und gespeichert, damit er sich nicht unter der Hand umsortiert */
@@ -249,7 +279,7 @@ function todayPlan(forceNew) {
   if (!plan || plan.v !== 4 || plan.sig !== sig) {
     // Sammlungen eines anstehenden Vokabeltests plant der Test selbst
     const tcols = new Set(upcomingTests().flatMap(k => linkedCollections(k).map(c => c.id)));
-    const focus = focusCollections(); const fresh = Math.min(newLeftToday(), STATE.vo.filter(v => Engine.isNew(v) && !tcols.has(v.collection_id) && (!focus || focus.includes(v.collection_id))).length);
+    const focus = focusCollections(); const fresh = Math.min(newLeftToday(), activeCards().filter(v => Engine.isNew(v) && !tcols.has(v.collection_id) && (!focus || focus.includes(v.collection_id))).length);
     const p = Engine.dailyPlan({ budgetMin: budgetMinutes(), vocabDue: vocabDue().filter(x => !tcols.has(x.id)), vocabNew: fresh, priorities: priorities(), troubleCount: troubleCards().length + troubleExercises().length });
     plan = { v: 4, sig, budget: p.budget, items: p.items.map(i => ({ key: i.key, kind: i.kind, minutes: i.minutes, title: i.title, sub: i.sub, reasons: i.reasons, subtopic_id: i.ref ? i.ref.subtopic.id : null })) };
     lsSet(key, plan);
@@ -275,7 +305,7 @@ function todayPlan(forceNew) {
     if (i.kind === "vocab") {
       // erledigt = nichts mehr fällig und Tageskontingent neuer Wörter genutzt (wie „Fertig für heute“)
       const tcols = new Set(upcomingTests().flatMap(k => linkedCollections(k).map(c => c.id)));
-      i.done = dayStatus(STATE.vo.filter(v => !tcols.has(v.collection_id))).done;
+      i.done = dayStatus(activeCards().filter(v => !tcols.has(v.collection_id))).done;
       if (i.done) i.doneMin = Math.max(i.doneMin, i.minutes);
     } else i.done = i.doneMin >= i.minutes * 0.8;
   });
@@ -356,7 +386,7 @@ function weakSpots(limit) {
       if (ex && (ex.punkte != null || daysUntil(ex.datum) < 0)) return;
       out.push({ kind: "subtopic", id: st.id, label: st.title, sub: (ex ? ex.fach + " · " : "") + (t ? t.title : ""), pct: m.score, errors: m.recentErrors, daysSince: m.daysSince, mistakes: recentMistakes(st.id, 2), href: "#/trainer/start?mode=topic&sub=" + st.id });
     });
-    ES.collections.forEach(c => {
+    activeCols().forEach(c => {
       const cards = cardsOf(c.id); const tr = cards.filter(Engine.isTrouble).length; if (!tr) return;
       const st = Engine.vocabStats(cards, Date.now());
       out.push({ kind: "collection", id: c.id, label: c.name, sub: "Vokabeln · " + groupName(c.source_language) + " · " + plural(tr, "Fehlerkarte", "Fehlerkarten"), pct: st.mastery, errors: tr, href: "#/trainer/start?mode=errors&col=" + c.id });
