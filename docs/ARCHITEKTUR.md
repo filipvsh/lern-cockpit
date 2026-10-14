@@ -197,3 +197,37 @@ mit genau einer Sammlung in `vokabel_lektionen`. Keine zusätzliche Migration.
   - KI-Eingaben werden als Entwurf gespeichert, bevor die Anfrage rausgeht.
     Erst dann sagt die Fehlermeldung „Deine Eingabe ist gespeichert“.
   - Ohne KI fällt der Trainer auf Musterlösung plus Selbsteinschätzung zurück.
+
+## Deutsch Extrem-Modus (`#/extrem/<Prüfung>`)
+
+Klausurvorbereitung „Kommunikationsanalyse nach Watzlawick“. Die Inhalte
+stehen in `js/deutsch-extrem-data.js`, Seite und Logik in
+`js/views-deutsch.js`.
+
+**Einrichtung beim ersten Öffnen** (nur INSERT, nichts wird gelöscht):
+- Thema der Prüfung, falls noch keins da ist
+- Unterthemen „Axiome“, „Absatz schreiben“, „Aufbau“, „Zitieren“
+- `exercises` mit `source = 'ai'`: Karteikarten (`free_text`), Quiz und
+  Zitieren (`multiple_choice`), Begriffe und Aufbau (`matching`), Absätze
+  (`short_writing`)
+- Vorhandene Übungen werden am Fragetext erkannt, nicht doppelt angelegt.
+
+**Fortschritt** wird als `learning_events` gespeichert, mit `detail.extrem`
+und `detail.mode`:
+- `leitner`: Leitner-Box aus der Antwortfolge (richtig +1, falsch → Box 1)
+- `quiz`, `zitieren`, `begriffe`, `aufbau`
+- `absatz`: als `self_assessment`, Anteil der erfüllten Checkliste
+
+Dadurch fließt er auch in den Lernstand der Unterthemen ein. Die Streak
+zählt Tage mit Extrem-Ereignissen.
+
+**Fahrplan-Haken und eingefügte Szenentexte** liegen in `einstellungen`
+(`extrem_fahrplan_<id>`, `extrem_szenen_<id>`).
+
+**Einstieg:**
+- Lernplan-Karte
+- Prüfungsseite
+- Dashboard-Prüfungskarte
+
+Erkannt wird die Deutsch-Prüfung an der ID oder an „Kommunikation“,
+„Watzlawick“ oder „Gespräch“ im Thema.
