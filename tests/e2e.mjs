@@ -667,7 +667,7 @@ await scenario("Spiele: Memory, Blitz und Buchstabensalat bis zum Ende, Bestwert
   assert.ok((await page.textContent("#view")).includes("Noch üben"));
   // Buchstabensalat: mit Tipps lösen
   await go(page, "#/spiele"); await page.click('[data-game="salat"]'); await page.waitForSelector(".sl-tile");
-  for (let guard = 0; guard < 200 && !(await page.$(".done-mark")); guard++) { const h = await page.$("#sl_hint"); if (h) await h.click(); await page.waitForTimeout(80); }
+  for (let guard = 0; guard < 200 && !(await page.$(".done-mark")); guard++) { await page.click("#sl_hint", { timeout: 1000 }).catch(() => {}); await page.waitForTimeout(80); }
   await page.waitForSelector(".done-mark");
   await ctx.close();
 });
@@ -692,6 +692,76 @@ await scenario("Aufräumen: kein „Geschrieben“, keine Hinweise; alte Vokabel
   await page.setViewportSize({ width: 1280, height: 860 }); await go(page, "#/vokabeln"); await page.waitForSelector(".archive");
   await page.click(".archive summary"); await page.click("[data-unarch]"); await page.waitForTimeout(400);
   assert.ok((await page.$$eval(".tile .tn", xs => xs.map(x => x.textContent))).includes("Unité 1"), "wiederhergestellt");
+  await ctx.close();
+});
+
+await scenario("Deutsch Extrem-Modus: einrichten, alle 8 Bereiche am Handy, speichern ohne Duplikate", async () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const EX = "0bf7d143-fdb2-45f2-9633-44e33dfb8a98";
+  const b = new MockBackend({ open: true, version: 6 }); b.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; });
+  b.db.klausuren.push({ id: EX, fach: "Deutsch", thema: "Kommunikationsanalyse", datum: day(1), uhrzeit: "07:55", nr: 1, themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true, user_id: "aaaaaaaa-0000-4000-8000-000000000001" });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await page.waitForSelector(".dash", { timeout: 15000 });
+  const wide = async h => assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), h + " zu breit");
+  await go(page, "#/lernplan"); await page.waitForSelector(`.dx-entry[href="#/extrem/${EX}"]`);
+  await page.click(`.dx-entry[href="#/extrem/${EX}"]`); await page.waitForSelector(".dx-count", { timeout: 15000 });
+  await page.evaluate(() => Api.idle());
+  const topic = b.db.topics.find(t => t.exam_id === EX); assert.ok(topic, "Thema angelegt");
+  const subs = b.db.subtopics.filter(x => x.topic_id === topic.id).map(x => x.title).sort();
+  assert.deepEqual(subs, ["Absatz schreiben", "Aufbau", "Axiome", "Zitieren"]);
+  const exs = b.db.exercises.filter(e => b.db.subtopics.some(x => x.id === e.subtopic_id && x.topic_id === topic.id));
+  assert.ok(exs.length >= 60 && exs.every(e => e.source === "ai"), "Übungen als source ai: " + exs.length);
+  assert.ok(exs.filter(e => e.question.startsWith("Welches Axiom?")).length >= 20, "mind. 20 Quizfragen");
+  assert.deepEqual([...new Set(exs.map(e => e.type))].sort(), ["free_text", "matching", "multiple_choice", "short_writing"]);
+  assert.ok((await page.textContent(".dx-count")).includes("Noch"), "Countdown");
+  await wide("start"); await shot(page, "dx-01-start");
+  // Karten
+  await go(page, `#/extrem/${EX}?tab=karten`); await page.waitForSelector("#dk_card");
+  await page.click("#dk_card"); await page.click("#dk_yes"); await page.click("#dk_card"); await page.click("#dk_no");
+  await shot(page, "dx-02-karten"); await wide("karten");
+  // Quiz: eine richtig, eine falsch
+  await go(page, `#/extrem/${EX}?tab=quiz`); await page.waitForSelector("[data-dq]");
+  let a = await page.evaluate(() => DX.QUIZ[DXU.q[DXU.p].i].a - 1); await page.click(`[data-dq="${a}"]`); await page.waitForSelector(".fb.ok"); await page.click("#dq_next");
+  a = await page.evaluate(() => { const q = DX.QUIZ[DXU.q[DXU.p].i]; return [0, 1, 2, 3, 4].find(i => i !== q.a - 1 && i !== (q.auch || 0) - 1); }); await page.click(`[data-dq="${a}"]`); await page.waitForSelector(".fb.bad");
+  assert.ok(await page.evaluate(() => DXU.q.some(x => x.retry)), "falsche Frage kommt nochmal");
+  await shot(page, "dx-03-quiz"); await wide("quiz");
+  // Aufbau
+  await go(page, `#/extrem/${EX}?tab=aufbau`); await page.waitForSelector("[data-dp]");
+  const before = await page.evaluate(() => DXU.order.slice()); await page.click('[data-down="0"]');
+  assert.deepEqual(await page.evaluate(() => DXU.order.slice(0, 2)), [before[1], before[0]], "Pfeil verschiebt");
+  await page.evaluate(() => { DXU.order = [0, 1, 2, 3, 4]; route(); }); await page.click("#dp_check");
+  assert.ok((await page.textContent("#dx_body")).includes("Textsorte, Titel, Autor"), "Inhalte nach dem Lösen");
+  await wide("aufbau");
+  // Absatz: Originaltext einfügen, Absatz schreiben, Checkliste
+  await go(page, `#/extrem/${EX}?tab=absatz`); await page.waitForSelector("#da_text");
+  await page.click("#da_paste"); await page.fill("#dp_txt", "Zeile eins der Szene.\nRita sagt: „Ach, ich glaub schon.“\nSie drückt die Hand ans Holz."); await page.click("#dp_s");
+  await page.waitForSelector(".dx-lines li"); assert.equal(await page.$$eval(".dx-lines li", x => x.length), 3);
+  await page.fill("#da_text", await page.evaluate(() => DX.MUSTER)); await page.waitForTimeout(400);
+  assert.equal(await page.$$eval("[data-dc]", x => x.filter(c => c.checked).length), 5, "Checkliste erkennt alle 5 Punkte");
+  await shot(page, "dx-04-absatz"); await wide("absatz");
+  await page.click("#da_save"); await page.evaluate(() => Api.idle());
+  const ev = b.db.learning_events.filter(e => e.exam_id === EX);
+  assert.ok(ev.some(e => e.type === "self_assessment" && +e.result === 1 && e.detail.mode === "absatz"), "Absatz gespeichert");
+  assert.ok(ev.some(e => e.detail.mode === "leitner") && ev.some(e => e.detail.mode === "quiz") && ev.some(e => e.detail.mode === "aufbau"));
+  assert.ok(b.db.einstellungen.some(x => /^extrem_szenen_/.test(x.key)), "eingefügter Text gespeichert");
+  // Zitieren
+  await go(page, `#/extrem/${EX}?tab=zitieren`);
+  for (let i = 0; i < 5; i++) { await page.waitForSelector("[data-dz]"); const c = await page.evaluate(() => DX.ZITIER[DXU.i].c); await page.click(`[data-dz="${c}"]`); await page.click("#dz_next"); }
+  assert.ok((await page.textContent("#dx_body")).includes("5 von 5"));
+  // Begriffe
+  await go(page, `#/extrem/${EX}?tab=begriffe`); await page.waitForSelector("[data-ml]");
+  for (let i = 0; i < 5; i++) { await page.click(`[data-ml="${i}"]`); await page.click(`[data-mr="${i}"]`); }
+  await page.click("#dm_check"); assert.ok((await page.textContent("#dx_body")).includes("5 von 5 richtig")); await wide("begriffe");
+  // Fahrplan
+  await go(page, `#/extrem/${EX}?tab=fahrplan`); await page.waitForSelector("[data-df]");
+  await page.click('[data-df="0"]'); await page.waitForTimeout(300); await page.evaluate(() => Api.idle());
+  assert.ok(b.db.einstellungen.some(x => /^extrem_fahrplan_/.test(x.key) && JSON.stringify(x.value) === "[0]"));
+  await shot(page, "dx-05-fahrplan"); await wide("fahrplan");
+  // Start zeigt Tagesziel-Fortschritt; erneutes Laden legt nichts doppelt an
+  const n1 = b.db.exercises.length, s1 = b.db.subtopics.length;
+  await page.reload(); await page.waitForSelector(".dx-tabs", { timeout: 15000 });
+  await go(page, `#/extrem/${EX}`); await page.waitForSelector(".dx-count", { timeout: 15000 }); await page.evaluate(() => Api.idle());
+  assert.equal(b.db.exercises.length, n1, "keine doppelten Übungen"); assert.equal(b.db.subtopics.length, s1);
+  assert.ok((await page.textContent(".dx-goals")).includes("1/1"), "Absatz-Ziel erreicht");
   await ctx.close();
 });
 
