@@ -773,7 +773,7 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m1", fach: "Mathe", thema: "Graphen, lineare Funktionen", datum: day(9), themen: [{ id: "a", text: "Grafen", done: false }, { id: "b", text: "linear", done: false }], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f1", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 5 && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 6 && !PACKS_RUNNING, null, { timeout: 15000 });
   await page.evaluate(() => Api.idle());
   const vet = b.db.vocab_collections.find(c => c.name === "Les vêtements");
   assert.ok(vet && vet.source_language === "fr", "Sammlung angelegt");

@@ -17,7 +17,7 @@ const VETEMENTS = [
   ["acheter", "kaufen"], ["chercher", "suchen"], ["essayer", "anprobieren"], ["payer", "bezahlen"], ["coûter", "kosten"],
   ["le prix", "der Preis"], ["le magasin", "das Geschäft"], ["cher / chère", "teuer"], ["pas cher / pas chère", "nicht teuer, günstig"],
   // les verbes
-  ["porter", "tragen"], ["mettre", "anziehen"], ["aimer", "mögen"], ["préférer", "vorziehen, lieber mögen"], ["aller", "gehen"], ["vouloir", "wollen"], ["avoir", "haben"],
+  ["porter", "tragen"], ["mettre", "anziehen"], ["aimer", "mögen"], ["préférer", "vorziehen"], ["aller", "gehen"], ["vouloir", "wollen"], ["avoir", "haben"],
   // les couleurs (m / f)
   ["rouge", "rot"], ["jaune", "gelb"], ["vert / verte", "grün"], ["bleu / bleue", "blau"], ["gris / grise", "grau"], ["noir / noire", "schwarz"],
   ["blanc / blanche", "weiß"], ["rose", "rosa"], ["violet / violette", "lila"], ["marron", "braun"], ["orange", "orange"], ["beige", "beige"]
@@ -54,6 +54,13 @@ const PACKS = [
     const rows = VETEMENTS.filter(([b]) => !have.has(Engine.normalize(b))).map(([b, m]) => ({ begriff: b, bedeutung: m, sprache: col.name, collection_id: col.id, source_language: "fr", target_language: "de", subject_id: col.subject_id || null, level: 0, next: todayISO(), alternatives: [] }));
     if (rows.length) { const r = await Api.insert("vokabeln", rows); (Array.isArray(r) && r.length ? r : rows).forEach(x => STATE.vo.push(normVO(x))); }
     return rows.length + " Vokabeln";
+  } },
+  { id: "vetements-fix-1", label: "Vokabeln „Les vêtements“ korrigiert", run: async () => {
+    // préférer stand mit einer Zusatzbedeutung drin, die nicht auf dem Blatt steht
+    const col = ES.collections.find(c => c.name.toLowerCase() === VET_NAME.toLowerCase()); if (!col) return true;
+    const v = cardsOf(col.id).find(x => x.begriff === "préférer" && x.bedeutung !== "vorziehen");
+    if (v) await dbPatch("vokabeln", v.id, { bedeutung: "vorziehen" });
+    return true;
   } },
   { id: "englisch-archiv", label: "Englisch archiviert", run: async () => {
     if (upcomingExam(/^Englisch$/)) return false;   // solange eine Englisch-Klausur ansteht, bleibt alles
