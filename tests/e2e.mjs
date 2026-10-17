@@ -473,7 +473,7 @@ await scenario("Auftrag für heute: Themen festlegen, Probeklausur schreiben und
   await shot(page, "au-02-themen");
   await page.click("#ta_save"); await page.waitForTimeout(400); await page.evaluate(() => Api.idle());
   const mathTopic = b.db.topics.find(x => x.exam_id === "11111111-aaaa-4aaa-8aaa-000000000009");
-  assert.deepEqual(b.db.subtopics.filter(x => x.topic_id === mathTopic.id).map(x => x.title), ["Ableitungsregeln", "Kurvendiskussion", "Integrale (Ausblick)"]);
+  assert.deepEqual(b.db.subtopics.filter(x => x.topic_id === mathTopic.id).map(x => x.title), ["Negative Exponenten (x⁻¹, x⁻²)", "Strecken, Spiegeln, Verschieben", "Integrale (Ausblick)"]);
   t = await page.textContent(".mission");
   assert.ok(!t.includes("Festlegen, was in Mathe"), "Schritt erledigt: " + t);
   // 2. Probeklausur Englisch mit eigener Aufgabe
@@ -734,7 +734,8 @@ await scenario("Deutsch Extrem-Modus: einrichten, alle 8 Bereiche am Handy, spei
   // Absatz: Originaltext einfügen, Absatz schreiben, Checkliste
   await go(page, `#/extrem/${EX}?tab=absatz`); await page.waitForSelector("#da_text");
   await page.click("#da_paste"); await page.fill("#dp_txt", "Zeile eins der Szene.\nRita sagt: „Ach, ich glaub schon.“\nSie drückt die Hand ans Holz."); await page.click("#dp_s");
-  await page.waitForSelector(".dx-lines li"); assert.equal(await page.$$eval(".dx-lines li", x => x.length), 3);
+  await page.waitForFunction(() => document.querySelectorAll(".dx-lines li").length === 3, null, { timeout: 5000 }).catch(() => {});
+  assert.equal(await page.$$eval(".dx-lines li", x => x.length), 3);
   await page.fill("#da_text", await page.evaluate(() => DX.MUSTER)); await page.waitForTimeout(400);
   assert.equal(await page.$$eval("[data-dc]", x => x.filter(c => c.checked).length), 5, "Checkliste erkennt alle 5 Punkte");
   await shot(page, "dx-04-absatz"); await wide("absatz");
@@ -762,6 +763,95 @@ await scenario("Deutsch Extrem-Modus: einrichten, alle 8 Bereiche am Handy, spei
   await go(page, `#/extrem/${EX}`); await page.waitForSelector(".dx-count", { timeout: 15000 }); await page.evaluate(() => Api.idle());
   assert.equal(b.db.exercises.length, n1, "keine doppelten Übungen"); assert.equal(b.db.subtopics.length, s1);
   assert.ok((await page.textContent(".dx-goals")).includes("1/1"), "Absatz-Ziel erreicht");
+  await ctx.close();
+});
+
+await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte Wörter, Mathe & Französisch – nur einmal", async () => {
+  const b = new MockBackend({ packs: true });
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  b.db.klausuren = b.db.klausuren.filter(k => k.fach !== "Englisch");   // Englisch-Klausur vorbei
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m1", fach: "Mathe", thema: "Graphen, lineare Funktionen", datum: day(9), themen: [{ id: "a", text: "Grafen", done: false }, { id: "b", text: "linear", done: false }], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f1", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b); await login(page);
+  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 5 && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.evaluate(() => Api.idle());
+  const vet = b.db.vocab_collections.find(c => c.name === "Les vêtements");
+  assert.ok(vet && vet.source_language === "fr", "Sammlung angelegt");
+  const n = b.db.vokabeln.filter(v => v.collection_id === vet.id).length;
+  assert.equal(n, await page.evaluate(() => VETEMENTS.length), "alle Wörter der Mindmap");
+  assert.ok(n >= 50);
+  const unit = b.db.vocab_collections.find(c => c.name === "Unit 1");
+  assert.ok(await page.evaluate(id => isArchived(id), unit.id), "Englisch archiviert");
+  const bj = b.db.vokabeln.find(v => v.begriff === "bonjour");
+  assert.ok(bj.reps >= 3 && +bj.interval_days === 60, "bonjour abgehakt");
+  const av = b.db.vokabeln.find(v => v.begriff === "l'avenir");
+  assert.ok(!av.reps && +av.interval_days !== 60, "normale Wörter bleiben neu");
+  // Mathe: alte Themen pausiert, Potenzfunktionen aktiv
+  const mk = b.db.klausuren.find(k => k.fach === "Mathe");
+  assert.equal(mk.thema, "Potenzfunktionen");
+  const mt = b.db.topics.filter(t => t.exam_id === mk.id);
+  assert.ok(mt.some(t => t.title === "Potenzfunktionen" && t.status === "active"));
+  assert.ok(mt.filter(t => t.title !== "Potenzfunktionen").every(t => t.status === "paused") && mt.length >= 2, "alte Themen pausiert");
+  const msubs = await page.evaluate(id => subsOfExam(id).map(s => s.title), mk.id);
+  assert.equal(msubs.length, 5); assert.ok(!msubs.includes("Grafen"));
+  // Französisch: Vokabeln verknüpft, Themen für Texte / Listening / Grammatik
+  const fk = b.db.klausuren.find(k => k.fach === "Französisch");
+  assert.ok(fk.vokabel_lektionen.includes("Les vêtements"));
+  const fsubs = await page.evaluate(id => subsOfExam(id).map(s => s.title), fk.id);
+  assert.ok(fsubs.some(t => /Texte schreiben/.test(t)) && fsubs.some(t => /Listening/.test(t)) && fsubs.length === 3);
+  const counts = () => [b.db.vokabeln.length, b.db.topics.length, b.db.subtopics.length, b.db.exercises.length].join(",");
+  const c1 = counts();
+  await page.reload(); await page.waitForSelector(".dash", { timeout: 15000 }); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());
+  assert.equal(counts(), c1, "beim zweiten Start nichts doppelt");
+  await ctx.close();
+});
+
+await scenario("Vokabeln lernen: Sprache antippen, Kenne ich schon, Hören-Spiel – Handy ohne Querscrollen", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  await page.waitForSelector("#vl_card");
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  assert.ok(await noScroll(), "Dashboard ohne Querscrollen");
+  assert.ok(await page.$('[data-vlearn="fr"]') && await page.$('[data-vlearn="en"]'), "ein Knopf pro Sprache");
+  await page.click('[data-vldir="forward"]'); await page.evaluate(() => Api.idle());
+  assert.equal(await page.evaluate(() => setting("vl_dir")), "forward");
+  await shot(page, "vl-01-dashboard");
+  await page.click('[data-vlearn="fr"]'); await page.waitForSelector(".fx-card");
+  const info = await page.evaluate(() => ({ subj: TS.scope.subject, dir: TS.direction, langs: [...new Set(TS.items.map(it => cardLang(cardById(it.vocab_id))))] }));
+  assert.equal(info.subj, "Französisch"); assert.deepEqual(info.langs, ["fr"]); assert.equal(info.dir, "forward");
+  // bis zu einem neuen Wort spielen und „Kenne ich schon“ drücken
+  let known = null;
+  for (let g = 0; g < 40 && !known; g++) {
+    const it = await page.evaluate(() => { const it = TS && TS.status === "active" && Engine.current(TS); if (!it) return null; const c = cardById(it.vocab_id); return { kind: it.kind, id: c.id, ans: Engine.vocabSides(c, it.direction).answers[0] }; });
+    if (!it) break;
+    if (it.kind === "vocab_study") { known = it.id; await page.click("#st_known"); break; }
+    await page.fill("#va", it.ans); await page.click("#va_check"); await page.click("#va_next");
+  }
+  assert.ok(known != null, "neues Wort gefunden");
+  await page.evaluate(() => Api.idle());
+  const kc = b.db.vokabeln.find(v => String(v.id) === String(known));
+  assert.ok(kc.reps >= 3 && +kc.interval_days === 60, "abgehakt in der DB");
+  assert.ok(await page.evaluate(id => !TS.items.slice(TS.index).some(it => String(it.vocab_id) === String(id)), known), "wird in dieser Runde nicht mehr gefragt");
+  await page.evaluate(() => { TS = null; tsSave(); });
+  // Vokabelseite zeigt den Knopf ebenfalls
+  await go(page, "#/vokabeln"); await page.waitForSelector("#vl_card"); assert.ok(await noScroll(), "Vokabelseite ohne Querscrollen");
+  // Hören: Sprachausgabe abfangen
+  await page.evaluate(() => { window.__said = []; speechSynthesis.speak = u => window.__said.push(u.text + "|" + u.lang); });
+  await go(page, "#/spiele"); await page.waitForSelector('[data-game="hoeren"]');
+  await page.selectOption("#gm_col", { label: await page.evaluate(() => { const c = ES.collections.find(x => x.name === "Unité 1"); return c.name + " (" + gameCards(c.id).length + ")"; }) });
+  await page.waitForSelector('[data-game="hoeren"]:not([disabled])'); await page.click('[data-game="hoeren"]');
+  await page.waitForSelector("#hr_play"); await page.waitForTimeout(400);
+  const said = await page.evaluate(() => window.__said);
+  assert.ok(said.length >= 1 && said[0].endsWith("|fr-FR"), "spricht Französisch: " + said);
+  assert.ok(await noScroll(), "Spiel ohne Querscrollen");
+  await shot(page, "vl-02-hoeren");
+  const rounds = await page.evaluate(() => GAME.rounds);
+  for (let i = 0; i < rounds; i++) {
+    await page.waitForSelector("[data-hr]");
+    const c = await page.evaluate(() => GAME.q.correct); await page.click(`[data-hr="${c}"]`);
+    await page.waitForSelector("#hr_next"); await page.click("#hr_next");
+  }
+  await page.waitForSelector(".done-mark");
+  assert.ok((await page.textContent("#view")).includes(rounds + " von " + rounds + " richtig"));
   await ctx.close();
 });
 

@@ -6,6 +6,7 @@ const DAY = 864e5;
 const iso = (d, base = Date.now()) => new Date(base + d * DAY).toISOString().slice(0, 10);
 const NEW_TABLES = ["dokumente", "subjects", "vocab_collections", "topics", "subtopics", "exercises", "learning_events", "training_sessions", "profiles"];
 
+export const PACK_IDS = ["vetements-1809", "englisch-archiv", "leichte-woerter", "mathe-potenzfunktionen", "franz-klausur"];
 export function seed() {
   const kl = [
     { id: "11111111-aaaa-4aaa-8aaa-000000000001", fach: "Englisch", thema: "Short Story Writing", datum: iso(8), nr: 1, kurs: "E5-GK4", lehrer: "Sopko", uhrzeit: "09:50", dauer: 90, raum: "B12", halbjahr: "EF.1",
@@ -37,6 +38,8 @@ export class MockBackend {
     this.offline = false;
     this.users = { "filip@example.org": { id: "aaaaaaaa-0000-4000-8000-000000000001", password: "geheim123", name: "Filip" } };
     this.log = [];
+    // Inhalts-Pakete (js/content-packs.js) gelten als erledigt – außer der Test will sie prüfen ({ packs: true })
+    if (!o.packs && !this.db.einstellungen.some(r => r.key === "packs_done")) this.db.einstellungen.push({ key: "packs_done", value: Object.fromEntries(PACK_IDS.map(id => [id, "test"])) });
     // wie Migration 003: alte Level → Intervalle
     if (this.engine) this.db.vokabeln.forEach(v => { if (v.reps == null && v.level > 0) { v.interval_days = [0, 1, 2, 4, 7, 14, 30][v.level]; v.reps = v.level; v.next_review_at = v.next ? v.next + "T00:00:00.000Z" : null; } });
   }
