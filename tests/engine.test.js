@@ -352,3 +352,29 @@ test("Lernrunde beide Richtungen: jedes Wort in beide Richtungen richtig, sonst 
   for (const id of ["n1", "r1", "r2"]) assert.equal(seen[id].size, 2, id + " in beide Richtungen abgefragt");
   assert.equal(E.roundProgress(s).left, 0);
 });
+
+/* ---------- Leichte Wörter / „Kann ich schon“ ---------- */
+test("Sehr leichte Wörter werden erkannt, normale nicht", () => {
+  const c = (b, m) => ({ begriff: b, bedeutung: m, source_language: "fr" });
+  for (const [b, m] of [["bonjour", "guten Tag"], ["cool", "cool"], ["moderne", "modern"], ["élégant / élégante", "elegant"], ["beige", "beige"], ["orange", "orange"], ["Merci", "danke"]]) assert.ok(E.isTrivial(c(b, m)), b);
+  for (const [b, m] of [["le pantalon", "die Hose"], ["classique", "klassisch"], ["le prix", "der Preis"], ["chic", "schick"], ["rose", "rosa"], ["acheter", "kaufen"]]) assert.ok(!E.isTrivial(c(b, m)), b);
+});
+test("Kann ich schon: Langzeit, nächste Kontrolle in 60 Tagen", () => {
+  const p = E.markKnown({ reps: 0 }, NOW);
+  assert.equal(p.interval_days, 60); assert.equal(E.stageOf(Object.assign({ last_reviewed_at: "x" }, p)).key, "long");
+  assert.equal(new Date(p.next_review_at).getTime(), E.startOfDay(NOW) + 60 * DAY);
+});
+test("Lernrunde: „Kenne ich schon“ beendet das Wort sofort, ohne weitere Abfragen", () => {
+  const cards = [tcard("n1"), tcard("n2")];
+  const r = E.buildRound(cards, { direction: "forward" });
+  const s = E.createSession({ mode: "vocab", items: r.items, now: NOW }); s.prog = r.prog;
+  let guard = 0; const asked = [];
+  while (s.index < s.items.length && guard++ < 100) {
+    const it = E.current(s);
+    if (it.kind === "vocab_study") E.roundAfter(s, it, it.vocab_id === "n1" ? "known" : "studied");
+    else { asked.push(it.vocab_id); E.roundAfter(s, it, "correct"); }
+    E.advance(s);
+  }
+  assert.ok(!asked.includes("n1")); assert.ok(asked.includes("n2"));
+  assert.equal(E.roundProgress(s).left, 0);
+});

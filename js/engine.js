@@ -188,6 +188,32 @@
     }
     return 100;
   }
+  /** „Kann ich schon“: Wort direkt als sicher gelernt einplanen (Langzeit, nächste Kontrolle in 60 Tagen) */
+  const KNOWN_DAYS = 60;
+  function markKnown(card, now) {
+    const S = KNOWN_DAYS, D = 2;
+    return {
+      reps: Math.max(3, +card.reps || 0), interval_days: S, ease: D + FSRS.easeOffset, lapses: +card.lapses || 0,
+      next_review_at: new Date(startOfDay(now) + S * DAY).toISOString(), last_reviewed_at: new Date(now).toISOString(),
+      last_result: "correct", correct_count: (+card.correct_count || 0) + 1, incorrect_count: +card.incorrect_count || 0,
+      mastery: masteryFromInterval(S), difficulty: 1
+    };
+  }
+  /** Sehr leichte Wörter: Grundwortschatz oder fast gleich wie im Deutschen (cool – cool, moderne – modern) */
+  const BASIC = {
+    fr: ["bonjour", "salut", "merci", "oui", "non", "au revoir", "bonsoir", "s'il te plait", "s'il vous plait", "pardon", "madame", "monsieur", "et", "ou", "je", "tu", "il", "elle", "nous", "vous", "un", "une", "deux", "trois", "le", "la", "les", "bien", "tres", "aussi", "avec"],
+    en: ["hello", "hi", "yes", "no", "thank you", "thanks", "bye", "goodbye", "please", "sorry", "and", "or", "i", "you", "he", "she", "we", "they", "one", "two", "three"]
+  };
+  function isTrivial(card) {
+    const lang = card.source_language || "fr";
+    const strip = s => stripAccents(normalize(String(s || "").split(/[\/;,]/)[0])).replace(/^(le|la|les|l'|un|une|des|der|die|das|ein|eine|to|the|a)\s+/, "").trim();
+    const b = strip(card.begriff), m = strip(card.bedeutung);
+    if ((BASIC[lang] || []).includes(stripAccents(normalize(card.begriff)))) return true;
+    if (!b || !m || b.length < 4) return false;
+    if (b === m) return true;
+    // fast gleich: nur Endung anders (modern/moderne, elegant/élégant, klassisch nicht)
+    return Math.min(b.length, m.length) >= 5 && levenshtein(b, m) <= 1;
+  }
   /** Gedächtnisstufe für die Anzeige */
   function stageOf(card) {
     if (isNew(card)) return { key: "new", label: "Neu", n: 0 };
@@ -325,12 +351,14 @@
     return { items, prog };
   }
   function insertAt(s, gap, item) { const pos = Math.min(s.items.length, s.index + 1 + gap); s.items.splice(pos, 0, item); }
-  /** Nach einer Karte der Runde: nächsten Abruf einplanen. outcome: "studied" | "correct" | "wrong" */
+  /** Nach einer Karte der Runde: nächsten Abruf einplanen. outcome: "studied" | "known" | "correct" | "wrong" */
   function roundAfter(s, item, outcome) {
     const p = s.prog && s.prog[item.vocab_id]; if (!p) return s;
     // Nach Fehler: dieselbe Richtung noch einmal. Nach richtig (beide Richtungen): die andere Richtung
     const recall = (retry, d) => ({ kind: "vocab", key: "v:" + item.vocab_id, vocab_id: item.vocab_id, direction: d || item.direction, retry: !!retry });
     if (outcome === "studied") { insertAt(s, ROUND.gapStudy, recall(false)); return s; }
+    // „Kenne ich schon“: Wort ist für diese Runde erledigt, spätere Abfragen fallen weg
+    if (outcome === "known") { p.got = p.need; p.known = true; s.items = s.items.filter((it, i) => i <= s.index || it.vocab_id !== item.vocab_id); return s; }
     if (outcome === "wrong") { p.wrong++; insertAt(s, ROUND.gapWrong, recall(true)); return s; }
     p.got++;
     if (p.both) { p.dirs = p.dirs || []; if (!p.dirs.includes(item.direction)) p.dirs.push(item.direction); }
@@ -716,7 +744,7 @@
   return {
     DAY, uuid, shuffle, isoDay, startOfDay, daysBetween,
     LANG_NAMES, normalize, stripAccents, answerVariants, levenshtein, checkAnswer,
-    SRS, FSRS, GRADE, fsrsStep, fsrsRetrievability, fsrsInterval, memoryOf, recallProbability, stageOf, calDays, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
+    SRS, FSRS, GRADE, fsrsStep, fsrsRetrievability, fsrsInterval, memoryOf, recallProbability, stageOf, markKnown, isTrivial, KNOWN_DAYS, calDays, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
     isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, pickDir, flipDir, roundProgress, diffParts,
     STATUSES, createSession, elapsedMs, remainingMs, isExpired, pause, resume, finish, current, recordAnswer, requeue, advance, summary,
     MASTERY, subtopicMastery, examReadiness,

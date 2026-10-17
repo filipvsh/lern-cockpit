@@ -159,7 +159,7 @@ const colById = id => ES.collections.find(c => c.id === id) || null;
 const topicsOfExam = examId => ES.topics.filter(t => t.exam_id === examId).sort((a, b) => a.sort - b.sort || String(a.created_at).localeCompare(String(b.created_at)));
 const subsOfTopic = topicId => ES.subtopics.filter(s => s.topic_id === topicId).sort((a, b) => a.sort - b.sort || String(a.created_at).localeCompare(String(b.created_at)));
 const exercisesOf = subId => ES.exercises.filter(e => e.subtopic_id === subId);
-const subsOfExam = examId => topicsOfExam(examId).flatMap(t => subsOfTopic(t.id).map(s => Object.assign({ priority: t.priority }, s)));
+const subsOfExam = examId => topicsOfExam(examId).filter(t => t.status !== "paused").flatMap(t => subsOfTopic(t.id).map(s => Object.assign({ priority: t.priority }, s)));
 const examOfSub = st => { const t = st && topicById(st.topic_id); return t && t.exam_id != null ? klById(t.exam_id) : null; };
 const cardsOf = colId => STATE.vo.filter(v => v.collection_id === colId);
 function eventsBySub() { return memo("ebs", () => { const m = {}; ES.events.forEach(e => { if (e.subtopic_id) (m[e.subtopic_id] = m[e.subtopic_id] || []).push(e); }); return m; }); }

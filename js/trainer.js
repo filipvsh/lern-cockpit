@@ -61,6 +61,14 @@ const dirLabel = (col, dir) => {
 };
 function vocabItem(c, dir) { return { kind: "vocab", key: "v:" + c.id, vocab_id: c.id, direction: dir }; }
 function topicItemsFor(st, max) { return Engine.buildTopicItems(st, topicById(st.topic_id), ES.exercises, lastExerciseResult, max); }
+/** Sprache einer Karte (aus der Sammlung, sonst von der Karte selbst) */
+const cardLang = v => { const c = colById(v.collection_id); return (c && c.source_language) || v.source_language || null; };
+/** Alle aktiven Karten einer Sprache – Wörter für eine anstehende Prüfung zuerst */
+function langPool(lang) {
+  const cards = activeCards().filter(v => cardLang(v) === lang);
+  const soon = new Set(upcomingKL().filter(k => daysUntil(k.datum) <= 30).flatMap(k => linkedCollections(k).map(c => c.id)));
+  return soon.size ? cards.filter(v => soon.has(v.collection_id)).concat(cards.filter(v => !soon.has(v.collection_id))) : cards;
+}
 /** cfg: {mode, collection_id, subtopic_id, exam_id, topic_id, direction, count, minutes, ref, label} */
 function buildSessionFromConfig(cfg) {
   const now = Date.now(); const dir = cfg.direction || "forward"; const count = +cfg.count || 20; let testKind = null, sessDir = null, round = null, extraRound = false;
@@ -69,16 +77,17 @@ function buildSessionFromConfig(cfg) {
   const st = cfg.subtopic_id ? subById(cfg.subtopic_id) : null;
   const exam = cfg.exam_id != null && cfg.exam_id !== "" ? klById(cfg.exam_id) : (st ? examOfSub(st) : null);
   const focus = focusCollections();
-  const pool = col ? cardsOf(col.id) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : activeCards();
+  const pool = col ? cardsOf(col.id) : cfg.lang ? langPool(cfg.lang) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : activeCards();
   if (cfg.mode === "vocab") {
-    let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: Math.min(Engine.ROUND.maxNew, newLeftToday()) });
+    // „Vokabeln lernen“ mit Sprachwahl: bewusst gestartet → neue Wörter auch über das Tageslimit hinaus (pro Runde bleibt es bei maxNew)
+    let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: cfg.lang ? Engine.ROUND.maxNew : Math.min(Engine.ROUND.maxNew, newLeftToday()) });
     if (!q.length || cfg.extra) {
       // Freiwillige Zusatzrunde: die Wörter, die du am ehesten vergisst
       q = pool.filter(v => !Engine.isNew(v)).map(v => [v, Engine.recallProbability(v, now)]).sort((a, b) => a[1] - b[1]).slice(0, 10).map(x => x[0]);
       label = " · Zusatzrunde"; extraRound = true;
     }
     round = Engine.buildRound(q, { direction: dir }); items = round.items;
-    label = (col ? col.name : "Vokabeln") + label; scope = { collection_id: col ? col.id : null, subject: col ? langName(col.source_language) : null };
+    label = (col ? col.name : cfg.lang ? langName(cfg.lang) : "Vokabeln") + label; scope = { collection_id: col ? col.id : null, subject: col ? langName(col.source_language) : cfg.lang ? langName(cfg.lang) : null };
   } else if (cfg.mode === "errors") {
     const cards = Engine.buildVocabQueue(pool, { mode: "errors", limit: count });
     const exItems = troubleExercises().filter(e => !st || e.subtopic_id === st.id).slice(0, 8).map(e => { const s = subById(e.subtopic_id); return Engine.exerciseItem(e, s, s && topicById(s.topic_id)); });
@@ -331,7 +340,12 @@ function renderStudy(item) {
   const go = () => { Engine.roundAfter(TS, item, "studied"); nextItem(); };
   bindCopy(s.answers, s.lang, ok => { document.getElementById("st_next").disabled = !ok; });
   document.getElementById("st_next").onclick = go;
-  document.getElementById("st_known").onclick = go;
+  document.getElementById("st_known").onclick = () => { markCardKnown(card); Engine.roundAfter(TS, item, "known"); nextItem(); };
+}
+/** „Kann ich schon“: direkt in die Langzeit-Stufe, nächste Kontrolle in KNOWN_DAYS Tagen */
+function markCardKnown(card) {
+  const p = Engine.markKnown(card, Date.now());
+  return dbPatch("vokabeln", card.id, Object.assign({}, p, { level: 5, next: p.next_review_at.slice(0, 10) }));
 }
 /* Vokabel – Abruf aus dem Kopf (Freitext) */
 function renderVocab(item) {

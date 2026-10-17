@@ -4,13 +4,28 @@
      Memory          Paare aus Wort und Übersetzung finden
      Blitz (60 s)    so viele richtige Antworten wie möglich, Serien geben Bonus
      Buchstabensalat Wort aus Buchstaben-Kacheln zusammensetzen – ohne Tastatur
+     Hören           die App spricht das Wort (Sprachausgabe), du wählst die Bedeutung
    Spiele ändern den Wiederholungsplan nicht. Bestwerte pro Gerät.
    ===================================================================== */
 const GAMES = {
   memory: { name: "Memory", desc: "Finde die Paare aus Wort und Übersetzung. Je weniger Züge, desto besser.", ico: "vokabeln", min: 4 },
   blitz: { name: "Blitz · 60 Sekunden", desc: "So viele richtige Antworten wie möglich. Serien geben Bonuspunkte.", ico: "clock", min: 4 },
-  salat: { name: "Buchstabensalat", desc: "Setz das Wort aus Buchstaben-Kacheln zusammen – trainiert die Schreibweise, ganz ohne Tastatur.", ico: "edit", min: 3 }
+  salat: { name: "Buchstabensalat", desc: "Setz das Wort aus Buchstaben-Kacheln zusammen – trainiert die Schreibweise, ganz ohne Tastatur.", ico: "edit", min: 3 },
+  hoeren: { name: "Hören", desc: "Die App spricht das Wort vor, du tippst die Bedeutung an. Training fürs Listening.", ico: "play", min: 4, speech: true }
 };
+const VOICE_LANG = { fr: "fr-FR", en: "en-GB", es: "es-ES", la: "it-IT", de: "de-DE" };
+const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined";
+/** Wort vorlesen – Stimme passend zur Sprache der Sammlung, etwas langsamer */
+function speak(text, lang) {
+  if (!canSpeak()) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = VOICE_LANG[lang] || lang || "fr-FR"; u.rate = 0.85;
+    const v = speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith(u.lang.slice(0, 2).toLowerCase())); if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) { console.warn("Sprachausgabe", e); }
+}
+const cardLangOf = c => { const col = colById(c.collection_id); return (col && col.source_language) || c.source_language || "fr"; };
 let GAME = null;          // laufendes Spiel
 let GAME_COL = lsGet("lc_game_col", "");
 const bestKey = (g, col) => "lc_best_" + g + "_" + (col || "all");
@@ -26,8 +41,8 @@ V.spiele = () => {
   if (!cols.length) return head + '<div class="card">' + emptyState("vokabeln", "Noch keine Wörter", "Leg zuerst eine Sammlung mit ein paar Vokabeln an.", '<a class="btn primary sm" href="#/vokabeln">Zu den Vokabeln</a>') + '</div>';
   const n = gameCards(GAME_COL).length;
   const pick = '<div class="card tight" style="margin-bottom:var(--s5)"><label class="fld">Womit spielst du?<select id="gm_col"><option value="">Alle Sammlungen (' + gameCards("").length + ' Wörter)</option>' + cols.map(c => '<option value="' + esc(c.id) + '"' + (c.id === GAME_COL ? " selected" : "") + '>' + esc(c.name) + ' (' + gameCards(c.id).length + ')</option>').join("") + '</select></label></div>';
-  const tiles = Object.entries(GAMES).map(([k, g]) => { const best = lsGet(bestKey(k, GAME_COL), null); const ok = n >= g.min;
-    return '<button class="game-tile" data-game="' + k + '"' + (ok ? "" : " disabled") + '><span class="gi">' + ICO[g.ico] + '</span><b>' + g.name + '</b><span class="t-sub">' + g.desc + '</span><span class="gbest">' + (!ok ? "Mindestens " + g.min + " Wörter nötig" : best == null ? "Noch kein Bestwert" : k === "memory" ? "Bestwert: " + best + " Züge" : "Bestwert: " + best + " Punkte") + '</span></button>'; }).join("");
+  const tiles = Object.entries(GAMES).map(([k, g]) => { const best = lsGet(bestKey(k, GAME_COL), null); const nn = k === "hoeren" ? gameCards(GAME_COL).filter(c => cardLangOf(c) !== "de").length : n; const ok = nn >= g.min && (!g.speech || canSpeak());
+    return '<button class="game-tile" data-game="' + k + '"' + (ok ? "" : " disabled") + '><span class="gi">' + ICO[g.ico] + '</span><b>' + g.name + '</b><span class="t-sub">' + g.desc + '</span><span class="gbest">' + (g.speech && !canSpeak() ? "Dein Browser kann nicht vorlesen" : nn < g.min ? "Mindestens " + g.min + (k === "hoeren" ? " Fremdsprachen-Wörter" : " Wörter") + " nötig" : best == null ? "Noch kein Bestwert" : k === "memory" ? "Bestwert: " + best + " Züge" : "Bestwert: " + best + " Punkte") + '</span></button>'; }).join("");
   return head + pick + '<div class="game-grid">' + tiles + '</div>';
 };
 function bindSpiele() {
@@ -51,6 +66,10 @@ function startGame(type) {
     const pool = cards.filter(c => { const a = answer(c); return a.length >= 3 && a.length <= 18; }).slice(0, 8);
     GAME = { type, pool, i: 0, score: 0, hints: 0, built: [], tiles: [], wrong: [] };
     nextSalat();
+  } else if (type === "hoeren") {
+    const pool = cards.filter(c => cardLangOf(c) !== "de");
+    GAME = { type, pool, all: pool, i: 0, rounds: Math.min(10, pool.length), score: 0, right: 0, wrong: [], q: null };
+    nextHoeren();
   }
   GAME.col = col ? col.name : "Alle Sammlungen"; GAME.colId = GAME_COL;
   GAME.prompt = prompt; GAME.answer = answer;
@@ -63,6 +82,14 @@ function nextBlitz() {
   const others = Engine.shuffle(g.pool.filter(x => x.id !== c.id && shortAns(x.begriff) !== right)).slice(0, 3).map(x => shortAns(x.begriff));
   const opts = Engine.shuffle(others.concat([right]));
   g.q = { card: c, prompt: c.bedeutung, opts, correct: opts.indexOf(right), picked: null };
+}
+function nextHoeren() {
+  const g = GAME; if (g.i >= g.rounds) { g.over = true; return; }
+  const c = g.pool[g.i];
+  const right = shortAns(c.bedeutung);
+  const others = Engine.shuffle(g.all.filter(x => x.id !== c.id && shortAns(x.bedeutung) !== right)).map(x => shortAns(x.bedeutung)).filter((x, i, a) => a.indexOf(x) === i).slice(0, 3);
+  const opts = Engine.shuffle(others.concat([right]));
+  g.q = { card: c, say: shortAns(c.begriff), lang: cardLangOf(c), opts, correct: opts.indexOf(right), picked: null, spoken: false };
 }
 function nextSalat() {
   const g = GAME; const c = g.pool[g.i]; if (!c) { g.over = true; return; }
@@ -95,6 +122,15 @@ function gameStage() {
       '<div class="fx-card"><div class="kind">Setz das Wort zusammen</div><div class="term" style="text-align:center">' + esc(g.card.bedeutung) + '</div><div class="sl-word">' + slots + '</div>' +
       '<div class="sl-tiles">' + g.tiles.map((t, i) => '<button class="sl-tile" data-sl="' + i + '"' + (used.has(t.k) ? " disabled" : "") + '>' + esc(t.ch) + '</button>').join("") + '</div>' +
       '<div class="sl-actions"><button class="btn plain sm" id="sl_back">Zurück</button><button class="btn plain sm" id="sl_hint">Tipp</button><button class="btn plain sm" id="sl_skip">Überspringen</button></div></div>';
+  }
+  if (g.type === "hoeren") {
+    if (g.over) return top + gameOver("Fertig gehört!", g.score + " Punkte · " + g.right + " von " + g.rounds + " richtig", g.score, false);
+    const q = g.q;
+    return top + '<div class="game-hud"><span>Wort <b>' + (g.i + 1) + '/' + g.rounds + '</b></span><span>Punkte <b>' + g.score + '</b></span></div>' +
+      '<div class="fx-card blitz"><div class="kind">Hör zu – was bedeutet das?</div><div style="display:flex;justify-content:center;margin:var(--s4) 0"><button class="btn primary lg" id="hr_play">' + ICO.play + 'Nochmal anhören</button></div>' +
+      (q.picked != null ? '<div class="term" style="text-align:center">' + esc(q.say) + '</div>' : '<div class="t-sub" style="text-align:center">Das Wort wird erst nach deiner Antwort angezeigt.</div>') +
+      '<div class="choices">' + q.opts.map((o, i) => '<button class="opt-choice' + (q.picked != null ? (i === q.correct ? " right" : i === q.picked ? " wrongpick" : "") : "") + '" data-hr="' + i + '"' + (q.picked != null ? " disabled" : "") + '>' + esc(o) + '</button>').join("") + '</div>' +
+      (q.picked != null ? '<div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="hr_next">Weiter</button></div>' : '') + '</div>';
   }
   return top;
 }
@@ -140,6 +176,17 @@ function bindGame() {
       route();
       setTimeout(() => { if (GAME === g && !g.over) { nextBlitz(); route(); } }, qq.picked === qq.correct ? 350 : 1100);
     });
+  }
+  if (g.type === "hoeren" && !g.over) {
+    const qq = g.q;
+    if (!qq.spoken) { qq.spoken = true; setTimeout(() => speak(qq.say, qq.lang), 250); }
+    q("hr_play").onclick = () => speak(qq.say, qq.lang);
+    document.querySelectorAll("[data-hr]").forEach(b => b.onclick = () => {
+      if (qq.picked != null) return; qq.picked = +b.dataset.hr;
+      if (qq.picked === qq.correct) { g.right++; g.score += 10; } else if (!g.wrong.includes(qq.card)) g.wrong.push(qq.card);
+      route();
+    });
+    const nx = q("hr_next"); if (nx) nx.onclick = () => { g.i++; nextHoeren(); route(); };
   }
   if (g.type === "salat" && !g.over) {
     const check = () => {

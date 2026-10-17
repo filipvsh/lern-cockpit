@@ -125,12 +125,13 @@ V.dashboard = () => {
   } else exam = '<div class="card exam">' + emptyState("flag", "Keine Prüfung geplant", "Trag die nächste ein, sobald der Klausurplan hängt.", '<a class="btn sm" href="#/lernplan">Zum Lernplan</a>') + '</div>';
   const un = unreadNews(); const t = todayISO(); const term = STATE.termine.filter(x => x.datum >= t && x.datum <= addDays(t, 10)).slice(0, 3);
   const info = '';   // Hinweise/Neuigkeiten nicht mehr auf dem Dashboard
-  return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + (tsActive() ? contCard(continueItem()) : missionCard(plan)) + '</div><div class="a-exam">' + exam + '</div>' +
+  return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + vocabLauncher() + (tsActive() ? contCard(continueItem()) : missionCard(plan)) + '</div><div class="a-exam">' + exam + '</div>' +
     '<div class="a-today">' + sectionHead("Heute", '<button class="shl" id="plan_new" title="Plan mit aktuellen Daten neu berechnen">Neu planen</button>') + (hwToday() || '<div class="card">' + emptyState("check", "Keine Hausaufgaben für morgen", "").replace('class="empty"', 'class="empty sm"') + '</div>') + laterHW() + '</div>' +
     '<div class="a-weak">' + sectionHead("Deine Schwachstellen", '<a class="shl" href="#/fortschritt">Fortschritt</a>') + '<div class="card tight">' + weakList(3) + '</div></div>' + lessonsToday() + info + '</div>';
 };
 function bindDashboard() {
   if (!engineReady()) return;
+  bindVocabLauncher();
   const c = document.getElementById("cont_go"); if (c) c.onclick = () => { const it = continueItem(); if (it && it.start) startTraining(it.start); };
   const plan = todayPlan();
   document.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => startPlanItem(plan.items[+b.dataset.plan]));
@@ -183,6 +184,22 @@ function miniStages(cards) {
   return '<div class="sb-track mini">' + STAGES.map(([k]) => cnt[k] ? '<i class="' + k + '" style="flex:' + cnt[k] + '"></i>' : '').join("") + '</div><span>' + ((cnt.mid || 0) + (cnt.long || 0)) + ' fest</span>';
 }
 function lvlDots(m) { const n = Math.round((m || 0) / 20); let h = '<span class="lvl" title="Lernstand ' + (m || 0) + ' %">'; for (let i = 1; i <= 5; i++) h += '<i class="' + (i <= n ? "on" : "") + '"></i>'; return h + '</span>'; }
+/* ---------- Ganz einfach: „Vokabeln lernen“ – Sprache tippen, los ---------- */
+const VL_DIRS = [["forward", "Wort → Deutsch"], ["reverse", "Deutsch → Wort"], ["both", "Beide ⇄"]];
+const vlDir = () => setting("vl_dir", "both");
+function vocabLauncher() {
+  const langs = [...new Set(activeCols().map(c => c.source_language))].filter(l => l && l !== "de")
+    .sort((a, b) => ["fr", "en", "la", "es"].indexOf(a) - ["fr", "en", "la", "es"].indexOf(b));
+  if (!langs.length) return "";
+  const btns = langs.map(l => { const pool = langPool(l); const d = dayStatus(pool); const fresh = pool.filter(Engine.isNew).length;
+    const sub = d.due ? plural(d.due, "Wiederholung", "Wiederholungen") + (fresh ? " · " + fresh + " neu" : "") : fresh ? plural(fresh, "neues Wort", "neue Wörter") : "alles wiederholt – üben";
+    return '<button class="vl-lang" data-vlearn="' + esc(l) + '"><span class="vl-name">' + esc(langName(l)) + '</span><span class="vl-sub">' + esc(sub) + '</span>' + ICO.play + '</button>'; }).join("");
+  return '<div class="card vl-card" id="vl_card"><div class="vl-head"><div><h2>Vokabeln lernen</h2><div class="t-sub">Sprache antippen – fertig.</div></div><div class="seg vl-dir">' + VL_DIRS.map(([k, t]) => '<button class="' + (vlDir() === k ? "on" : "") + '" data-vldir="' + k + '">' + t + '</button>').join("") + '</div></div><div class="vl-langs">' + btns + '</div></div>';
+}
+function bindVocabLauncher() {
+  document.querySelectorAll("[data-vlearn]").forEach(b => b.onclick = () => startTraining({ mode: "vocab", lang: b.dataset.vlearn, direction: vlDir() }));
+  document.querySelectorAll("[data-vldir]").forEach(b => b.onclick = async () => { await setSetting("vl_dir", b.dataset.vldir); document.querySelectorAll("[data-vldir]").forEach(x => x.classList.toggle("on", x === b)); });
+}
 V.vokabeln = () => {
   if (!engineReady()) return pageHead("Vokabeln") + setupCard();
   if (ROUTE.sub) return vokCollection(decodeURIComponent(ROUTE.sub));
@@ -207,7 +224,7 @@ V.vokabeln = () => {
   const testsBox = tests.length ? '<div class="section" style="margin-top:0">' + sectionHead("Vokabeltests") + '<div class="list">' + tests.map(k => { const d = daysUntil(k.datum); const n = testCards(k).length; const st = n ? testStatusOf(k) : null; const q = n ? testQueueOf(k).length : 0;
     return '<a class="li" href="#/lernplan/' + esc(k.id) + '"><span class="ico accent">' + ICO.vokabeln + '</span><div class="li-main"><div class="li-title">' + esc(vtName(k)) + '</div><div class="li-sub">' + esc(k.fach) + ' · ' + (d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen") + ' · ' + (!n ? '<span style="color:var(--orange)">noch keine Vokabeln eingetragen</span>' : (q ? q + " heute dran" : "heute erledigt") + (st.expected != null ? " · erwartet " + st.expected + " %" : "")) + '</div></div><span class="li-trail"><span class="btn ' + (n && !q ? "" : "primary ") + 'sm">' + (!n ? "Vokabeln eintragen" : q ? "Lernen" : "Ansehen") + '</span></span></a>'; }).join("") + '</div></div>' : '';
   const archive = archived.length ? '<details class="section archive"><summary>' + ICO.inbox + 'Archiv · ' + plural(archived.length, "Sammlung", "Sammlungen") + '<span class="t-sub"> – alte Vokabeltests, nicht im Tagesplan</span></summary><div class="list" style="margin-top:var(--s3)">' + archived.map(c => '<div class="li"><div class="li-main"><a class="li-title" href="#/vokabeln/' + esc(c.id) + '">' + esc(c.name) + '</a><div class="li-sub">' + plural(cardsOf(c.id).length, "Karte", "Karten") + '</div></div><span class="li-trail"><button class="btn sm" data-unarch="' + esc(c.id) + '">Wiederherstellen</button></span></div>').join("") + '</div></details>' : '';
-  return netNotice() + head + testsBox + daily + search + (cols.length ? body + archive : '<div class="section"><div class="card">' + emptyState("vokabeln", "Noch keine Sammlung", "Eine Sammlung ist wie ein Ordner, z. B. „Unité 4“.", '<button class="btn primary sm" id="col_new2">Sammlung anlegen</button>') + '</div></div>');
+  return netNotice() + head + vocabLauncher() + testsBox + daily + search + (cols.length ? body + archive : '<div class="section"><div class="card">' + emptyState("vokabeln", "Noch keine Sammlung", "Eine Sammlung ist wie ein Ordner, z. B. „Unité 4“.", '<button class="btn primary sm" id="col_new2">Sammlung anlegen</button>') + '</div></div>');
 };
 function vokCollection(id) {
   let c = colById(id);
@@ -215,7 +232,7 @@ function vokCollection(id) {
   const cards = colCards(c); const st = Engine.vocabStats(cards, Date.now()); const f = Engine.normalize(VOK_FILTER);
   const list = cards.filter(v => !f || Engine.normalize(v.begriff).includes(f) || Engine.normalize(v.bedeutung).includes(f)).sort((a, b) => String(a.created_at || a.id).localeCompare(String(b.created_at || b.id)));
   const dir = dirPref(c.id); const vt = testForCollection(c.id);
-  const head = pageHead(esc(c.name), { back: ["#/vokabeln", "Vokabeln"], eyebrow: esc(isTermCollection(c) ? "Fachbegriffe" + (c.subject_id ? " · " + ((ES.subjects.find(x => x.id === c.subject_id) || {}).name || "") : "") : langName(c.source_language) + " → " + langName(c.target_language)), sub: plural(st.total, "Karte", "Karten") + " · " + st.due + " fällig · " + st.secure + " sicher · " + st.fresh + " neu" + (c.description ? " · " + esc(c.description) : ""), actions: '<button class="btn" id="col_edit">Bearbeiten</button><button class="btn" id="col_arch">' + (isArchived(c.id) ? "Wiederherstellen" : "Archivieren") + '</button>' + (isTermCollection(c) ? '' : '<button class="btn" id="vt_new">' + (vt ? "Zum Test" : "Test eintragen") + '</button>') + '<button class="btn" id="v_import">Liste einfügen</button><button class="btn" id="v_new">' + ICO.plus + 'Karte</button><button class="btn primary" data-vstart="vocab">' + ICO.play + 'Lernen</button>' });
+  const head = pageHead(esc(c.name), { back: ["#/vokabeln", "Vokabeln"], eyebrow: esc(isTermCollection(c) ? "Fachbegriffe" + (c.subject_id ? " · " + ((ES.subjects.find(x => x.id === c.subject_id) || {}).name || "") : "") : langName(c.source_language) + " → " + langName(c.target_language)), sub: plural(st.total, "Karte", "Karten") + " · " + st.due + " fällig · " + st.secure + " sicher · " + st.fresh + " neu" + (c.description ? " · " + esc(c.description) : ""), actions: '<button class="btn" id="col_edit">Bearbeiten</button><button class="btn" id="col_arch">' + (isArchived(c.id) ? "Wiederherstellen" : "Archivieren") + '</button>' + (isTermCollection(c) ? '' : '<button class="btn" id="vt_new">' + (vt ? "Zum Test" : "Test eintragen") + '</button>') + '<button class="btn" id="v_import">Liste einfügen</button>' + (cards.some(v => Engine.isNew(v) && Engine.isTrivial(v)) ? '<button class="btn" id="col_easy">' + ICO.check + 'Leichte abhaken</button>' : '') + '<button class="btn" id="v_new">' + ICO.plus + 'Karte</button><button class="btn primary" data-vstart="vocab">' + ICO.play + 'Lernen</button>' });
   const tools = '<div class="coll-tools"><div class="dirsw"><span class="t-sub">Abfrage</span><div class="seg"><button class="' + (dir === "forward" ? "on" : "") + '" data-vdir="forward">' + esc(dirLabel(c, "forward")) + '</button><button class="' + (dir === "reverse" ? "on" : "") + '" data-vdir="reverse">' + esc(dirLabel(c, "reverse")) + '</button><button class="' + (dir === "both" ? "on" : "") + '" data-vdir="both" title="Beide Richtungen gemischt – jedes Wort muss in beide Richtungen sitzen">Beide ⇄</button></div></div><label class="search"><span>' + ICO.search + '</span><input id="v_filter" placeholder="In ' + esc(c.name) + ' suchen" value="' + esc(VOK_FILTER) + '"></label></div>';
   const rows = list.length ? '<div class="list">' + list.slice(0, 300).map(v => vocabRow(v)).join("") + '</div>' + (list.length > 300 ? '<div class="t-sub" style="padding:12px 4px">… und ' + (list.length - 300) + ' weitere. Nutze die Suche.</div>' : '') : '<div class="card">' + (cards.length ? emptyState("search", "Nichts gefunden", "Keine Karte passt zu „" + esc(VOK_FILTER) + "“.") : emptyState("vokabeln", "Leere Sammlung", "Füge die erste Karte hinzu.", '<button class="btn primary sm" id="v_new2">Karte hinzufügen</button>')) + '</div>';
   const vtNote = vt ? '<div class="notice"><span class="dot" style="background:var(--accent)"></span><span><b>Vokabeltest ' + esc(whenText(daysUntil(vt.datum))) + ':</b> ' + esc(vtName(vt)) + ' · ' + testStatusOf(vt).secure + ' von ' + testStatusOf(vt).total + ' sitzen</span><a class="btn primary sm" href="#/lernplan/' + esc(vt.id) + '">Zum Test</a></div>' : '';
@@ -251,7 +268,7 @@ function vocabModal(v, presetCol) {
   if (!ES.collections.length) { toast("Lege zuerst eine Sammlung an.", true); collectionModal(); return; }
   const stats = isNew ? "" : '<div class="vstats"><span>' + v.correct_count + ' richtig</span><span>' + v.incorrect_count + ' falsch</span><span>Lernstand ' + v.mastery + ' %</span><span>' + (Engine.isNew(v) ? "noch nicht abgefragt" : "nächste Wiederholung " + new Date(v.next_review_at).toLocaleDateString("de-DE")) + '</span></div>';
   openModal(isNew ? "Neue Vokabel" : "Vokabel bearbeiten", stats + '<div class="form"><div class="form c2"><label class="fld">Begriff<input id="e_term" value="' + esc(v.begriff) + '" autocomplete="off" autocapitalize="off"></label><label class="fld">Übersetzung<input id="e_tr" value="' + esc(v.bedeutung) + '" autocomplete="off"></label></div><label class="fld">Weitere richtige Übersetzungen <span class="t-cap">(durch Komma getrennt)</span><input id="e_alt" value="' + esc((v.alternatives || []).join(", ")) + '" placeholder="z. B. schaffen, hinkriegen"></label><label class="fld">Beispielsatz<input id="e_ex" value="' + esc(v.example_sentence || "") + '"></label><label class="fld">Notiz<input id="e_note" value="' + esc(v.notes || "") + '"></label><label class="fld">Sammlung<select id="e_col">' + ES.collections.map(c => '<option value="' + esc(c.id) + '"' + (c.id === v.collection_id ? " selected" : "") + '>' + esc(c.name) + ' (' + esc(groupName(c.source_language)) + ')</option>').join("") + '</select></label></div>',
-    (isNew ? '<button class="btn" id="e_cancel">Fertig</button><button class="btn primary" id="e_save">Hinzufügen</button>' : '<button class="btn danger left" id="e_del">Löschen</button><button class="btn" id="e_cancel">Abbrechen</button><button class="btn primary" id="e_save">Speichern</button>'), () => {
+    (isNew ? '<button class="btn" id="e_cancel">Fertig</button><button class="btn primary" id="e_save">Hinzufügen</button>' : '<button class="btn danger left" id="e_del">Löschen</button>' + (Engine.stageOf(v).key !== "long" ? '<button class="btn" id="e_known">' + ICO.check + 'Kann ich schon</button>' : '') + '<button class="btn" id="e_cancel">Abbrechen</button><button class="btn primary" id="e_save">Speichern</button>'), () => {
       const q = id => document.getElementById(id);
       q("e_cancel").onclick = () => { closeModal(); route(); };
       const save = async () => {
@@ -270,6 +287,7 @@ function vocabModal(v, presetCol) {
         } catch (e) { btn.classList.remove("loading"); toast(e.network ? "Keine Verbindung – die Vokabel wurde nicht gespeichert. Deine Eingabe bleibt im Formular." : "Speichern fehlgeschlagen: " + e.message, true); }
       };
       q("e_save").onclick = save; q("e_tr").onkeydown = e => { if (e.key === "Enter") save(); };
+      const kn = q("e_known"); if (kn) kn.onclick = () => { markCardKnown(v); closeModal(); route(); toast("„" + v.begriff + "“ abgehakt – kommt in " + Engine.KNOWN_DAYS + " Tagen zur Kontrolle"); };
       const d = q("e_del"); if (d) d.onclick = async () => { if (!confirm("„" + v.begriff + "“ löschen?")) return; try { await dbDelete("vokabeln", v.id); closeModal(); route(); toast("Gelöscht"); } catch (e) { toast("Löschen fehlgeschlagen: " + e.message, true); } };
       setTimeout(() => q("e_term").focus(), 50);
     });
@@ -304,6 +322,7 @@ function vocabStartModal(mode, colId) {
 function bindVokabeln() {
   const q = id => document.getElementById(id);
   const colId = ROUTE.sub ? decodeURIComponent(ROUTE.sub) : null;
+  bindVocabLauncher();
   ["v_new", "v_new2"].forEach(id => { const b = q(id); if (b) b.onclick = () => vocabModal(null, colId); });
   ["col_new", "col_new2"].forEach(id => { const b = q(id); if (b) b.onclick = () => collectionModal(); });
   const ce = q("col_edit"); if (ce) ce.onclick = () => collectionModal(colById(colId));
@@ -312,6 +331,7 @@ function bindVokabeln() {
   document.querySelectorAll("[data-vstart]").forEach(b => b.onclick = () => vocabStartModal(b.dataset.vstart, colId));
   document.querySelectorAll("[data-vdir]").forEach(b => b.onclick = () => { setDirPref(colId, b.dataset.vdir); route(); });
   document.querySelectorAll("[data-unarch]").forEach(b => b.onclick = async () => { await setArchived(b.dataset.unarch, false); route(); toast("Wiederhergestellt"); });
+  const ez = q("col_easy"); if (ez) ez.onclick = () => { const easy = cardsOf(colId).filter(v => Engine.isNew(v) && Engine.isTrivial(v)); if (!confirm(plural(easy.length, "sehr leichtes Wort", "sehr leichte Wörter") + " abhaken?\n\n" + easy.slice(0, 12).map(v => v.begriff).join(", ") + (easy.length > 12 ? " …" : ""))) return; easy.forEach(markCardKnown); route(); toast(plural(easy.length, "Wort", "Wörter") + " abgehakt"); };
   const ar = q("col_arch"); if (ar) ar.onclick = async () => { const on = !isArchived(colId); await setArchived(colId, on); toast(on ? "Archiviert – nicht mehr im Tagesplan" : "Wiederhergestellt"); location.hash = on ? "#/vokabeln" : "#/vokabeln/" + colId; route(); };
   document.querySelectorAll("[data-vlang]").forEach(b => b.onclick = () => { VOK_LANG = b.dataset.vlang; route(); });
   document.querySelectorAll("[data-editvo]").forEach(b => b.onclick = () => { const v = STATE.vo.find(x => String(x.id) === b.dataset.editvo); if (v) vocabModal(v); });
@@ -474,6 +494,7 @@ async function init(silent) {
     else { STATE.error = e && e.message ? e.message : String(e); STATE.loaded = false; }
   }
   route(); setTimeout(checkReminders, 1500);
+  if (STATE.loaded && !STATE.error && !STATE.needAuth && typeof runContentPacks === "function") runContentPacks().catch(e => console.warn("Pakete", e));
 }
 window.init = init;
 const SNAP_KEYS = ["hw", "kl", "vo", "news", "noten", "log", "settings", "termine", "aend", "v2", "dbReady", "engine"];
