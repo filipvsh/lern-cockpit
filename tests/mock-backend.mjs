@@ -6,7 +6,7 @@ const DAY = 864e5;
 const iso = (d, base = Date.now()) => new Date(base + d * DAY).toISOString().slice(0, 10);
 const NEW_TABLES = ["dokumente", "subjects", "vocab_collections", "topics", "subtopics", "exercises", "learning_events", "training_sessions", "profiles"];
 
-export const PACK_IDS = ["vetements-1809", "vetements-fix-1", "englisch-archiv", "leichte-woerter", "mathe-potenzfunktionen", "franz-klausur"];
+export const PACK_IDS = ["vetements-1809", "vetements-fix-1", "fahrschule-1", "englisch-archiv", "leichte-woerter", "mathe-potenzfunktionen", "franz-klausur"];
 export function seed() {
   const kl = [
     { id: "11111111-aaaa-4aaa-8aaa-000000000001", fach: "Englisch", thema: "Short Story Writing", datum: iso(8), nr: 1, kurs: "E5-GK4", lehrer: "Sopko", uhrzeit: "09:50", dauer: 90, raum: "B12", halbjahr: "EF.1",

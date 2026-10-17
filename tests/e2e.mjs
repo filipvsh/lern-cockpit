@@ -773,7 +773,7 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m1", fach: "Mathe", thema: "Graphen, lineare Funktionen", datum: day(9), themen: [{ id: "a", text: "Grafen", done: false }, { id: "b", text: "linear", done: false }], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f1", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 6 && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 7 && !PACKS_RUNNING, null, { timeout: 15000 });
   await page.evaluate(() => Api.idle());
   const vet = b.db.vocab_collections.find(c => c.name === "Les vêtements");
   assert.ok(vet && vet.source_language === "fr", "Sammlung angelegt");
@@ -799,6 +799,18 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   assert.ok(fk.vokabel_lektionen.includes("Les vêtements"));
   const fsubs = await page.evaluate(id => subsOfExam(id).map(s => s.title), fk.id);
   assert.ok(fsubs.some(t => /Texte schreiben/.test(t)) && fsubs.some(t => /Listening/.test(t)) && fsubs.length === 3);
+  // Fahrschule: PDF-Karten + Extras, eigener Knopf, PDF zuerst, immer Frage → Antwort
+  const fsPdf = b.db.vocab_collections.find(c => c.name === "Fahrschule · Abfahrtkontrolle"), fsEx = b.db.vocab_collections.find(c => c.name === "Fahrschule · Extras");
+  assert.ok(fsPdf && fsEx && fsPdf.source_language === "de");
+  assert.equal(b.db.vokabeln.filter(v => v.collection_id === fsPdf.id).length, await page.evaluate(() => FAHRSCHULE_PDF.length));
+  assert.ok(b.db.vokabeln.some(v => v.begriff === "Reifen: Mindestprofiltiefe?" && v.bedeutung === "1,6 mm"));
+  assert.ok(await page.evaluate(() => Engine.checkAnswer("1,6 mm", Engine.vocabSides(STATE.vo.find(v => v.begriff === "Reifen: Mindestprofiltiefe?"), "forward").answers, "de").verdict === "correct"), "1,6 mm wird nicht am Komma zerlegt");
+  await go(page, "#/dashboard"); await page.waitForSelector('[data-vgroup="fahrschule"]');
+  await page.click('[data-vgroup="fahrschule"]'); await page.waitForSelector(".fx-card");
+  const fs = await page.evaluate(() => ({ label: TS.label, dir: TS.direction, cols: [...new Set(TS.items.map(it => cardById(it.vocab_id).collection_id))] }));
+  assert.equal(fs.label, "Fahrschule"); assert.equal(fs.dir, "forward"); assert.deepEqual(fs.cols, [fsPdf.id], "zuerst die PDF-Karten");
+  await page.evaluate(async () => { await tsFinish("abandoned", true); TS = null; tsSave(); await Api.idle(); });
+  await go(page, "#/dashboard");
   const counts = () => [b.db.vokabeln.length, b.db.topics.length, b.db.subtopics.length, b.db.exercises.length].join(",");
   const c1 = counts();
   await page.reload(); await page.waitForSelector(".dash", { timeout: 15000 }); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());

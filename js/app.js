@@ -190,13 +190,17 @@ const vlDir = () => setting("vl_dir", "both");
 function vocabLauncher() {
   const langs = [...new Set(activeCols().map(c => c.source_language))].filter(l => l && l !== "de")
     .sort((a, b) => ["fr", "en", "la", "es"].indexOf(a) - ["fr", "en", "la", "es"].indexOf(b));
-  if (!langs.length) return "";
-  const btns = langs.map(l => { const pool = langPool(l); const d = dayStatus(pool); const fresh = pool.filter(Engine.isNew).length;
+  const groups = Object.keys(GROUPS).filter(g => groupPool(g).length);
+  if (!langs.length && !groups.length) return "";
+  const btnSub = (pool, d) => { const fresh = pool.filter(Engine.isNew).length; return d.due ? plural(d.due, "Wiederholung", "Wiederholungen") + (fresh ? " · " + fresh + " neu" : "") : fresh ? fresh + " neu" : "alles wiederholt – üben"; };
+  const gbtns = groups.map(g => '<button class="vl-lang alt" data-vgroup="' + g + '"><span class="vl-name">' + esc(GROUPS[g].name) + '</span><span class="vl-sub">' + esc(btnSub(groupPool(g), dayStatus(groupPool(g)))) + '</span>' + ICO.play + '</button>').join("");
+  const btns = gbtns + langs.map(l => { const pool = langPool(l); const d = dayStatus(pool); const fresh = pool.filter(Engine.isNew).length;
     const sub = d.due ? plural(d.due, "Wiederholung", "Wiederholungen") + (fresh ? " · " + fresh + " neu" : "") : fresh ? plural(fresh, "neues Wort", "neue Wörter") : "alles wiederholt – üben";
     return '<button class="vl-lang" data-vlearn="' + esc(l) + '"><span class="vl-name">' + esc(langName(l)) + '</span><span class="vl-sub">' + esc(sub) + '</span>' + ICO.play + '</button>'; }).join("");
   return '<div class="card vl-card" id="vl_card"><div class="vl-head"><div><h2>Vokabeln lernen</h2><div class="t-sub">Sprache antippen – fertig.</div></div><div class="seg vl-dir">' + VL_DIRS.map(([k, t]) => '<button class="' + (vlDir() === k ? "on" : "") + '" data-vldir="' + k + '">' + t + '</button>').join("") + '</div></div><div class="vl-langs">' + btns + '</div></div>';
 }
 function bindVocabLauncher() {
+  document.querySelectorAll("[data-vgroup]").forEach(b => b.onclick = () => startTraining({ mode: "vocab", group: b.dataset.vgroup, direction: "forward" }));
   document.querySelectorAll("[data-vlearn]").forEach(b => b.onclick = () => startTraining({ mode: "vocab", lang: b.dataset.vlearn, direction: vlDir() }));
   document.querySelectorAll("[data-vldir]").forEach(b => b.onclick = async () => { await setSetting("vl_dir", b.dataset.vldir); document.querySelectorAll("[data-vldir]").forEach(x => x.classList.toggle("on", x === b)); });
 }
