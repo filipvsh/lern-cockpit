@@ -60,7 +60,7 @@ function lesTask(it, ui) {
   }
   if (it.type === "pairs") {
     const m = ui.matched || [];
-    const col = (side, list) => list.map(x => { const done = m.includes(x.id); return '<button class="les-pair' + (done ? " done" : "") + (ui.sel && ui.sel.side === side && ui.sel.id === x.id ? " on" : "") + (ui.bad && ui.bad[side] === String(x.id) ? " bad" : "") + '" data-lp="' + side + '|' + esc(String(x.id)) + '"' + (done ? " disabled" : "") + '>' + esc(x.text) + '</button>'; }).join("");
+    const col = (side, list) => list.map(x => { const done = m.includes(x.id); return '<button class="les-pair' + (done ? " done" : "") + (ui.sel && ui.sel.side === side && ui.sel.id === String(x.id) ? " on" : "") + (ui.bad && ui.bad[side] === String(x.id) ? " bad" : "") + '" data-lp="' + side + '|' + esc(String(x.id)) + '"' + (done ? " disabled" : "") + '>' + esc(x.text) + '</button>'; }).join("");
     return '<h2 class="les-h">Finde die Paare</h2><div class="les-pairs"><div>' + col("l", it.left) + '</div><div>' + col("r", it.right) + '</div></div>';
   }
   return "";
@@ -72,7 +72,7 @@ function lesFoot(it, ui) {
   }
   if (it.type === "pairs") return '<div class="les-foot"><span class="t-sub">' + (ui.matched || []).length + ' von ' + it.left.length + ' Paaren</span></div>';
   const ready = it.type === "build" || it.type === "listen" ? (ui.order || []).length > 0 : ui.pick != null;
-  return '<div class="les-foot"><button class="btn plain" id="les_skip">Überspringen</button><button class="btn primary lg" id="les_check"' + (ready ? "" : " disabled") + '>Prüfen</button></div>';
+  return '<div class="les-foot">' + (it.type === "listen" ? '<button class="btn plain" id="les_noaudio">Kann gerade nicht hören</button>' : '<button class="btn plain" id="les_skip">Überspringen</button>') + '<button class="btn primary lg" id="les_check"' + (ready ? "" : " disabled") + '>Prüfen</button></div>';
 }
 function lesCheck() {
   const it = LES.items[LES.i], ui = LES.ui;
@@ -89,6 +89,14 @@ function lesResult(ok) {
     if (n < 2) { LES.retries[it.card + it.type] = n + 1; LES.items.push(Object.assign({}, it, { retry: true })); }   // kommt am Ende noch einmal
   }
   route();
+}
+/** „Kann gerade nicht hören“: Hör-Aufgaben dieser Lektion fallen weg – ohne Fehler, ohne Wiederholung */
+function lesNoAudio() {
+  const rest = LES.items.slice(LES.i).filter(x => x.type === "listen" && !x.retry).length;
+  LES.items = LES.items.slice(0, LES.i).concat(LES.items.slice(LES.i).filter(x => x.type !== "listen"));
+  LES.total = Math.max(1, LES.total - rest); LES.ui = {}; LES.i--;
+  toast("Okay – Hör-Aufgaben in dieser Lektion ausgelassen");
+  lesNext();
 }
 async function lesNext() {
   LES.i++; LES.ui = {};
@@ -134,5 +142,16 @@ function bindLektion() {
   });
   const ck = q("les_check"); if (ck) ck.onclick = lesCheck;
   const sk = q("les_skip"); if (sk) sk.onclick = () => lesResult(false);
+  const na = q("les_noaudio"); if (na) na.onclick = lesNoAudio;
   const nx = q("les_next"); if (nx) { nx.onclick = lesNext; setTimeout(() => nx.focus(), 30); }
 }
+
+/* Tastatur am Computer: 1–4 wählen, Enter = Prüfen / Weiter, Rücktaste = letzte Kachel weg */
+document.addEventListener("keydown", e => {
+  if (ROUTE.name !== "lektion" || !LES || LES.done || e.target.closest("input,textarea,select") || document.getElementById("mbg")) return;
+  const it = LES.items[LES.i], ui = LES.ui;
+  if (e.key === "Enter") { const b = document.getElementById(ui.checked ? "les_next" : "les_check"); if (b && !b.disabled) { e.preventDefault(); b.click(); } return; }
+  if (ui.checked) return;
+  if (/^[1-9]$/.test(e.key) && it.opts && +e.key <= it.opts.length) { ui.pick = +e.key - 1; route(); }
+  else if (e.key === "Backspace" && ui.order && ui.order.length) { e.preventDefault(); ui.order.pop(); route(); }
+});

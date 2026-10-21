@@ -966,7 +966,7 @@ await scenario("Lektion (Duolingo-Stil): Bilder, Übersetzen, Paare, Lücke, Sat
       await page.waitForSelector(".les-foot.bad"); await page.click("#les_next"); continue;
     }
     if (st.type === "pairs") {
-      for (const id of st.left) { await page.click(`[data-lp="l|${id}"]`); await page.click(`[data-lp="r|${id}"]`); }
+      for (const id of st.left) { await page.click(`[data-lp="l|${id}"]`); assert.ok(await page.$(`.les-pair.on[data-lp="l|${id}"]`), "Auswahl sichtbar markiert"); await page.click(`[data-lp="r|${id}"]`); }
     } else if (st.target) {
       const toks = await page.evaluate(t => LESSON.tokens(t), st.target); const used = [];
       for (const w of toks) { const i = st.tiles.findIndex((x, k) => x === w && !used.includes(k)); used.push(i); await page.click(`[data-lt="${i}"]`); }
@@ -983,6 +983,18 @@ await scenario("Lektion (Duolingo-Stil): Bilder, Übersetzen, Paare, Lücke, Sat
   await page.evaluate(() => Api.idle());
   const xp = b.db.einstellungen.find(x => x.key === "lektion_xp");
   assert.ok(xp && Object.values(xp.value)[0] === res.xp, "XP gespeichert");
+  // „Kann gerade nicht hören“: Hör-Aufgaben fallen weg, kein Fehler, keine Wiederholung
+  await page.click("#les_again"); await page.waitForSelector(".les-body");
+  await page.evaluate(() => { const i = LES.items.findIndex(x => x.type === "listen"); LES.i = i; LES.ui = {}; route(); });
+  await page.waitForSelector("#les_noaudio"); const before = await page.evaluate(() => ({ total: LES.total, right: LES.right }));
+  await page.click("#les_noaudio"); await page.waitForTimeout(200);
+  const after = await page.evaluate(() => ({ listen: LES.items.slice(LES.i).some(x => x.type === "listen"), total: LES.total, wrong: LES.wrongFirst, retry: LES.items.some(x => x.retry) }));
+  assert.ok(!after.listen && after.wrong === 0 && !after.retry, "ohne Strafe ausgelassen");
+  assert.ok(after.total < before.total);
+  // Tastatur: Ziffer wählt, Enter prüft
+  await page.evaluate(() => { const i = LES.items.findIndex(x => x.type === "mc"); LES.i = i; LES.done = false; LES.ui = {}; route(); });
+  await page.waitForSelector(".les-opt"); const corr = await page.evaluate(() => LES.items[LES.i].correct);
+  await page.keyboard.press(String(corr + 1)); await page.keyboard.press("Enter"); await page.waitForSelector(".les-foot.ok");
   await ctx.close();
 });
 

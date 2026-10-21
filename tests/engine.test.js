@@ -443,3 +443,10 @@ test("Lektion: gemischte Aufgaben, jede lösbar; Satz bauen prüft ohne Satzzeic
   assert.ok(!L.checkBuild(["porte", "je", "un", "pantalon", "noir"], "Je porte un pantalon noir."));
   assert.deepEqual(L.buildLesson({ cards: words.slice(0, 3) }), [], "zu wenig Wörter → keine Lektion");
 });
+test("Lektion: Lücke ist ein ganzes Wort an der ersten Stelle im Satz", () => {
+  for (const s of L.SENTENCES) {
+    const i = s.fr.indexOf(s.gap);
+    const before = s.fr[i - 1] || " ", after = s.fr[i + s.gap.length] || " ";
+    assert.ok(/[\s'’]/.test(before) && /[\s.,!?]/.test(after), "Lücke mitten im Wort: " + s.fr);
+  }
+});
