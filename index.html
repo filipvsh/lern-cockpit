@@ -674,6 +674,7 @@ body.focus{background:var(--surface)}
 .dsh-tile:active{transform:scale(.98)}.dsh-ti{font-size:26px;line-height:1;margin-bottom:6px}.dsh-tile b{font-size:16px}.dsh-tile .t-sub{font-size:13px}
 .dsh-plan summary{cursor:pointer;font-weight:600;padding:4px 2px}.dsh-plan .a-plan{margin-top:8px}.dsh-plan .a-plan .sh{display:none}.dsh-plan .card{box-shadow:none;padding:0}
 .dsh-hint{display:block;text-align:center;font-size:14px;font-weight:600;color:var(--accent);text-decoration:none;padding:6px}
+.dsh-ver{text-align:center;font-size:12px;color:var(--text-3);padding:4px 0 8px}
 .vl-card.in-modal{margin:0;padding:0;box-shadow:none;background:none}
 @media(min-width:1000px){.dsh{grid-template-columns:1fr 1fr;max-width:1100px}.dsh>.dsh-now,.dsh>.card.cont{grid-column:1/-1}.dsh-h{max-width:1100px}}
 /* ---- Noten am Handy ---- */
@@ -1048,7 +1049,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="3.0";
+const APP_VERSION="14";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
@@ -1532,7 +1533,13 @@ function checkReminders(){if(!STATE.loaded||!("Notification" in window)||Notific
 setInterval(checkReminders,60000);
 
 /* ---------- PWA ---------- */
-if("serviceWorker" in navigator&&location.protocol==="https:"){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").then(r=>{SWREG=r;}).catch(()=>{});});}
+/* Service Worker: bei jedem Öffnen und Zurückkehren nach Updates suchen; neue Version → einmal neu laden */
+if("serviceWorker" in navigator&&location.protocol==="https:"){
+ const hadSW=!!navigator.serviceWorker.controller;let reloaded=false;
+ navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!hadSW||reloaded)return;reloaded=true;if(typeof TS==="undefined"||!TS||TS.status!=="active")location.reload();});
+ window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{SWREG=r;r.update().catch(()=>{});}).catch(()=>{});});
+ document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&SWREG)SWREG.update().catch(()=>{});});
+}
 /* ---------- REFRESH ---------- */
 setInterval(()=>{if(ROUTE.name==="dashboard"&&!document.getElementById("mbg"))route();},60000);
 let lastActive=Date.now();

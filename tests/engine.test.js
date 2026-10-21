@@ -483,3 +483,17 @@ test("Syntax: jede Datei in js/ und sw.js lässt sich parsen", () => {
   for (const f of fs.readdirSync(dir).filter(x => x.endsWith(".js")).map(x => path.join(dir, x)).concat([path.join(__dirname, "../sw.js")]))
     assert.doesNotThrow(() => new vm.Script(fs.readFileSync(f, "utf8"), { filename: f }), f);
 });
+test("Version in index.html passt zum Cache-Namen in sw.js", () => {
+  const fs = require("fs"), path = require("path");
+  const v = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8").match(/const APP_VERSION="(\d+)"/)[1];
+  assert.match(fs.readFileSync(path.join(__dirname, "../sw.js"), "utf8"), new RegExp('const CACHE="lc-v' + v + '"'), "beim Update beide erhöhen");
+});
+test("Keine doppelten globalen const/let-Namen über index.html und js/ (sonst startet die App nicht)", () => {
+  const fs = require("fs"), path = require("path"), vm = require("vm");
+  const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
+  const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  inline.forEach((src, i) => assert.doesNotThrow(() => new vm.Script(src, { filename: "index.html#script" + i })));
+  const files = [...html.matchAll(/<script src="(js\/[^"]+)"><\/script>/g)].map(m => fs.readFileSync(path.join(__dirname, "..", m[1]), "utf8"));
+  const seen = {};
+  inline.concat(files).forEach((src, i) => [...src.matchAll(/^(?:const|let)\s+([A-Za-z_$][\w$]*)/gm)].forEach(m => { assert.ok(!seen[m[1]], "doppelt: " + m[1]); seen[m[1]] = true; }));
+});
