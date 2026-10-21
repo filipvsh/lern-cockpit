@@ -37,7 +37,7 @@ function bindKlausur() {
   const k = klById(decodeURIComponent(ROUTE.sub || "")); if (!kmActive(k)) return;
   const q = id => document.getElementById(id);
   document.querySelectorAll("[data-kmgo]").forEach(b => b.onclick = () => kmAction(k, b.dataset.kmgo));
-  ({ vokabeln: () => bindKmVokabeln(k), spiele: () => document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)) }[kmTab(k)] || (() => {}))();
+  ({ vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
   const lk = q("km_link"); if (lk) lk.onclick = () => kmLinkModal(k);
 }
 function kmAction(k, what) {
@@ -47,6 +47,7 @@ function kmAction(k, what) {
   else if (kind === "mixed") startTraining({ mode: "mixed", exam_id: k.id, from: "klausur" });
   else if (kind === "mock") mockModal(k);
   else if (kind === "setup") topicAssistant(k);
+  else if (kind === "lesson") startLesson("exam:" + k.id);
   else if (kind === "tab") location.hash = "#/klausur/" + k.id + "?tab=" + arg;
 }
 
@@ -56,6 +57,7 @@ function kmSteps(k) {
   if (words.length) {
     const d = dayStatus(words); const fresh = words.filter(Engine.isNew).length;
     out.push({ go: "vocab", title: "Vokabeln lernen", sub: d.due || fresh ? [d.due ? plural(d.due, "Wiederholung", "Wiederholungen") : "", fresh ? fresh + " noch neu" : ""].filter(Boolean).join(" · ") : "Alles wiederholt – freiwillig festigen", main: !!(d.due || fresh) });
+    if (words.length >= 4) out.push({ go: "lesson", title: "Lektion (wie Duolingo)", sub: "Bilder, Paare, Lücken, Sätze bauen, Hören", main: false });
   } else if (KM_LANG.test(k.fach)) out.push({ go: "tab:vokabeln", title: "Vokabeln festlegen", sub: "Welche Sammlungen kommen in der Klausur dran?", main: true });
   if (!subsOfExam(k.id).length) out.push({ go: "setup", title: "Themen festlegen", sub: "Was kommt dran? Dann baut die App die Übungen." , main: !out.some(x => x.main) });
   else weakestSubs(k, 2).forEach(st => { const m = masteryOf(st.id).score; out.push({ go: "topic:" + st.id, title: st.title, sub: m == null ? "Noch nicht geübt" : m + " % sicher", main: false }); });
@@ -111,7 +113,7 @@ function kmSpiele(k) {
   if (!gameCards(sc).length) return '<div class="card">' + emptyState("vokabeln", "Noch keine Wörter", "Verknüpfe zuerst die Vokabeln dieser Klausur.", '<button class="btn primary sm" id="km_link">Sammlungen wählen</button>') + '</div>';
   const keys = Object.keys(GAMES).filter(g => fr || (!GAMES[g].fr && g !== "artikel"));
   const order = fr ? ["verben", "artikel", "pronomen", "hoeren", "blitz", "memory", "salat"] : keys;
-  return '<p class="hint" style="margin-top:0">Alle Spiele nur mit den ' + gameCards(sc).length + ' Wörtern dieser Klausur.' + (fr ? ' Verb-Puzzle und Pronomen üben die Grammatik.' : '') + '</p><div class="game-grid">' + order.filter(g => keys.includes(g)).map(g => gameTile(g, sc)).join("") + '</div>';
+  return lessonCard(sc) + '<p class="hint" style="margin-top:0">Alle Spiele nur mit den ' + gameCards(sc).length + ' Wörtern dieser Klausur.' + (fr ? ' Verb-Puzzle und Pronomen üben die Grammatik.' : '') + '</p><div class="game-grid">' + order.filter(g => keys.includes(g)).map(g => gameTile(g, sc)).join("") + '</div>';
 }
 
 /* ---------- Themen, Probeklausur, Material ---------- */
