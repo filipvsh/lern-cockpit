@@ -935,6 +935,57 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   await ctx.close();
 });
 
+await scenario("Lektion (Duolingo-Stil): Bilder, Übersetzen, Paare, Lücke, Satz bauen, Hören – Fehler kommen wieder, XP gespeichert", async () => {
+  const b = new MockBackend();
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const src = (await import("node:fs")).readFileSync(new URL("../js/content-packs.js", import.meta.url), "utf8");
+  const vet = [...src.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].slice(0, 51);
+  const COL = "cccccccc-0000-4000-8000-0000000000f3";
+  b.db.vocab_collections.push({ id: COL, name: "Les vêtements", source_language: "fr", target_language: "de", user_id: "aaaaaaaa-0000-4000-8000-000000000001", created_at: new Date().toISOString() });
+  let n = 500; vet.forEach(m => b.db.vokabeln.push({ id: n++, begriff: m[1], bedeutung: m[2], sprache: "Les vêtements", collection_id: COL, source_language: "fr", target_language: "de", level: 0, next: day(0) }));
+  const FK = "11111111-aaaa-4aaa-8aaa-0000000000f3";
+  b.db.klausuren.push({ id: FK, fach: "Französisch", thema: "Klausur", datum: day(5), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: ["Les vêtements"], topics_migrated: true });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  // Klausur-Modus steht oben im Dashboard
+  await page.waitForSelector(".km-list");
+  assert.ok(await page.evaluate(() => document.querySelector(".km-list").getBoundingClientRect().top < document.querySelector(".mission, .cont").getBoundingClientRect().top), "Klausur-Modus vor dem Auftrag");
+  await page.evaluate(() => { window.__said = []; speechSynthesis.speak = u => window.__said.push(u.text); });
+  await go(page, `#/klausur/${FK}?tab=spiele`); await page.waitForSelector("[data-lesson]");
+  await page.click("[data-lesson]"); await page.waitForSelector(".les-body");
+  const types = await page.evaluate(() => LES.items.map(x => x.type));
+  for (const t of ["pic", "mc", "pairs", "gap", "build", "listen"]) assert.ok(types.includes(t), "Aufgabentyp " + t + ": " + types);
+  const total = types.length; let first = true; const seen = new Set();
+  for (let g = 0; g < 40; g++) {
+    const st = await page.evaluate(() => LES.done ? null : (({ type, correct, target, tiles, left }) => ({ type, correct, target, tiles, left: left && left.map(x => String(x.id)), retry: !!LES.items[LES.i].retry }))(LES.items[LES.i]));
+    if (!st) break;
+    if (!seen.has(st.type)) { seen.add(st.type); assert.ok(await noScroll(), "kein Querscrollen bei " + st.type); await shot(page, "les-" + st.type); }
+    if (first && st.type !== "pairs") {   // absichtlich falsch
+      first = false;
+      if (st.target) await page.click("#les_skip"); else { await page.click(`[data-lo="${(st.correct + 1) % 2}"]`); await page.click("#les_check"); }
+      await page.waitForSelector(".les-foot.bad"); await page.click("#les_next"); continue;
+    }
+    if (st.type === "pairs") {
+      for (const id of st.left) { await page.click(`[data-lp="l|${id}"]`); await page.click(`[data-lp="r|${id}"]`); }
+    } else if (st.target) {
+      const toks = await page.evaluate(t => LESSON.tokens(t), st.target); const used = [];
+      for (const w of toks) { const i = st.tiles.findIndex((x, k) => x === w && !used.includes(k)); used.push(i); await page.click(`[data-lt="${i}"]`); }
+      await page.click("#les_check");
+    } else { await page.click(`[data-lo="${st.correct}"]`); await page.click("#les_check"); }
+    await page.waitForSelector(".les-foot.ok"); await page.click("#les_next");
+  }
+  await page.waitForSelector(".les-done");
+  const res = await page.evaluate(() => ({ items: LES.items.length, right: LES.right, xp: LES.xp }));
+  assert.equal(res.items, total + 1, "falsche Aufgabe kam am Ende noch einmal");
+  assert.equal(res.right, total - 1);
+  assert.ok((await page.evaluate(() => window.__said)).length >= 1, "Sprachausgabe benutzt");
+  await shot(page, "les-ende");
+  await page.evaluate(() => Api.idle());
+  const xp = b.db.einstellungen.find(x => x.key === "lektion_xp");
+  assert.ok(xp && Object.values(xp.value)[0] === res.xp, "XP gespeichert");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

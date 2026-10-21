@@ -23,11 +23,11 @@ const GAMES = {
 const VOICE_LANG = { fr: "fr-FR", en: "en-GB", es: "es-ES", la: "it-IT", de: "de-DE" };
 const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined";
 /** Wort vorlesen – Stimme passend zur Sprache der Sammlung, etwas langsamer */
-function speak(text, lang) {
+function speak(text, lang, rate) {
   if (!canSpeak()) return;
   try {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.lang = VOICE_LANG[lang] || lang || "fr-FR"; u.rate = 0.85;
+    const u = new SpeechSynthesisUtterance(text); u.lang = VOICE_LANG[lang] || lang || "fr-FR"; u.rate = rate || 0.85;
     const v = speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith(u.lang.slice(0, 2).toLowerCase())); if (v) u.voice = v;
     speechSynthesis.speak(u);
   } catch (e) { console.warn("Sprachausgabe", e); }
@@ -71,12 +71,13 @@ V.spiele = () => {
   const n = gameCards(GAME_COL).length;
   const pick = '<div class="card tight" style="margin-bottom:var(--s5)"><label class="fld">Womit spielst du?<select id="gm_col"><option value="">Alle Sammlungen (' + gameCards("").length + ' Wörter)</option>' + cols.map(c => '<option value="' + esc(c.id) + '"' + (c.id === GAME_COL ? " selected" : "") + '>' + esc(c.name) + ' (' + gameCards(c.id).length + ')</option>').join("") + '</select></label></div>';
   const tiles = Object.keys(GAMES).map(k => gameTile(k, GAME_COL)).join("");
-  return head + pick + '<div class="game-grid">' + tiles + '</div>';
+  return head + pick + lessonCard(GAME_COL) + '<div class="game-grid">' + tiles + '</div>';
 };
 function bindSpiele() {
   if (GAME && ROUTE.sub === GAME.type) return bindGame();
   const sel = document.getElementById("gm_col"); if (sel) sel.onchange = () => { GAME_COL = sel.value; lsSet("lc_game_col", GAME_COL); route(); };
   document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game));
+  bindLessonCards();
 }
 function startGame(type, scope) {
   const sc = scope !== undefined ? scope : GAME_COL;

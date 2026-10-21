@@ -416,3 +416,30 @@ test("Verb-Puzzle: richtige Teile immer auswählbar, Prüfung erkennt Fehler und
   const pay = G.tasks(["payer"]).find(x => x.pr.fr === "je");
   assert.ok(G.checkPuzzle(pay, { pronoun: "je", stem: "pay", ending: "e" }).ok, "je paye geht auch");
 });
+
+/* ---------- Lektion (Duolingo-Stil) ---------- */
+const L = require("../js/lesson.js");
+test("Lektion: Sätze passen zu ihren Lücken und Wörtern", () => {
+  const VET = require("fs").readFileSync(__dirname + "/../js/content-packs.js", "utf8");
+  for (const s of L.SENTENCES) {
+    assert.ok(s.fr.includes(s.gap), "Lücke im Satz: " + s.fr);
+    assert.ok(!s.opts.includes(s.gap), "Lösung nicht doppelt: " + s.fr);
+    assert.ok(VET.includes('["' + s.key + '"'), "Wort aus der Sammlung: " + s.key);
+  }
+});
+test("Lektion: gemischte Aufgaben, jede lösbar; Satz bauen prüft ohne Satzzeichen/Großschreibung", () => {
+  const VET = require("fs").readFileSync(__dirname + "/../js/content-packs.js", "utf8");
+  const words = [...VET.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].slice(0, 51).map((m, i) => ({ id: i, begriff: m[1], bedeutung: m[2] }));
+  let seed = 7; const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const ls = L.buildLesson({ cards: words, speech: true, rng });
+  const types = new Set(ls.map(x => x.type));
+  for (const t of ["pic", "mc", "pairs", "gap", "build", "listen"]) assert.ok(types.has(t), "Typ " + t);
+  for (const x of ls) {
+    if (x.opts) assert.ok(x.correct >= 0, x.type + " hat richtige Antwort");
+    if (x.tiles) { const tl = x.tiles.slice(); L.tokens(x.target).forEach(w => { const i = tl.indexOf(w); assert.ok(i >= 0, "Kachel fehlt: " + w); tl.splice(i, 1); }); }
+    if (x.type === "pairs") assert.equal(new Set(x.right.map(r => r.text)).size, 5);
+  }
+  assert.ok(L.checkBuild(["je", "porte", "un", "pantalon", "noir"], "Je porte un pantalon noir."));
+  assert.ok(!L.checkBuild(["porte", "je", "un", "pantalon", "noir"], "Je porte un pantalon noir."));
+  assert.deepEqual(L.buildLesson({ cards: words.slice(0, 3) }), [], "zu wenig Wörter → keine Lektion");
+});
