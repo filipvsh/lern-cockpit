@@ -18,7 +18,8 @@ const GAMES = {
   hoeren: { name: "Hören", desc: "Die App spricht das Wort vor, du tippst die Bedeutung an. Training fürs Listening.", ico: "play", min: 4, speech: true },
   artikel: { name: "Artikel-Duell", desc: "un oder une? le oder la? Das Geschlecht der Nomen sicher drauf haben.", ico: "flag", min: 4 },
   pronomen: { name: "Pronomen", desc: "je, tu, il / elle / on, nous, vous, ils / elles – welches passt?", ico: "target", min: 0, fr: true },
-  verben: { name: "Verb-Puzzle", desc: "Pronomen + Stamm + Endung zusammensetzen: j'achète, nous achetons …", ico: "pen", min: 0, fr: true }
+  verben: { name: "Verb-Puzzle", desc: "Pronomen + Stamm + Endung zusammensetzen: j'achète, nous achetons …", ico: "pen", min: 0, fr: true },
+  graph: { name: "Graphen-Quiz", desc: "Mathe ohne Tippen: Graph ansehen, passende Funktion antippen (x², x³, 1/x, verschoben …).", ico: "fortschritt", min: 0, mathe: true }
 };
 const VOICE_LANG = { fr: "fr-FR", en: "en-GB", es: "es-ES", la: "it-IT", de: "de-DE" };
 const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined";
@@ -52,6 +53,7 @@ function gameAmount(k, sc) {
   if (k === "hoeren") return gameCards(sc).filter(c => cardLangOf(c) !== "de").length;
   if (k === "artikel") return articleCards(sc).length;
   if (GAMES[k].fr) return hasFrench(sc) ? 99 : 0;
+  if (GAMES[k].mathe) return 99;
   return gameCards(sc).length;
 }
 function gameTile(k, sc) {
@@ -107,12 +109,15 @@ function startGame(type, scope) {
   } else if (type === "pronomen") {
     GAME = { type, i: 0, rounds: 12, score: 0, right: 0, wrong: [], q: null, tasks: Engine.shuffle(FRG.tasks()) };
     nextPronomen();
+  } else if (type === "graph") {
+    GAME = { type, i: 0, rounds: 8, score: 0, right: 0, wrong: [], seen: [], q: null };
+    nextGraph();
   } else if (type === "verben") {
     GAME = { type, i: 0, rounds: 8, score: 0, right: 0, wrong: [], tasks: Engine.shuffle(FRG.tasks()) };
     nextVerb();
   }
   GAME.col = exam ? exam.fach + "-Klausur" : col ? col.name : "Alle Sammlungen"; GAME.colId = sc;
-  GAME.back = exam ? "#/klausur/" + exam.id + "?tab=spiele" : "#/spiele";
+  GAME.back = exam ? "#/klausur/" + exam.id + "?tab=" + (GAMES[type].mathe ? "themen" : "spiele") : "#/spiele";
   GAME.prompt = prompt; GAME.answer = answer;
   location.hash = "#/spiele/" + type; if (ROUTE.name === "spiele") route();
 }
@@ -153,6 +158,11 @@ function nextPronomen() {
     g.q = { kind: "form", prompt: "___ " + t.form, sub: t.verb + " (" + v.de + ")", opts, correct: opts.indexOf(right), answer: t.answer, picked: null };
   }
 }
+function nextGraph() {
+  const g = GAME; if (g.i >= g.rounds) { g.over = true; return; }
+  let q, n = 0; do { q = graphRound(); } while (g.seen.includes(q.target.id) && n++ < 20);
+  g.seen.push(q.target.id); g.q = Object.assign(q, { picked: null });
+}
 function nextVerb() {
   const g = GAME; if (g.i >= g.rounds) { g.over = true; return; }
   const t = g.tasks[g.i % g.tasks.length];
@@ -168,7 +178,7 @@ function nextSalat() {
 function gameStage() {
   const g = GAME; const name = GAMES[g.type].name;
   const explain = grammarFor(g.type).length && !g.over ? '<button class="btn plain sm" id="gm_explain">Kurz erklärt</button>' : '';
-  const top = '<div class="game-top"><a class="backlink" href="' + esc(g.back || "#/spiele") + '" id="gm_back">' + ICO.back + 'Spiele</a>' + explain + '<span class="t-sub">' + esc(name) + ' · ' + esc(g.col) + '</span></div>';
+  const top = '<div class="game-top"><a class="backlink" href="' + esc(g.back || "#/spiele") + '" id="gm_back">' + ICO.back + (String(g.back || "").includes("klausur") ? "Klausur" : "Spiele") + '</a>' + explain + '<span class="t-sub">' + esc(name) + ' · ' + esc(g.col) + '</span></div>';
   if (g.type === "memory") {
     const fin = g.done.length === g.tiles.length;
     return top + '<div class="game-hud"><span>Züge <b>' + g.moves + '</b></span><span>Paare <b>' + g.done.length / 2 + '/' + g.tiles.length / 2 + '</b></span></div>' +
@@ -206,6 +216,14 @@ function gameStage() {
       '<div class="fx-card blitz"><div class="kind">' + (q.kind === "de" ? "Wie heißt das auf Französisch?" : "Welches Pronomen passt?") + '</div><div class="term" style="text-align:center">' + esc(q.prompt) + '</div>' + (q.sub ? '<div class="t-sub" style="text-align:center">' + esc(q.sub) + '</div>' : '') +
       '<div class="choices">' + q.opts.map((o, i) => '<button class="opt-choice' + (q.picked != null ? (i === q.correct ? " right" : i === q.picked ? " wrongpick" : "") : "") + '" data-pr="' + i + '"' + (q.picked != null ? " disabled" : "") + '>' + esc(o) + '</button>').join("") + '</div>' +
       (q.picked != null ? '<div class="hint" style="text-align:center;margin-top:var(--s3)"><b>' + esc(q.answer) + '</b></div><div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="pr_next">Weiter</button></div>' : '') + '</div>';
+  }
+  if (g.type === "graph") {
+    if (g.over) return top + gameOver("Graphen-Quiz geschafft!", g.score + " Punkte · " + g.right + " von " + g.rounds + " richtig", g.score, false);
+    const q = g.q;
+    return top + '<div class="game-hud"><span>Graph <b>' + (g.i + 1) + '/' + g.rounds + '</b></span><span>Punkte <b>' + g.score + '</b></span></div>' +
+      '<div class="fx-card"><div class="kind">Welche Funktion gehört zu diesem Graphen?</div><div class="graph-wrap">' + graphSvg(q.target.f) + '</div>' +
+      '<div class="choices graph-opts">' + q.opts.map((o, i) => '<button class="opt-choice' + (q.picked != null ? (i === q.correct ? " right" : i === q.picked ? " wrongpick" : "") : "") + '" data-gq="' + i + '"' + (q.picked != null ? " disabled" : "") + '>' + esc(o.label) + '</button>').join("") + '</div>' +
+      (q.picked != null ? '<div class="fb ' + (q.picked === q.correct ? "ok" : "bad") + '"><div class="fb-t"><b>' + (q.picked === q.correct ? "Richtig!" : "Richtig ist " + esc(q.target.label)) + '</b></div><div class="fb-x">' + esc(q.target.why) + '</div></div><div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="gq_next">Weiter</button></div>' : '') + '</div>';
   }
   if (g.type === "verben") {
     if (g.over) return top + gameOver("Puzzle fertig!", g.score + " Punkte · " + g.right + " von " + g.rounds + " richtig", g.score, false);
@@ -263,6 +281,14 @@ function bindGame() {
       route();
     });
     const nx = q("pr_next"); if (nx) nx.onclick = () => { g.i++; nextPronomen(); route(); };
+  }
+  if (g.type === "graph" && !g.over) {
+    document.querySelectorAll("[data-gq]").forEach(b => b.onclick = () => {
+      const qq = g.q; if (qq.picked != null) return; qq.picked = +b.dataset.gq;
+      if (qq.picked === qq.correct) { g.right++; g.score += 10; } else g.wrong.push({ bedeutung: "Graph", begriff: qq.target.label });
+      route();
+    });
+    const nx = q("gq_next"); if (nx) nx.onclick = () => { g.i++; nextGraph(); route(); };
   }
   if (g.type === "verben" && !g.over) {
     document.querySelectorAll("[data-vp]").forEach(b => b.onclick = () => { const [key, i] = b.dataset.vp.split("|"); const row = g.pz.rows.find(r => r.key === key); g.pick[key] = row.options[+i]; route(); });

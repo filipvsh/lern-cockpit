@@ -475,3 +475,11 @@ test("Nachsprechen: kleine Erkennungsfehler zählen, falsche Wörter nicht", () 
   const ls = L.buildLesson({ cards: words, speech: true, mic: true });
   assert.equal(ls.filter(x => x.type === "speak").length, 2); assert.ok(ls.length <= 14);
 });
+
+/* ---------- Alle App-Dateien sind gültiges JavaScript ---------- */
+test("Syntax: jede Datei in js/ und sw.js lässt sich parsen", () => {
+  const fs = require("fs"), vm = require("vm"), path = require("path");
+  const dir = path.join(__dirname, "../js");
+  for (const f of fs.readdirSync(dir).filter(x => x.endsWith(".js")).map(x => path.join(dir, x)).concat([path.join(__dirname, "../sw.js")]))
+    assert.doesNotThrow(() => new vm.Script(fs.readFileSync(f, "utf8"), { filename: f }), f);
+});

@@ -32,9 +32,9 @@ function startLesson(scope) {
 function lessonCard(scope) {
   const n = gameCards(scope).length; const ok = n >= 4; const st = lesStreak();
   return '<div class="card les-card"><div class="les-ic">🦉</div><div class="les-tx"><b>Lektion</b><span class="t-sub">Wie bei Duolingo: Bilder wählen, Paare finden, Lücken füllen, Sätze bauen, Hören – alles antippen.</span><span class="les-meta">' + (lesXPToday() ? "Heute " + lesXPToday() + " XP" : "Heute noch keine Lektion") + (st > 1 ? " · 🔥 " + st + " Tage in Folge" : "") + '</span></div>' +
-    '<button class="btn primary lg" data-lesson="' + esc(scope) + '"' + (ok ? "" : " disabled") + '>' + (ok ? "Los geht's" : "Mind. 4 Wörter") + '</button></div>';
+    '<button class="btn primary lg" data-lektion="' + esc(scope) + '"' + (ok ? "" : " disabled") + '>' + (ok ? "Los geht's" : "Mind. 4 Wörter") + '</button></div>';
 }
-const bindLessonCards = () => document.querySelectorAll("[data-lesson]").forEach(b => b.onclick = () => startLesson(b.dataset.lesson));
+const bindLessonCards = () => document.querySelectorAll("[data-lektion]").forEach(b => b.onclick = () => startLesson(b.dataset.lektion));
 
 V.lektion = () => {
   if (!engineReady()) return pageHead("Lektion") + setupCard();

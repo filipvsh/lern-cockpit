@@ -344,7 +344,7 @@ a.card.plan-card,.plan-card{display:grid;grid-template-columns:1fr auto;gap:var(
 .plan-card .days.soon .num{color:var(--accent)}
 .plan-card .pc-foot{grid-column:1/-1;display:flex;align-items:center;gap:var(--s4)}
 .plan-card .pc-foot .prog{flex:1;max-width:420px}
-.plan-card .pc-foot .t-sub{white-space:nowrap}
+.plan-card .pc-foot .t-sub{min-width:0;overflow-wrap:anywhere}
 .subchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--s3)}
 .subchip{font-size:12px;color:var(--text-2);background:var(--fill);border-radius:999px;padding:3px 10px;display:inline-flex;align-items:center;gap:5px}
 .subchip.done{color:var(--text-3)}
@@ -639,6 +639,51 @@ body.focus{background:var(--surface)}
 .wr-check{display:grid;gap:4px;margin-top:var(--s4);font-size:14px;color:var(--text-2)}.wr-check .ok{color:var(--green)}
 .wr-ai{margin-top:var(--s4);padding:12px;border-radius:var(--r-md);background:var(--accent-weak)}.wr-ai h3{margin:0 0 6px}.wr-ai h4{margin:10px 0 4px}.wr-ai ul{margin:0;padding-left:18px}
 .wr-model{margin-top:var(--s4)}.wr-model summary{cursor:pointer;font-weight:600}.wr-model pre{white-space:pre-wrap;font:inherit;line-height:1.6;background:var(--fill);padding:12px;border-radius:var(--r-md)}
+.graph-wrap{display:flex;justify-content:center;margin:var(--s3) 0}.graph{width:100%;max-width:320px;height:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md)}
+.graph .g{stroke:var(--sep);stroke-width:1}.graph .g.ax{stroke:var(--text-3);stroke-width:1.5}.graph text{font-size:10px;fill:var(--text-3)}.graph .axl{font-size:12px;font-style:italic;fill:var(--text-2)}
+.graph .curve{fill:none;stroke:var(--accent);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.graph-opts .opt-choice{font-size:17px;font-variant-numeric:tabular-nums}
+.paper{display:flex;gap:12px;align-items:flex-start;margin-top:var(--s4);padding:14px;border-radius:var(--r-md);background:var(--fill);border:1.5px dashed var(--line-2)}.paper-i{font-size:28px;line-height:1}.paper .btn{margin-top:6px;padding-left:0}
+.paper-rate{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.paper-rate button{min-height:48px;font-size:15px}
+.km-tabs{flex-wrap:wrap;overflow:visible;gap:2px}.km-tabs a{flex:1 0 auto;text-align:center}
+.vid-count{font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent)}.vid-set .prog{margin:8px 0}
+.vid-list{display:grid;gap:10px;margin-top:var(--s3)}.vid{display:flex;align-items:center;gap:10px}.vid-a{flex:1;min-width:0;display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--text)}
+.vid-a img{width:112px;height:63px;object-fit:cover;border-radius:8px;background:var(--fill);flex:0 0 auto}.vid-t{font-size:14px;line-height:1.35;overflow-wrap:anywhere}.vid-n{display:inline-block;min-width:18px;font-weight:700;color:var(--text-3);margin-right:4px}
+.vid-chk{flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:2px solid var(--line-2);background:var(--surface);font-size:20px;font-weight:700;color:#fff;cursor:pointer}.vid.seen .vid-chk{background:var(--green);border-color:var(--green)}.vid.seen .vid-t{color:var(--text-2)}
+@media(max-width:400px){.vid-a img{width:88px;height:50px}}
+/* ---- Start (Dashboard) ---- */
+.dsh{display:grid;gap:var(--s5);max-width:760px}
+.dsh-h{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);margin:var(--s2) 0 var(--s5);max-width:760px}.dsh-h h1{font-size:clamp(24px,6.4vw,34px);line-height:1.15;margin:2px 0 0;letter-spacing:-.02em}
+.dsh-streak{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:8px 12px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-1,0 1px 2px rgba(0,0,0,.06));text-decoration:none;color:var(--text);white-space:nowrap}
+.dsh-streak .fl{font-size:18px;filter:grayscale(1);opacity:.5}.dsh-streak .fl.lit{filter:none;opacity:1}.dsh-streak b{font-size:17px;font-variant-numeric:tabular-nums}.dsh-streak .xp{font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.dsh-streak.risk{background:var(--orange-weak);color:var(--orange)}.dsh-streak.done{background:var(--green-weak)}
+.dsh-now{padding:var(--s5)}.dsh-now h2{font-size:22px;line-height:1.25;margin:4px 0 4px;overflow-wrap:anywhere}.dsh-now>.t-sub{margin:0 0 var(--s4)}
+.dsh-l{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}.dsh-now.done .dsh-l{color:var(--green)}
+.btn.wide{width:100%;justify-content:center}.btn.lg.wide{min-height:52px;font-size:17px}
+.dsh-rest{margin-top:var(--s4);border-top:1px solid var(--sep);padding-top:var(--s3)}.dsh-l2{font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:4px}
+.dsh-next{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:10px 2px;font:inherit;color:var(--text);text-align:left;cursor:pointer;border-radius:8px}.dsh-next:hover{background:var(--fill)}
+.dsh-dot{width:8px;height:8px;border-radius:50%;background:var(--line-2);flex:0 0 auto}.dsh-nt{flex:1;min-width:0;overflow-wrap:anywhere}.dsh-next .t-sub{white-space:nowrap;font-variant-numeric:tabular-nums}
+.dsh-steps{display:flex;align-items:center;gap:10px;margin-top:var(--s4)}.dsh-bar{flex:1;height:6px;border-radius:99px;background:var(--fill-2);overflow:hidden}.dsh-bar i{display:block;height:100%;background:var(--green);border-radius:99px}.dsh-steps .t-sub{white-space:nowrap;font-size:13px}
+.dsh-sec{display:grid;gap:var(--s3)}.dsh-sh{display:flex;align-items:baseline;justify-content:space-between}.dsh-sh h2{font-size:19px;margin:0}
+.dsh-exams{padding:4px var(--s4)}.dsh-ex{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--sep);text-decoration:none;color:var(--text)}.dsh-ex:first-child{border-top:0}
+.dsh-ex .dot{width:10px;height:10px;flex:0 0 auto}.dsh-et{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.dsh-et b{font-weight:600}.dsh-et .t-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-rd{display:block;height:4px;border-radius:99px;background:var(--fill-2);overflow:hidden;margin-top:4px;max-width:180px}.dsh-rd i{display:block;height:100%;background:var(--accent)}
+.dsh-days{display:flex;flex-direction:column;align-items:center;min-width:48px;font-size:11px;color:var(--text-2);line-height:1.1}.dsh-days b{font-size:22px;color:var(--text);font-variant-numeric:tabular-nums}.dsh-days.soon b{color:var(--red)}
+.dsh-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dsh-tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:96px;padding:14px;border:0;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow-1,0 1px 2px rgba(0,0,0,.06));font:inherit;color:var(--text);text-align:left;text-decoration:none;cursor:pointer}
+.dsh-tile:active{transform:scale(.98)}.dsh-ti{font-size:26px;line-height:1;margin-bottom:6px}.dsh-tile b{font-size:16px}.dsh-tile .t-sub{font-size:13px}
+.dsh-plan summary{cursor:pointer;font-weight:600;padding:4px 2px}.dsh-plan .a-plan{margin-top:8px}.dsh-plan .a-plan .sh{display:none}.dsh-plan .card{box-shadow:none;padding:0}
+.dsh-hint{display:block;text-align:center;font-size:14px;font-weight:600;color:var(--accent);text-decoration:none;padding:6px}
+.vl-card.in-modal{margin:0;padding:0;box-shadow:none;background:none}
+@media(min-width:1000px){.dsh{grid-template-columns:1fr 1fr;max-width:1100px}.dsh>.dsh-now,.dsh>.card.cont{grid-column:1/-1}.dsh-h{max-width:1100px}}
+/* ---- Noten am Handy ---- */
+.nm-list{display:none}.n-ptf>span{display:block;font-size:13px;font-weight:500;color:var(--text-2);margin-bottom:6px}.n-ptf b{color:var(--text)}
+.n-pts{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}.n-pts button{height:40px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);font:inherit;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text);cursor:pointer}
+.n-pts button.low{color:var(--red)}.n-pts button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+@media(max-width:640px){.nm-list{display:grid;gap:0}.ntbl-wrap{display:none}
+ .n-top{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:var(--s4)}.n-top .card{padding:12px}.n-top h2{font-size:12px;margin-bottom:4px}.n-top .pbig{font-size:28px!important}.n-top .sm,.n-top .hint{display:none}
+ .nm-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--sep)}.nm-row:first-child{border-top:0}
+ .nm-l{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.nm-l .dot{flex:0 0 auto}.nm-v{grid-row:1/3;grid-column:2;align-self:center}.nm-d{font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}}
 .dx-hero{margin:var(--s2) 0 var(--s4)}.dx-hero .t-large{margin:2px 0}
 .dx-tabs{display:flex;max-width:100%;overflow-x:auto;margin-bottom:var(--s4);-webkit-overflow-scrolling:touch}.dx-tabs a{flex:0 0 auto;padding:7px 12px;border-radius:calc(var(--r-sm) - 2px);font-size:14px;color:var(--text);text-decoration:none;white-space:nowrap}.dx-tabs a.on{background:var(--surface);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.1)}
 .dx-count{text-align:center;padding:var(--s6)}.dx-big{font-size:clamp(22px,6vw,30px);font-weight:700;letter-spacing:-.02em;margin-top:6px}
@@ -881,7 +926,7 @@ mark.dif{background:var(--orange-weak);color:var(--orange);border-radius:3px;pad
  .fx-actions .kb{display:none}
  .kpi{padding:var(--s5)}.kpi .num{font-size:34px}
  .btn{height:40px}.btn.mini,.btn.sm{height:32px}
- input,select,textarea{font-size:16px;height:44px}textarea{height:auto}
+ input,select,textarea{font-size:16px;height:44px}textarea{height:auto} .sk-group select,.ctxbar select{font-size:16px}
  .check{width:26px;height:26px}
  .session-pill{bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom))}
  .mnav{display:flex;position:fixed;left:0;right:0;bottom:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:rgba(250,250,252,.86);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);z-index:100;border-top:1px solid var(--line-2)}
@@ -996,6 +1041,7 @@ button.vrow:hover{background:var(--surface-2)}
 <script src="js/engine.js"></script>
 <script src="js/fr-grammar.js"></script>
 <script src="js/lesson.js"></script>
+<script src="js/mathe.js"></script>
 <script src="js/fr-check.js"></script>
 <script src="js/api.js"></script>
 <script>
@@ -1225,15 +1271,15 @@ function renderNav(active){
  document.getElementById("nav").innerHTML=NAV_MAIN.map(n=>navLink(n,active)).join("");
  document.getElementById("nav2").innerHTML=NAV_SCHOOL.map(n=>navLink(n,active)).join("");
  document.getElementById("nav3").innerHTML=navLink("einstellungen",active);
- const m=["dashboard","vokabeln","lernplan","trainer"];const inMore=!m.includes(active);
+ const m=["dashboard","lernplan","vokabeln","noten"];const inMore=!m.includes(active)&&active!=="klausur";const ML={dashboard:"Start",lernplan:"Klausuren"};
  const mb=n=>{const b=navBadge(n);return b&&n!=="lernplan"?b:""};
- document.getElementById("mnav").innerHTML=m.map(n=>'<a href="#/'+n+'" class="'+(n===active?"on":"")+'"><span class="navico">'+ICO[n]+'</span>'+(n==="dashboard"?"Übersicht":TITLES[n])+mb(n)+'</a>').join("")+'<button id="moreBtn" class="'+(inMore?"on":"")+'"><span class="navico">'+ICO.mehr+'</span>Mehr</button>';
+ document.getElementById("mnav").innerHTML=m.map(n=>'<a href="#/'+n+'" class="'+(n===active||(n==="lernplan"&&active==="klausur")?"on":"")+'"><span class="navico">'+ICO[n]+'</span>'+(ML[n]||TITLES[n])+mb(n)+'</a>').join("")+'<button id="moreBtn" class="'+(inMore?"on":"")+'"><span class="navico">'+ICO.mehr+'</span>Mehr</button>';
  document.getElementById("moreBtn").onclick=()=>{const it=n=>'<a href="#/'+n+'"><span class="navico">'+ICO[n]+'</span>'+TITLES[n]+navBadge(n)+'</a>';
-  openSheet('<div class="sl">'+["ki","fortschritt"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
+  openSheet('<div class="sl">'+["trainer","spiele","material","fortschritt","ki"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.filter(n=>n!=="noten").map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
  const sn=document.getElementById("syncNote");if(sn)sn.innerHTML=STATE.dbReady?'Synchronisiert'+(STATE.syncedAt?' · '+new Date(STATE.syncedAt).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):''):(STATE.loaded?'<span style="color:var(--orange)">Datenbank-Update ausstehend</span>':'');}
 /* ---------- MODAL / SHEET / TOAST ---------- */
 function openModal(title,body,foot,onMount){closeModal();const o=document.getElementById("overlay");o.innerHTML='<div class="mbg" id="mbg"><div class="modal" role="dialog"><div class="mh"><h3>'+title+'</h3><button class="xbtn" id="mclose">✕</button></div><div class="mb">'+body+'</div>'+(foot?'<div class="mf">'+foot+'</div>':'')+'</div></div>';
- document.getElementById("mclose").onclick=closeModal;document.getElementById("mbg").onclick=e=>{if(e.target.id==="mbg")closeModal()};document.body.style.overflow="hidden";if(onMount)onMount();const f=o.querySelector("input,select,textarea");if(f&&window.innerWidth>720)setTimeout(()=>f.focus(),50);}
+ document.getElementById("mclose").onclick=closeModal;document.getElementById("mbg").onclick=e=>{if(e.target.id==="mbg")closeModal()};document.body.style.overflow="hidden";if(onMount)onMount();const f=window.innerWidth>720&&o.querySelector("input,select,textarea");if(f&&window.innerWidth>720)setTimeout(()=>f.focus(),50);}
 function closeModal(){const o=document.getElementById("overlay");o.innerHTML="";document.body.style.overflow="";}
 function openSheet(html){const o=document.getElementById("overlay");o.innerHTML='<div class="mbg" id="mbg" style="align-items:flex-end;padding:0"><div class="sheet"><div class="grab"></div>'+html+'</div></div>';document.getElementById("mbg").onclick=e=>{if(e.target.id==="mbg"||e.target.closest("a"))closeModal()};}
 let toastT=null;function toast(msg,err){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);}t.className="toast"+(err?" err":"");t.textContent=msg;t.style.display="";clearTimeout(toastT);toastT=setTimeout(()=>{t.style.display="none"},err?4000:2200);}
@@ -1358,16 +1404,19 @@ V.noten=()=>{const hj=NOTEN_HJ||(NOTEN_HJ=currentHJ());const fs=Object.keys(LAUF
  const seg='<div class="seg" style="margin-bottom:14px;overflow-x:auto;max-width:100%">'+HJ_KEYS.map(h=>'<button class="'+(h===hj?"on":"")+'" data-hj="'+h+'">'+h+'</button>').join("")+'</div>';
  const ges=gesamtSchnitt(hj),abi=gesamtSchnitt(hj,true);
  const big=v=>v==null?'<span class="pbig" style="font-size:40px;color:var(--faint)">–</span><span class="sm">noch keine Noten</span>':'<span class="pbig" style="font-size:40px">'+fmtPt(v)+'</span><span class="sm">Punkte · Note '+PT_NOTE[Math.round(v)]+'</span>';
- const top='<div class="grid three"><div class="card"><h2>Schnitt '+hj+'</h2><div style="display:flex;align-items:baseline;gap:8px">'+big(ges)+'</div><div class="hint">Alle belegten Fächer, gleich gewichtet.</div></div><div class="card"><h2>Abi-Fächer</h2><div style="display:flex;align-items:baseline;gap:8px">'+big(abi)+'</div><div class="hint">Englisch (LK), Sport (LK), Erdkunde, Mathe.</div></div><div class="card"><h2>Einträge</h2><div style="display:flex;align-items:baseline;gap:8px"><span class="pbig" style="font-size:40px">'+STATE.noten.filter(n=>n.halbjahr===hj).length+'</span><span class="sm">in '+hj+'</span></div><div class="hint">Klausuren kommen automatisch aus dem Klausur-Ergebnis.</div></div></div>';
+ const top='<div class="grid three n-top"><div class="card"><h2>Schnitt '+hj+'</h2><div style="display:flex;align-items:baseline;gap:8px">'+big(ges)+'</div><div class="hint">Alle belegten Fächer, gleich gewichtet.</div></div><div class="card"><h2>Abi-Fächer</h2><div style="display:flex;align-items:baseline;gap:8px">'+big(abi)+'</div><div class="hint">Englisch (LK), Sport (LK), Erdkunde, Mathe.</div></div><div class="card"><h2>Einträge</h2><div style="display:flex;align-items:baseline;gap:8px"><span class="pbig" style="font-size:40px">'+STATE.noten.filter(n=>n.halbjahr===hj).length+'</span><span class="sm">in '+hj+'</span></div><div class="hint">Klausuren kommen automatisch aus dem Klausur-Ergebnis.</div></div></div>';
  const rows=fs.map(f=>{const s=fachSchnitt(f,hj);const kl=s.rows.filter(r=>r.art==="klausur");const so=s.rows.filter(r=>r.art!=="klausur");const q1=wavg(so.filter(r=>r.quartal===qs[0])),q2=wavg(so.filter(r=>r.quartal===qs[1]));
   return '<tr><td><div class="fachc"><span class="dot" style="background:'+fcol(f)+'"></span>'+esc(f)+'</div><div style="margin-top:3px">'+belegTag(f,hj)+'</div></td><td class="c">'+(kl.length?kl.map(r=>ptBadge(r.punkte)).join(" "):(isSchriftlich(f,hj)?'<span class="pt n">offen</span>':'<span class="sm">–</span>'))+'</td><td class="c">'+ptBadge(q1)+'</td><td class="c">'+ptBadge(q2)+'</td><td class="c">'+ptBadge(s.gesamt,s.gesamt!=null?"b":"n")+'</td><td class="c">'+sparkline(s.rows)+'</td></tr>';}).join("");
- const table='<div class="card mt"><h2>Fächer · '+hj+'</h2><div style="overflow-x:auto"><table class="ntbl"><thead><tr><th>Fach</th><th class="c">Klausur(en)</th><th class="c">SoMi Q'+qs[0]+'</th><th class="c">SoMi Q'+qs[1]+'</th><th class="c">Schnitt</th><th class="c">Verlauf</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="hint" style="margin-top:10px">Schriftliche Fächer: Klausur und sonstige Mitarbeit je 50 %. Mündliche Fächer: nur SoMi. Schnitt = Durchschnitt aller Einträge im Halbjahr.</div></div>';
- const add='<div class="card mt"><h2>Note eintragen</h2><div class="form c4"><label class="fld">Fach<select id="n_fach">'+fs.map(f=>'<option'+(f===lsGet("lc_lastnfach","")?' selected':'')+'>'+f+'</option>').join("")+'</select></label><label class="fld">Art<select id="n_art"><option value="somi">Sonstige Mitarbeit</option><option value="test">Test</option><option value="referat">Referat / Präsentation</option><option value="klausur">Klausur (manuell)</option><option value="sonstiges">Sonstiges</option></select></label><label class="fld">Punkte<select id="n_pt">'+Array.from({length:16},(_,i)=>15-i).map(p=>'<option value="'+p+'"'+(p===10?' selected':'')+'>'+p+' · Note '+PT_NOTE[p]+'</option>').join("")+'</select></label><label class="fld">Quartal<select id="n_q">'+qs.map(q=>'<option value="'+q+'"'+(q===quartalOf()?' selected':'')+'>Q'+q+'</option>').join("")+'</select></label></div><div class="form c4" style="margin-top:8px"><label class="fld">Datum<input id="n_datum" type="date" value="'+todayISO()+'"></label><label class="fld">Gewicht<select id="n_gew"><option value="1">1× normal</option><option value="0.5">0,5× klein</option><option value="2">2× groß</option></select></label><label class="fld">Notiz<input id="n_notiz" placeholder="z. B. Quartalsnote von Frau Dag"></label><label class="fld">&nbsp;<button class="btn primary" id="n_add">Speichern</button></label></div></div>';
+ const mlist='<div class="nm-list">'+fs.map(f=>{const s=fachSchnitt(f,hj);const kl=s.rows.filter(r=>r.art==="klausur");const so=s.rows.filter(r=>r.art!=="klausur");const q1=wavg(so.filter(r=>r.quartal===qs[0])),q2=wavg(so.filter(r=>r.quartal===qs[1]));
+  return '<div class="nm-row"><div class="nm-l"><span class="dot" style="background:'+fcol(f)+'"></span><b>'+esc(f)+'</b>'+belegTag(f,hj)+'</div><div class="nm-v">'+ptBadge(s.gesamt,s.gesamt!=null?"b":"n")+'</div><div class="nm-d">'+(isSchriftlich(f,hj)?'Klausur '+(kl.length?kl.map(r=>r.punkte).join(", "):"offen")+' · ':'')+'SoMi Q'+qs[0]+' '+fmtPt(q1)+' · Q'+qs[1]+' '+fmtPt(q2)+'</div></div>';}).join("")+'</div>';
+ const table='<div class="card mt"><h2>Fächer · '+hj+'</h2>'+mlist+'<div class="ntbl-wrap" style="overflow-x:auto"><table class="ntbl"><thead><tr><th>Fach</th><th class="c">Klausur(en)</th><th class="c">SoMi Q'+qs[0]+'</th><th class="c">SoMi Q'+qs[1]+'</th><th class="c">Schnitt</th><th class="c">Verlauf</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="hint" style="margin-top:10px">Schriftliche Fächer: Klausur und sonstige Mitarbeit je 50 %. Mündliche Fächer: nur SoMi. Schnitt = Durchschnitt aller Einträge im Halbjahr.</div></div>';
+ const add='<div class="card mt"><h2>Note eintragen</h2><div class="form c4"><label class="fld">Fach<select id="n_fach">'+fs.map(f=>'<option'+(f===lsGet("lc_lastnfach","")?' selected':'')+'>'+f+'</option>').join("")+'</select></label><label class="fld">Art<select id="n_art"><option value="somi">Sonstige Mitarbeit</option><option value="test">Test</option><option value="referat">Referat / Präsentation</option><option value="klausur">Klausur (manuell)</option><option value="sonstiges">Sonstiges</option></select></label><div class="fld n-ptf"><span>Punkte <b id="n_ptl">10 · Note '+PT_NOTE[10]+'</b></span><input type="hidden" id="n_pt" value="10"><div class="n-pts">'+Array.from({length:16},(_,i)=>15-i).map(p=>'<button type="button" class="'+(p===10?"on":"")+(p<5?" low":"")+'" data-npt="'+p+'">'+p+'</button>').join("")+'</div></div><label class="fld">Quartal<select id="n_q">'+qs.map(q=>'<option value="'+q+'"'+(q===quartalOf()?' selected':'')+'>Q'+q+'</option>').join("")+'</select></label></div><div class="form c4" style="margin-top:8px"><label class="fld">Datum<input id="n_datum" type="date" value="'+todayISO()+'"></label><label class="fld">Gewicht<select id="n_gew"><option value="1">1× normal</option><option value="0.5">0,5× klein</option><option value="2">2× groß</option></select></label><label class="fld">Notiz<input id="n_notiz" placeholder="z. B. Quartalsnote von Frau Dag"></label><label class="fld">&nbsp;<button class="btn primary" id="n_add">Speichern</button></label></div></div>';
  const all=STATE.noten.filter(n=>n.halbjahr===hj).sort((a,b)=>(a.datum||"")<(b.datum||"")?1:-1);
  const list='<div class="card mt"><h2>Alle Einträge · '+hj+'</h2>'+(all.length?all.map(n=>'<div class="row"><span class="pt '+ptClass(n.punkte)+'">'+n.punkte+'</span><span class="dot" style="background:'+fcol(n.fach)+'"></span><span style="flex:1;min-width:0"><span class="title">'+esc(n.fach)+' · '+esc(ART_LABEL[n.art]||n.art)+'</span><div class="sm">'+(n.datum?fmtD(n.datum):"")+(n.quartal?' · Q'+n.quartal:'')+(n.gewicht&&n.gewicht!==1?' · Gewicht '+n.gewicht:'')+(n.notiz?' · '+esc(n.notiz):'')+'</div></span>'+(n.klausur_id?'<a class="btn mini" href="#/lernplan/'+n.klausur_id+'">Klausur</a>':'')+'<button class="iconbtn" data-delnote="'+n.id+'">✕</button></div>').join(""):'<div class="empty">Noch keine Noten in '+hj+'.</div>')+'</div>';
  const legend='<div class="card mt"><h2>Punkte → Note</h2><div class="quick">'+[15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0].map(p=>'<button style="cursor:default" class="'+(p>=10?"":"")+'">'+p+' = '+PT_NOTE[p]+'</button>').join("")+'</div><div class="hint" style="margin-top:8px">Ab 5 Punkten bestanden. Unter 5 zählt in der Q-Phase als Defizit.</div></div>';
- return dbBanner()+seg+top+table+add+list+legend;};
+ return dbBanner()+seg+add+top+table+list+legend;};
 function bindNoten(){document.querySelectorAll("[data-hj]").forEach(b=>b.onclick=()=>{NOTEN_HJ=b.dataset.hj;route();});
+ document.querySelectorAll("[data-npt]").forEach(b=>b.onclick=()=>{const p=+b.dataset.npt;document.getElementById("n_pt").value=p;document.getElementById("n_ptl").textContent=p+" · Note "+PT_NOTE[p];document.querySelectorAll("[data-npt]").forEach(x=>x.classList.toggle("on",x===b));});
  const nf=document.getElementById("n_fach");if(nf)nf.onchange=()=>lsSet("lc_lastnfach",nf.value);
  document.getElementById("n_add").onclick=async()=>{const row={fach:val("n_fach"),art:val("n_art"),halbjahr:NOTEN_HJ,quartal:+val("n_q")||null,punkte:+val("n_pt"),gewicht:+val("n_gew")||1,datum:val("n_datum")||null,notiz:val("n_notiz")||null,klausur_id:null};const btn=document.getElementById("n_add");btn.disabled=true;
   try{if(STATE.v2.noten){const r=await sbInsert("noten",row);STATE.noten.push({...row,id:r.id,datum:row.datum||"",notiz:row.notiz||""});}else{STATE.noten.push({...row,id:uid(),datum:row.datum||"",notiz:row.notiz||""});lsSet("lc_noten",STATE.noten);}toast("Note gespeichert");route();}catch(e){btn.disabled=false;toast("Speichern fehlgeschlagen",true);}};
@@ -1502,6 +1551,7 @@ if(!location.hash)location.hash="#/dashboard";
 <script src="js/views-games.js"></script>
 <script src="js/deutsch-extrem-data.js"></script>
 <script src="js/views-deutsch.js"></script>
+<script src="js/videos.js"></script>
 <script src="js/grammar-notes.js"></script>
 <script src="js/views-klausur.js"></script>
 <script src="js/views-writing.js"></script>

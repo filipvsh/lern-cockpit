@@ -11,10 +11,11 @@ const kmActive = k => !!k && !isVocabTest(k) && upcomingKL().some(x => x.id === 
 const kmExams = () => upcomingKL().filter(k => !isVocabTest(k));
 const kmHasVocab = k => KM_LANG.test(k.fach) || linkedCollections(k).length > 0;
 function kmTabs(k) {
-  const t = [["start", "Überblick"]];
+  const t = [["start", "Start"]];
+  if (videosFor(k).length) t.push(["videos", "Videos"]);
   if (kmHasVocab(k)) t.push(["vokabeln", "Vokabeln"], ["spiele", "Spiele"]);
   if (k.fach === "Französisch") t.push(["grammatik", "Grammatik"], ["schreiben", "Schreiben"]);
-  t.push(["themen", "Themen"]);
+  t.push(["themen", "Aufgaben"]);
   return t;
 }
 const kmTab = k => { const tabs = kmTabs(k); return tabs.some(t => t[0] === ROUTE.query.tab) ? ROUTE.query.tab : "start"; };
@@ -27,7 +28,7 @@ V.klausur = () => {
   if (!kmActive(k)) return pageHead("Klausur-Modus", { back: ["#/lernplan/" + k.id, "Klausur"] }) + '<div class="card">' + emptyState("check", "Diese Klausur ist geschrieben", "Der Klausur-Modus ist damit beendet. Deine Vokabeln behalten ihren Lernstand und kommen im normalen Plan weiter dran.", '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
   const tab = kmTab(k);
   const nav = '<div class="seg dx-tabs km-tabs">' + kmTabs(k).map(([t, l]) => '<a class="' + (t === tab ? "on" : "") + '" href="#/klausur/' + esc(k.id) + '?tab=' + t + '">' + l + '</a>').join("") + '</div>';
-  return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen }[tab])(k) + '</div>';
+  return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen }[tab])(k) + '</div>';
 };
 function kmHead(k) {
   const d = daysUntil(k.datum); const r = readinessOf(k);
@@ -40,7 +41,8 @@ function bindKlausur() {
   document.querySelectorAll("[data-kmgo]").forEach(b => b.onclick = () => kmAction(k, b.dataset.kmgo));
   ({ schreiben: () => bindKmSchreiben(k), vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
   const lk = q("km_link"); if (lk) lk.onclick = () => kmLinkModal(k);
-  bindGrammarGames("exam:" + k.id);
+  bindGrammarGames("exam:" + k.id); bindVideos();
+  document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id));
 }
 function kmAction(k, what) {
   const [kind, arg] = what.split(":");
@@ -50,12 +52,16 @@ function kmAction(k, what) {
   else if (kind === "mock") mockModal(k);
   else if (kind === "setup") topicAssistant(k);
   else if (kind === "lesson") startLesson("exam:" + k.id);
+  else if (kind === "game") startGame(arg, "exam:" + k.id);
   else if (kind === "tab") location.hash = "#/klausur/" + k.id + "?tab=" + arg;
 }
 
 /* ---------- Überblick: was heute dran ist + Fortschritt ---------- */
 function kmSteps(k) {
   const out = []; const words = examVocab(k);
+  // 1. Video, das noch fehlt (erst verstehen, dann üben)
+  const vids = videosFor(k).flatMap(s => s.videos); const seen = videoSeen(); const nextVid = vids.find(v => !seen[v.id]);
+  if (nextVid) out.push({ go: "tab:videos", title: "Video: " + nextVid.t, sub: vids.filter(v => seen[v.id]).length + " von " + vids.length + " Videos gesehen", main: true });
   if (words.length) {
     const d = dayStatus(words); const fresh = words.filter(Engine.isNew).length;
     out.push({ go: "vocab", title: "Vokabeln lernen", sub: d.due || fresh ? [d.due ? plural(d.due, "Wiederholung", "Wiederholungen") : "", fresh ? fresh + " noch neu" : ""].filter(Boolean).join(" · ") : "Alles wiederholt – freiwillig festigen", main: !!(d.due || fresh) });
@@ -65,6 +71,7 @@ function kmSteps(k) {
   else weakestSubs(k, 2).forEach(st => { const m = masteryOf(st.id).score; out.push({ go: "topic:" + st.id, title: st.title, sub: m == null ? "Noch nicht geübt" : m + " % sicher", main: false }); });
   const today = roadmapOf(k).find(s => s.day === 0);
   if (today && today.kind === "mock") out.push({ go: "mock", title: "Probeklausur schreiben", sub: today.sub, main: true });
+  if (/Mathe/.test(k.fach)) out.push({ go: "game:graph", title: "Graphen-Quiz", sub: "Graph ansehen, Funktion antippen – ohne Tippen", main: false });
   if (kmHasVocab(k) && hasFrench("exam:" + k.id)) out.push({ go: "tab:spiele", title: "Spiele", sub: "Artikel, Pronomen, Verb-Puzzle, Hören …", main: false });
   return out;
 }
@@ -126,12 +133,13 @@ function kmGrammatik(k) {
 /* ---------- Themen, Probeklausur, Material ---------- */
 function kmThemen(k) {
   const tps = topicsOfExam(k.id).filter(t => t.status !== "paused");
+  const mathe = /Mathe/.test(k.fach) ? '<div class="game-grid" style="margin-bottom:var(--s5)">' + gameTile("graph", "exam:" + k.id) + '</div><p class="hint">Rechenaufgaben löst du auf Papier – dann Lösung zeigen und selbst bewerten.</p>' : '';
   const head = '<div class="km-actions">' + (subsOfExam(k.id).length ? '<button class="btn primary" data-kmgo="mixed">' + ICO.play + 'Gemischt üben</button><button class="btn" data-kmgo="mock">Probeklausur</button>' : '<button class="btn primary" data-kmgo="setup">Themen festlegen</button>') + '<a class="btn" href="#/lernplan/' + esc(k.id) + '">Bearbeiten</a></div>';
   const body = tps.map(t => { const subs = subsOfTopic(t.id); return '<div class="card"><h2>' + esc(t.title) + '</h2>' + (subs.length ? subs.map(st => { const m = masteryOf(st.id).score; const n = exercisesOf(st.id).length;
     return '<div class="km-th"><div class="km-tt"><b>' + esc(st.title) + '</b><span class="t-sub">' + (m == null ? "noch nicht geübt" : m + " % sicher") + (n ? " · " + plural(n, "Aufgabe", "Aufgaben") : "") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div><button class="btn sm" data-kmgo="topic:' + esc(st.id) + '">Üben</button></div>'; }).join("") : '<div class="hint">Noch keine Unterthemen.</div>') + '</div>'; }).join("");
   const docs = typeof docsFor === "function" ? docsFor(k) : [];
   const mat = '<div class="card"><h2>Material</h2>' + (docs.length ? '<div class="doc-list">' + docs.map(d => '<a class="matl" href="#/material/' + esc(d.id) + '">' + ICO.material + ' ' + esc(d.title) + '</a>').join("") + '</div>' : '<div class="hint">Lade z. B. deine Probe-Klausur unter Mehr → Material hoch und ordne sie dieser Klausur zu.</div>') + '</div>';
-  return head + (body || '<div class="card">' + emptyState("lernplan", "Noch keine Themen", "Leg fest, was drankommt.") + '</div>') + mat;
+  return head + mathe + (body || '<div class="card">' + emptyState("lernplan", "Noch keine Themen", "Leg fest, was drankommt.") + '</div>') + mat;
 }
 
 /** Einstieg im Dashboard: alle anstehenden Klausuren */

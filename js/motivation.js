@@ -74,7 +74,7 @@ function motivationCard() {
   const st = xpStreak(), today = xpToday(), goal = xpGoal(), lv = xpLevel(); const risk = streakAtRisk();
   const pct = Math.min(100, Math.round(today / goal * 100));
   const title = risk ? "Deine Serie ist in Gefahr!" : today >= goal ? "Tagesziel geschafft!" : today ? "Noch " + (goal - today) + " XP bis zum Tagesziel" : st ? "Halte deine Serie am Leben" : "Starte deine Serie";
-  const go = today < goal && typeof gameCards === "function" && gameCards(quickScope()).length >= 4 ? '<button class="btn ' + (risk ? "primary " : "") + 'sm mo-go" data-lesson="' + esc(quickScope()) + '">' + (risk ? "Serie retten" : "XP holen") + '</button>' : '';
+  const go = today < goal && typeof gameCards === "function" && gameCards(quickScope()).length >= 4 ? '<button class="btn ' + (risk ? "primary " : "") + 'sm mo-go" data-lektion="' + esc(quickScope()) + '">' + (risk ? "Serie retten" : "XP holen") + '</button>' : '';
   return '<div class="card mo-card' + (risk ? " risk" : today >= goal ? " done" : "") + '">' +
     '<div class="mo-row"><div class="mo-flame' + (today ? " lit" : "") + '">🔥<b>' + st + '</b></div>' +
     '<div class="mo-main"><div class="mo-t">' + title + '</div><div class="mo-bar"><i style="width:' + pct + '%"></i></div><div class="t-sub">' + today + ' / ' + goal + ' XP heute · Level ' + lv.level + ' (' + lv.into + '/' + lv.need + ')</div></div>' + go + '</div>' +
