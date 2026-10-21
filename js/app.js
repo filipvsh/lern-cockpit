@@ -122,6 +122,7 @@ V.dashboard = () => {
     const d = daysUntil(next.datum);
     exam = '<a class="card exam link" href="#/lernplan/' + esc(next.id) + '"><div class="eyebrow">Deine nächste Prüfung</div><div><div class="t-sub"><span class="dot" style="background:' + fcol(next.fach) + ';margin-right:6px"></span>' + esc(next.fach) + '</div><h3>' + esc(klTitle(next)) + '</h3><div class="meta">' + esc(fmtDL(next.datum)) + (next.uhrzeit ? " · " + esc(next.uhrzeit) : "") + '</div></div><div class="exam-days"><div><div class="t-sub" style="margin-bottom:6px">Noch</div><span class="num xl">' + d + '</span><span class="unit">' + (d === 1 ? "Tag" : "Tage") + '</span></div>' + (r.score != null ? ring(r.score / 100, 84, 7, r.score + "%", "bereit") : '') + '</div>' + (r.score == null ? '<div class="t-sub">' + (r.total ? "Noch nicht genug Lernaktivität für eine zuverlässige Einschätzung." : "Noch keine Unterthemen – lege sie im Lernplan an.") + '</div>' : '<div class="t-sub">Basis: ' + r.withData + ' von ' + r.total + ' Bereichen geübt</div>') + (kl.length > 1 ? '<div class="others">' + kl.slice(1, 3).map(k => '<span style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-2)"><span><b style="font-weight:500;color:var(--text)">' + esc(k.fach) + '</b> · ' + esc(klTitle(k)) + '</span><span>' + daysLabel(daysUntil(k.datum)) + '</span></span>').join("") + '</div>' : '') + '</a>';
     if (typeof isExtremExam === "function" && isExtremExam(next)) exam += extremEntry(next);   // Deutsch Extrem-Modus
+    if (typeof kmEntries === "function") exam += kmEntries();   // Klausur-Modus je Klausur
   } else exam = '<div class="card exam">' + emptyState("flag", "Keine Prüfung geplant", "Trag die nächste ein, sobald der Klausurplan hängt.", '<a class="btn sm" href="#/lernplan">Zum Lernplan</a>') + '</div>';
   const un = unreadNews(); const t = todayISO(); const term = STATE.termine.filter(x => x.datum >= t && x.datum <= addDays(t, 10)).slice(0, 3);
   const info = '';   // Hinweise/Neuigkeiten nicht mehr auf dem Dashboard
@@ -407,8 +408,8 @@ function bindTrainer() {
    ROUTER
    ===================================================================== */
 const ROUTE = { name: "dashboard", sub: "", id: "", query: {} };
-const ALIASES = { klausuren: "lernplan", klausur: "lernplan", statistik: "fortschritt" };
-const OWN_HEADER = ["dashboard", "vokabeln", "lernplan", "trainer", "material", "spiele", "extrem", "ki", "fortschritt", "auth"];
+const ALIASES = { klausuren: "lernplan", statistik: "fortschritt" };
+const OWN_HEADER = ["dashboard", "vokabeln", "lernplan", "trainer", "material", "spiele", "extrem", "klausur", "ki", "fortschritt", "auth"];
 const ENGINE_FREE = ["aufgaben", "stundenplan", "noten", "info", "ernaehrung", "einstellungen"];
 function parseRoute() {
   let h = location.hash.replace(/^#\/?/, ""); const qi = h.indexOf("?"); let q = {};
@@ -418,6 +419,7 @@ function parseRoute() {
   if (name === "fokus") { name = "trainer"; sub = ""; q = { mode: "free" }; }
   if (name === "trainer" && (sub === "vok" || sub === "thema")) sub = "";      // alte Phase-1-Links
   if (ALIASES[name]) name = ALIASES[name];
+  if (name === "klausur" && !sub) name = "lernplan";                           // alter Link ohne Klausur → Lernplan
   ROUTE.name = name; ROUTE.sub = sub; ROUTE.id = name === "lernplan" ? sub : ""; ROUTE.query = q;
   if (!V[ROUTE.name] || ROUTE.name === "auth" || ROUTE.name === "trainerSession") { ROUTE.name = "dashboard"; ROUTE.sub = ""; }
 }
@@ -445,7 +447,7 @@ function route() {
   if (enter && !ROUTE.query.keep) window.scrollTo({ top: 0 });
 }
 function bindPage(name) {
-  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: () => {} }[name];
+  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, klausur: bindKlausur, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: () => {} }[name];
   if (b) b();
 }
 window.addEventListener("hashchange", () => { closeModal(); const prev = ROUTE.name + "/" + ROUTE.sub; parseRoute(); if (ROUTE.name + "/" + ROUTE.sub !== prev) VOK_FILTER = ""; route(); });

@@ -867,6 +867,74 @@ await scenario("Vokabeln lernen: Sprache antippen, Kenne ich schon, Hören-Spiel
   await ctx.close();
 });
 
+await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artikel/Pronomen/Verb-Puzzle, verschwindet nach der Klausur", async () => {
+  const b = new MockBackend();
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const FK = "11111111-aaaa-4aaa-8aaa-0000000000f2";
+  b.db.klausuren.push({ id: FK, fach: "Französisch", thema: "Les vêtements", datum: day(6), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: ["Unité 1"], topics_migrated: true });
+  let n = 100; [["une casquette", "die Kappe"], ["un short", "die Shorts"], ["la jupe", "der Rock"], ["le pull", "der Pullover"]].forEach(([w, m]) => b.db.vokabeln.push({ id: n++, begriff: w, bedeutung: m, sprache: "Unité 1", level: 0, next: day(0) }));
+  // schon gelernt: bleibt gelernt (Langzeit)
+  Object.assign(b.db.vokabeln.find(v => v.begriff === "le travail"), { reps: 4, level: 4, interval_days: 40, next_review_at: day(30) + "T00:00:00.000Z", last_reviewed_at: day(-5) + "T10:00:00.000Z", last_result: "correct" });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  await page.waitForSelector(`.km-ent[href="#/klausur/${FK}"]`);
+  await page.$eval(`.km-ent[href="#/klausur/${FK}"]`, a => a.click()); await page.waitForSelector(".km-steps");
+  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Überblick", "Vokabeln", "Spiele", "Themen"]);
+  assert.ok(await noScroll(), "Überblick ohne Querscrollen");
+  assert.ok((await page.textContent("#km_body")).includes("Dein bisheriger Stand zählt"));
+  const sure = await page.evaluate(id => examVocab(klById(id)).filter(v => ["mid", "long"].includes(Engine.stageOf(v).key)).length, FK);
+  assert.ok(sure >= 1, "gelerntes Wort zählt");
+  await shot(page, "km-01-start");
+  // Vokabelrunde nur mit den Wörtern der Klausur
+  await page.click('[data-kmgo="vocab"]'); await page.waitForSelector(".fx-card");
+  const sc = await page.evaluate(() => ({ ex: TS.scope.exam_id, cols: [...new Set(TS.items.map(it => cardById(it.vocab_id).sprache))], travail: TS.items.some(it => cardById(it.vocab_id).begriff === "le travail") }));
+  assert.equal(sc.ex, FK); assert.deepEqual(sc.cols, ["Unité 1"]); assert.ok(!sc.travail, "gelerntes Wort nicht von vorn");
+  assert.ok((await page.getAttribute(".closebtn", "href")).startsWith("#/klausur/" + FK), "zurück zur Klausur-Seite");
+  await page.evaluate(async () => { await tsFinish("abandoned", true); TS = null; tsSave(); await Api.idle(); });
+  // Spiele mit genau diesen Wörtern
+  await go(page, `#/klausur/${FK}?tab=spiele`); await page.waitForSelector('[data-game="verben"]');
+  assert.ok(await noScroll(), "Spiele ohne Querscrollen");
+  // Artikel-Duell
+  await page.click('[data-game="artikel"]'); await page.waitForSelector("[data-ar]");
+  const ar = await page.evaluate(() => GAME.rounds); assert.ok(ar >= 5, "Artikel-Wörter: " + ar);
+  for (let i = 0; i < ar; i++) { await page.waitForSelector("[data-ar]"); const c = await page.evaluate(() => GAME.q.correct); await page.click(`[data-ar="${c}"]`); await page.click("#ar_next"); }
+  await page.waitForSelector(".done-mark"); assert.ok((await page.textContent("#view")).includes(ar + " von " + ar + " richtig"));
+  assert.ok((await page.getAttribute("#gm_back", "href")).includes("#/klausur/" + FK), "zurück zur Klausur");
+  // Verb-Puzzle
+  await page.click("#gm_back"); await page.waitForSelector('[data-game="verben"]'); await page.click('[data-game="verben"]'); await page.waitForSelector("[data-vp]");
+  await shot(page, "km-02-puzzle"); assert.ok(await noScroll(), "Puzzle ohne Querscrollen");
+  for (let i = 0; i < 8; i++) {
+    await page.waitForSelector("#vp_check");
+    const rows = await page.evaluate(() => GAME.pz.rows.map(r => [r.key, r.options.indexOf(r.correct)]));
+    for (const [key, idx] of rows) await page.click(`[data-vp="${key}|${idx}"]`);
+    await page.click("#vp_check"); await page.waitForSelector("#vp_next");
+    assert.ok(await page.evaluate(() => GAME.res.ok), "Puzzle richtig zusammengesetzt");
+    await page.click("#vp_next");
+  }
+  await page.waitForSelector(".done-mark"); assert.ok((await page.textContent("#view")).includes("8 von 8 richtig"));
+  // ein Fehler wird erkannt
+  await page.click("#gm_again"); await page.waitForSelector("#vp_check");
+  const rows = await page.evaluate(() => GAME.pz.rows.map(r => [r.key, r.key === "pronoun" ? r.options.findIndex(o => o !== r.correct) : r.options.indexOf(r.correct)]));
+  for (const [key, idx] of rows) await page.click(`[data-vp="${key}|${idx}"]`);
+  await page.click("#vp_check"); await page.waitForSelector("#vp_next");
+  assert.ok((await page.textContent(".fb")).includes("Richtig wäre"));
+  // Pronomen
+  await go(page, `#/klausur/${FK}?tab=spiele`); await page.waitForSelector('[data-game="pronomen"]'); await page.click('[data-game="pronomen"]');
+  for (let i = 0; i < 12; i++) { await page.waitForSelector("[data-pr]"); const c = await page.evaluate(() => GAME.q.correct); await page.click(`[data-pr="${c}"]`); await page.click("#pr_next"); }
+  await page.waitForSelector(".done-mark"); assert.ok((await page.textContent("#view")).includes("12 von 12 richtig"));
+  // Vokabeln-Tab und Themen-Tab
+  await go(page, `#/klausur/${FK}?tab=vokabeln`); await page.waitForSelector(".km-words"); assert.ok(await noScroll());
+  await shot(page, "km-03-vokabeln");
+  await go(page, `#/klausur/${FK}?tab=themen`); await page.waitForSelector(".km-actions"); assert.ok(await noScroll());
+  // nach der Klausur: Modus weg
+  await page.evaluate(id => { const k = klById(id); k.punkte = 11; bump(); }, FK);
+  await go(page, `#/klausur/${FK}`); await page.waitForSelector(".empty");
+  assert.ok((await page.textContent("#view")).includes("Diese Klausur ist geschrieben"));
+  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
+  assert.ok(!(await page.$(`.km-ent[href="#/klausur/${FK}"]`)), "kein Eintrag mehr im Dashboard");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);
