@@ -202,6 +202,7 @@ async function tsFinish(status, silent) {
     Engine.finish(TS, now, "completed"); TS.evalPending = true; tsSave(); tsSync(); renderSessionStage(); return;
   }
   Engine.finish(TS, now, status);
+  if (status === "completed" && typeof addXP === "function") addXP(sessionXP(TS));
   const subs = Object.keys(TS.masteryBefore || {}); syncMasteryCache(subs);
   tsSave(); tsSync();
   if (!silent) renderSessionStage();

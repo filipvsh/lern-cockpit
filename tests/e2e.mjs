@@ -879,7 +879,7 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   await page.waitForSelector(`.km-ent[href="#/klausur/${FK}"]`);
   await page.$eval(`.km-ent[href="#/klausur/${FK}"]`, a => a.click()); await page.waitForSelector(".km-steps");
-  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Überblick", "Vokabeln", "Spiele", "Themen"]);
+  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Überblick", "Vokabeln", "Spiele", "Grammatik", "Schreiben", "Themen"]);
   assert.ok(await noScroll(), "Überblick ohne Querscrollen");
   assert.ok((await page.textContent("#km_body")).includes("Dein bisheriger Stand zählt"));
   const sure = await page.evaluate(id => examVocab(klById(id)).filter(v => ["mid", "long"].includes(Engine.stageOf(v).key)).length, FK);
@@ -926,6 +926,32 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   await go(page, `#/klausur/${FK}?tab=vokabeln`); await page.waitForSelector(".km-words"); assert.ok(await noScroll());
   await shot(page, "km-03-vokabeln");
   await go(page, `#/klausur/${FK}?tab=themen`); await page.waitForSelector(".km-actions"); assert.ok(await noScroll());
+  // Grammatik: Spickzettel aufklappen, „Jetzt üben“ startet das passende Spiel, „Kurz erklärt“ im Spiel
+  await go(page, `#/klausur/${FK}?tab=grammatik`); await page.waitForSelector(".gr-card"); assert.ok(await noScroll());
+  await page.click(".gr-card summary"); await page.waitForSelector('.gr-card[open] [data-grgame="verben"]');
+  await page.click('.gr-card[open] [data-grgame="verben"]'); await page.waitForSelector("[data-vp]");
+  await page.click("#gm_explain"); await page.waitForSelector("#gr_ok"); await page.click("#gr_ok");
+  // Schreiben: Baustein einfügen, Fehler finden, übernehmen, Entwurf gespeichert, KI-Korrektur
+  await go(page, `#/klausur/${FK}?tab=schreiben`); await page.waitForSelector("#wr_text"); assert.ok(await noScroll(), "Schreiben ohne Querscrollen");
+  await page.click('[data-wrb="0"]');
+  assert.ok((await page.inputValue("#wr_text")).startsWith("Salut"), "Baustein eingefügt");
+  await page.fill("#wr_text", "Salut Léa, je achète une robe vert. Nous achète des baskets. Bises, Filip");
+  await page.click("#wr_check"); await page.waitForSelector(".wr-is");
+  const iss = await page.$$eval(".wr-is b", x => x.map(e => e.textContent));
+  assert.deepEqual(iss, ["j'achète", "verte", "achetons"]);
+  await page.click('[data-wrfix="0"]'); await page.waitForSelector(".wr-is");
+  assert.ok((await page.inputValue("#wr_text")).includes("j'achète une robe vert"), "Übernehmen bessert aus");
+  assert.ok((await page.textContent(".wr-check")).includes("Anrede"));
+  await shot(page, "km-04-schreiben");
+  await page.evaluate(() => Api.idle());
+  assert.ok(b.db.einstellungen.some(x => x.key === "schreiben_" + FK && /j'achète/.test(x.value.mail)), "Entwurf gespeichert");
+  await page.click("#wr_ai"); await page.waitForSelector(".wr-ai, .wr-card .hint", { timeout: 10000 });
+  // Dranbleiben: XP aus Spielen zählen, Karte im Dashboard, Abzeichen im Fortschritt
+  assert.ok(await page.evaluate(() => xpToday() > 0), "XP aus Spielen gutgeschrieben");
+  await go(page, "#/dashboard"); await page.waitForSelector(".mo-card");
+  assert.ok((await page.textContent(".mo-card")).includes("XP heute"));
+  await go(page, "#/fortschritt"); await page.waitForSelector(".bd-grid"); assert.ok(await noScroll(), "Fortschritt ohne Querscrollen");
+  await page.click('[data-xpgoal="50"]'); await page.waitForTimeout(300); assert.equal(await page.evaluate(() => xpGoal()), 50);
   // nach der Klausur: Modus weg
   await page.evaluate(id => { const k = klById(id); k.punkte = 11; bump(); }, FK);
   await go(page, `#/klausur/${FK}`); await page.waitForSelector(".empty");
@@ -950,11 +976,15 @@ await scenario("Lektion (Duolingo-Stil): Bilder, Übersetzen, Paare, Lücke, Sat
   // Klausur-Modus steht oben im Dashboard
   await page.waitForSelector(".km-list");
   assert.ok(await page.evaluate(() => document.querySelector(".km-list").getBoundingClientRect().top < document.querySelector(".mission, .cont").getBoundingClientRect().top), "Klausur-Modus vor dem Auftrag");
-  await page.evaluate(() => { window.__said = []; speechSynthesis.speak = u => window.__said.push(u.text); });
+  await page.evaluate(() => {
+    window.__said = []; speechSynthesis.speak = u => window.__said.push(u.text);
+    // simulierte Spracherkennung: „hört“ window.__hear
+    window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { setTimeout(() => this.onresult({ results: [[{ transcript: window.__hear }]] }), 30); } stop() {} abort() {} };
+  });
   await go(page, `#/klausur/${FK}?tab=spiele`); await page.waitForSelector("[data-lesson]");
   await page.click("[data-lesson]"); await page.waitForSelector(".les-body");
   const types = await page.evaluate(() => LES.items.map(x => x.type));
-  for (const t of ["pic", "mc", "pairs", "gap", "build", "listen"]) assert.ok(types.includes(t), "Aufgabentyp " + t + ": " + types);
+  for (const t of ["pic", "mc", "pairs", "gap", "build", "listen", "speak"]) assert.ok(types.includes(t), "Aufgabentyp " + t + ": " + types);
   const total = types.length; let first = true; const seen = new Set();
   for (let g = 0; g < 40; g++) {
     const st = await page.evaluate(() => LES.done ? null : (({ type, correct, target, tiles, left }) => ({ type, correct, target, tiles, left: left && left.map(x => String(x.id)), retry: !!LES.items[LES.i].retry }))(LES.items[LES.i]));
@@ -965,7 +995,11 @@ await scenario("Lektion (Duolingo-Stil): Bilder, Übersetzen, Paare, Lücke, Sat
       if (st.target) await page.click("#les_skip"); else { await page.click(`[data-lo="${(st.correct + 1) % 2}"]`); await page.click("#les_check"); }
       await page.waitForSelector(".les-foot.bad"); await page.click("#les_next"); continue;
     }
-    if (st.type === "pairs") {
+    if (st.type === "speak") {
+      await page.evaluate(() => { window.__hear = "bonjour tout le monde"; }); await page.click("#les_mic");
+      await page.waitForFunction(() => /nicht ganz/.test(document.querySelector(".les-heard").textContent));   // 1. Versuch daneben: keine Strafe
+      await page.evaluate(t => { window.__hear = t.toLowerCase(); }, st.target); await page.click("#les_mic");
+    } else if (st.type === "pairs") {
       for (const id of st.left) { await page.click(`[data-lp="l|${id}"]`); assert.ok(await page.$(`.les-pair.on[data-lp="l|${id}"]`), "Auswahl sichtbar markiert"); await page.click(`[data-lp="r|${id}"]`); }
     } else if (st.target) {
       const toks = await page.evaluate(t => LESSON.tokens(t), st.target); const used = [];

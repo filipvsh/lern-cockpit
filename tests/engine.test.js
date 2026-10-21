@@ -450,3 +450,28 @@ test("Lektion: Lücke ist ein ganzes Wort an der ersten Stelle im Satz", () => {
     assert.ok(/[\s'’]/.test(before) && /[\s.,!?]/.test(after), "Lücke mitten im Wort: " + s.fr);
   }
 });
+
+/* ---------- Schreib-Check & Nachsprechen ---------- */
+const C = require("../js/fr-check.js");
+test("Schreib-Check: Elision, Genus, Angleichung, Konjugation, Akzente – Satzanfang bleibt groß", () => {
+  const f = t => C.check(t).map(e => [e.wrong, e.fix, e.kind]);
+  assert.deepEqual(f("Je achète une robe vert."), [["Je achète", "J'achète", "elision"], ["vert", "verte", "agree"]]);
+  assert.deepEqual(f("Nous achète un robe."), [["achète", "achetons", "verb"], ["un robe", "une robe", "gender"]]);
+  assert.deepEqual(f("des baskets blanche"), [["blanche", "blanches", "agree"]]);
+  assert.deepEqual(f("Ca coute tres cher."), [["Ca", "Ça", "accent"], ["coute", "coûte", "accent"], ["tres", "très", "accent"]]);
+  assert.deepEqual(f("Tu porte un pull verte."), [["porte", "portes", "verb"], ["verte", "vert", "agree"]]);
+});
+test("Schreib-Check: korrekter Text ohne Fehlalarm (auch je vous aime, marron, je paye)", () => {
+  const ok = "Hier, je suis allée au magasin avec ma mère. J'ai acheté un pull bleu et une casquette noire. Le pull est très confortable : il coûte 20 euros. Elle porte une robe rouge et des baskets blanches. Je vous aime. Des chaussures marron. Je paye. Nous allons au magasin. Vous essayez la jupe ?";
+  assert.deepEqual(C.check(ok), []);
+  assert.equal(C.wordCount("J'ai un pull."), 4);
+});
+test("Nachsprechen: kleine Erkennungsfehler zählen, falsche Wörter nicht", () => {
+  assert.ok(L.speechOk(["je porte un pantalon noir"], "Je porte un pantalon noir."));
+  assert.ok(L.speechOk(["xyz", "la robe"], "la robe"), "eine der Alternativen reicht");
+  assert.ok(!L.speechOk(["le pull"], "la jupe"));
+  const VET = require("fs").readFileSync(__dirname + "/../js/content-packs.js", "utf8");
+  const words = [...VET.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].slice(0, 51).map((m, i) => ({ id: i, begriff: m[1], bedeutung: m[2] }));
+  const ls = L.buildLesson({ cards: words, speech: true, mic: true });
+  assert.equal(ls.filter(x => x.type === "speak").length, 2); assert.ok(ls.length <= 14);
+});

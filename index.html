@@ -613,6 +613,32 @@ body.focus{background:var(--surface)}
 .les-stats{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:8px 0}.les-stats div{border:2px solid var(--line);border-radius:14px;padding:10px 16px;min-width:92px;display:flex;flex-direction:column}.les-stats b{font-size:22px}.les-stats span{font-size:12px;color:var(--text-2)}
 .les-endbtn{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .les-pic.on,:root:not([data-theme="light"]) .les-opt.on,:root:not([data-theme="light"]) .les-chip.on,:root:not([data-theme="light"]) .les-pair.on{background:#1b3a4b}:root:not([data-theme="light"]) .les-foot.ok{background:#1f3b12}:root:not([data-theme="light"]) .les-foot.bad{background:#4a1c1c}:root:not([data-theme="light"]) .les-pic.right,:root:not([data-theme="light"]) .les-opt.right{background:#1f3b12}:root:not([data-theme="light"]) .les-pic.wrongpick,:root:not([data-theme="light"]) .les-opt.wrongpick{background:#4a1c1c}}
+.gr-card{margin-bottom:var(--s3)}.gr-card summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;list-style:none}.gr-card summary::-webkit-details-marker{display:none}.gr-card summary b{font-size:17px}
+.gr-body{margin-top:var(--s3);display:grid;gap:10px}.gr-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;font-size:15px;line-height:1.5}.gr-h{font-weight:600;color:var(--text-2)}.gr-row b{color:var(--accent)}
+.gr-ex{display:flex;flex-wrap:wrap;gap:6px}.gr-ex span{background:var(--accent-weak);color:var(--accent);border-radius:8px;padding:4px 10px;font-size:14px}.gr-body .btn{justify-self:start}
+@media(max-width:560px){.gr-row{grid-template-columns:1fr;gap:2px}}
+.mo-card{margin-bottom:var(--s5);padding:var(--s4) var(--s5)}.mo-row{display:flex;align-items:center;gap:var(--s4)}
+.mo-flame{display:flex;align-items:center;gap:4px;font-size:30px;filter:grayscale(1);opacity:.55}.mo-flame b{font-size:24px;color:var(--text)}.mo-flame.lit{filter:none;opacity:1}.mo-flame.lit b{color:#ff9600}
+.mo-main{flex:1;min-width:0}.mo-t{font-weight:600;font-size:16px;margin-bottom:6px}
+.mo-bar{height:10px;border-radius:99px;background:var(--fill-2);overflow:hidden;margin-bottom:5px}.mo-bar i{display:block;height:100%;background:linear-gradient(90deg,#ffc800,#ff9600);border-radius:99px;transition:width .4s var(--ease-out)}
+.mo-card.done .mo-bar i{background:#58cc02}.mo-card.risk{border:2px solid #ff9600}.mo-card.risk .mo-t{color:#e07800}
+.mo-risk{margin-top:var(--s3);font-size:14px;color:var(--text-2)}
+.bd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:var(--s3)}.bd{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:12px 8px;border-radius:var(--r-md);background:var(--fill)}
+.bd-i{font-size:30px}.bd b{font-size:14px}.bd .t-sub{font-size:12px}.bd.off{opacity:.45}.bd.off .bd-i{filter:grayscale(1)}
+.mo-goal{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s4)}
+.les-goal{width:min(320px,100%);text-align:center}.mo-go{flex:0 0 auto}
+.les-micw{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:18px}.les-mic{width:104px;height:104px;border-radius:50%;border:0;background:#1cb0f6;font-size:44px;cursor:pointer;box-shadow:0 5px 0 #1899d6;transition:transform .15s}
+.les-mic.on{background:#ff4b4b;box-shadow:0 5px 0 #d33;animation:micpulse 1.1s ease-in-out infinite}.les-mic:disabled{opacity:.5}.les-heard{text-align:center;max-width:320px}
+@keyframes micpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.wr-tasks{display:flex;max-width:100%;overflow-x:auto;margin-bottom:var(--s4)}
+.wr-prompt{font-weight:600;line-height:1.5}.wr-bs{display:flex;flex-wrap:wrap;gap:6px;margin:var(--s3) 0}.wr-b{border:1px solid var(--line);background:var(--fill);border-radius:99px;padding:5px 11px;font:inherit;font-size:13px;color:var(--text);cursor:pointer}
+.wr-ta{width:100%;min-height:200px;font:inherit;font-size:16px;line-height:1.6;padding:12px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface);color:var(--text);resize:vertical;box-sizing:border-box}
+.wr-bar{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s3)}.wr-bar .grow{flex:1}
+.wr-marked{margin-top:var(--s4);padding:12px;border-radius:var(--r-md);background:var(--fill);line-height:1.7;overflow-wrap:anywhere}.wr-m{background:#ffdfe0;color:#c62828;border-radius:4px;padding:0 2px;text-decoration:underline wavy #ff4b4b}
+.wr-issues{display:grid;gap:8px;margin-top:var(--s3)}.wr-is{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:10px 12px;border-radius:var(--r-md);border:1px solid var(--line)}.wr-is s{color:var(--red)}.wr-is b{color:var(--green)}
+.wr-check{display:grid;gap:4px;margin-top:var(--s4);font-size:14px;color:var(--text-2)}.wr-check .ok{color:var(--green)}
+.wr-ai{margin-top:var(--s4);padding:12px;border-radius:var(--r-md);background:var(--accent-weak)}.wr-ai h3{margin:0 0 6px}.wr-ai h4{margin:10px 0 4px}.wr-ai ul{margin:0;padding-left:18px}
+.wr-model{margin-top:var(--s4)}.wr-model summary{cursor:pointer;font-weight:600}.wr-model pre{white-space:pre-wrap;font:inherit;line-height:1.6;background:var(--fill);padding:12px;border-radius:var(--r-md)}
 .dx-hero{margin:var(--s2) 0 var(--s4)}.dx-hero .t-large{margin:2px 0}
 .dx-tabs{display:flex;max-width:100%;overflow-x:auto;margin-bottom:var(--s4);-webkit-overflow-scrolling:touch}.dx-tabs a{flex:0 0 auto;padding:7px 12px;border-radius:calc(var(--r-sm) - 2px);font-size:14px;color:var(--text);text-decoration:none;white-space:nowrap}.dx-tabs a.on{background:var(--surface);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.1)}
 .dx-count{text-align:center;padding:var(--s6)}.dx-big{font-size:clamp(22px,6vw,30px);font-weight:700;letter-spacing:-.02em;margin-top:6px}
@@ -970,6 +996,7 @@ button.vrow:hover{background:var(--surface-2)}
 <script src="js/engine.js"></script>
 <script src="js/fr-grammar.js"></script>
 <script src="js/lesson.js"></script>
+<script src="js/fr-check.js"></script>
 <script src="js/api.js"></script>
 <script>
 /* =====================================================================
@@ -1475,8 +1502,11 @@ if(!location.hash)location.hash="#/dashboard";
 <script src="js/views-games.js"></script>
 <script src="js/deutsch-extrem-data.js"></script>
 <script src="js/views-deutsch.js"></script>
+<script src="js/grammar-notes.js"></script>
 <script src="js/views-klausur.js"></script>
+<script src="js/views-writing.js"></script>
 <script src="js/views-lesson.js"></script>
+<script src="js/motivation.js"></script>
 <script src="js/content-packs.js"></script>
 <script src="js/app.js"></script>
 </body>

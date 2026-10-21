@@ -125,13 +125,13 @@ V.dashboard = () => {
   } else exam = '<div class="card exam">' + emptyState("flag", "Keine Prüfung geplant", "Trag die nächste ein, sobald der Klausurplan hängt.", '<a class="btn sm" href="#/lernplan">Zum Lernplan</a>') + '</div>';
   const un = unreadNews(); const t = todayISO(); const term = STATE.termine.filter(x => x.datum >= t && x.datum <= addDays(t, 10)).slice(0, 3);
   const info = '';   // Hinweise/Neuigkeiten nicht mehr auf dem Dashboard
-  return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + vocabLauncher() + (typeof kmEntries === "function" ? kmEntries() : "") + (tsActive() ? contCard(continueItem()) : missionCard(plan)) + '</div><div class="a-exam">' + exam + '</div>' +
+  return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + motivationCard() + vocabLauncher() + (typeof kmEntries === "function" ? kmEntries() : "") + (tsActive() ? contCard(continueItem()) : missionCard(plan)) + '</div><div class="a-exam">' + exam + '</div>' +
     '<div class="a-today">' + sectionHead("Heute", '<button class="shl" id="plan_new" title="Plan mit aktuellen Daten neu berechnen">Neu planen</button>') + (hwToday() || '<div class="card">' + emptyState("check", "Keine Hausaufgaben für morgen", "").replace('class="empty"', 'class="empty sm"') + '</div>') + laterHW() + '</div>' +
     '<div class="a-weak">' + sectionHead("Deine Schwachstellen", '<a class="shl" href="#/fortschritt">Fortschritt</a>') + '<div class="card tight">' + weakList(3) + '</div></div>' + lessonsToday() + info + '</div>';
 };
 function bindDashboard() {
   if (!engineReady()) return;
-  bindVocabLauncher();
+  bindVocabLauncher(); bindLessonCards();
   const c = document.getElementById("cont_go"); if (c) c.onclick = () => { const it = continueItem(); if (it && it.start) startTraining(it.start); };
   const plan = todayPlan();
   document.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => startPlanItem(plan.items[+b.dataset.plan]));
@@ -446,7 +446,7 @@ function route() {
   if (enter && !ROUTE.query.keep) window.scrollTo({ top: 0 });
 }
 function bindPage(name) {
-  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, klausur: bindKlausur, lektion: bindLektion, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: () => {} }[name];
+  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, klausur: bindKlausur, lektion: bindLektion, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: bindMotivation }[name];
   if (b) b();
 }
 window.addEventListener("hashchange", () => { closeModal(); const prev = ROUTE.name + "/" + ROUTE.sub; parseRoute(); if (ROUTE.name + "/" + ROUTE.sub !== prev) VOK_FILTER = ""; route(); });

@@ -1,7 +1,8 @@
 /* =====================================================================
    LERN-COCKPIT · LEKTION (Duolingo-Stil) – Daten und reine Logik
    Aufgabentypen: Bild wählen · Übersetzung wählen (beide Richtungen) ·
-   Paare finden · Lücke füllen · Satz bauen (Wortbank) · Hören und bauen.
+   Paare finden · Lücke füllen · Satz bauen (Wortbank) · Hören und bauen ·
+   Nachsprechen (Mikrofon, wenn der Browser Spracherkennung kann).
    Fehler kommen am Ende der Lektion noch einmal. Getestet in
    tests/engine.test.js. Sätze: Klausur „Les vêtements“; „key“ = Begriff
    der Karte (wie in der Sammlung), gap = Wort im Satz, opts = Ablenker.
@@ -105,12 +106,29 @@
     sentFocus.slice(0, 2).forEach(s => { const opts = mix([s.gap].concat(s.opts.slice(0, 3))); out.push({ type: "gap", card: byKey[norm(s.key)].id, before: s.fr.slice(0, s.fr.indexOf(s.gap)), after: s.fr.slice(s.fr.indexOf(s.gap) + s.gap.length), de: s.de, opts, correct: opts.indexOf(s.gap), full: s.fr }); });
     sentFocus.slice(2, 4).forEach(s => out.push({ type: "build", card: byKey[norm(s.key)].id, prompt: s.de, target: s.fr, tiles: bank(s) }));
     if (o.speech) sentFocus.slice(4, 6).forEach(s => out.push({ type: "listen", card: byKey[norm(s.key)].id, say: s.fr, target: s.fr, de: s.de, tiles: bank(s) }));
+    // Nachsprechen: ein Wort und ein kurzer Satz
+    if (o.mic) {
+      const w = focus[0]; out.push({ type: "speak", card: w.id, say: first(w.begriff), target: first(w.begriff), de: first(w.bedeutung) });
+      const sh = sentFocus.slice(6).concat(sentFocus).find(s => tokens(s.fr).length <= 6);
+      if (sh) out.push({ type: "speak", card: byKey[norm(sh.key)].id, say: sh.fr, target: sh.fr, de: sh.de });
+    }
     // ohne Sätze: mehr Wortaufgaben
     if (!sents.length) focus.slice(4, 8).forEach((c, i) => { const fwd = i % 2 === 0; const right = first(fwd ? c.bedeutung : c.begriff);
       const opts = mix([right].concat(distract(c, 3, fwd ? "bedeutung" : "begriff"))); out.push({ type: "mc", card: c.id, dir: fwd ? "fwd" : "rev", prompt: first(fwd ? c.begriff : c.bedeutung), say: fwd ? first(c.begriff) : null, opts, correct: opts.indexOf(right) }); });
-    return out.slice(0, 14);
+    const speakIt = out.filter(x => x.type === "speak");
+    return out.filter(x => x.type !== "speak").slice(0, 14 - speakIt.length).concat(speakIt);
   }
+  /** Nachsprechen: Ähnlichkeit 0–1 (ohne Akzente, Satzzeichen, Groß/klein) – ab 0,75 zählt es */
+  function similarity(a, b) {
+    const f = s => strip(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/'/g, " ").replace(/\s+/g, " ").trim();
+    const x = f(a), y = f(b); if (!x || !y) return 0;
+    const d = Array.from({ length: x.length + 1 }, (_, i) => [i].concat(new Array(y.length).fill(0)));
+    for (let j = 1; j <= y.length; j++) d[0][j] = j;
+    for (let i = 1; i <= x.length; i++) for (let j = 1; j <= y.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (x[i - 1] === y[j - 1] ? 0 : 1));
+    return 1 - d[x.length][y.length] / Math.max(x.length, y.length);
+  }
+  const speechOk = (heardList, target) => (heardList || []).some(h => similarity(h, target) >= 0.75);
   /** XP: 10 pro Lektion + 1 je fehlerfreie Aufgabe, Serie (Combo) ab 5 gibt +5 */
   const lessonXP = (right, total, bestCombo) => 10 + right + (bestCombo >= 5 ? 5 : 0) + (right === total ? 5 : 0);
-  return { SENTENCES, PICS, COLORS, tokens, checkBuild, buildLesson, lessonXP, norm, strip };
+  return { SENTENCES, PICS, COLORS, tokens, checkBuild, buildLesson, lessonXP, norm, strip, similarity, speechOk };
 });

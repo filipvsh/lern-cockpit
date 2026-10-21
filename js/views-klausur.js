@@ -13,6 +13,7 @@ const kmHasVocab = k => KM_LANG.test(k.fach) || linkedCollections(k).length > 0;
 function kmTabs(k) {
   const t = [["start", "Überblick"]];
   if (kmHasVocab(k)) t.push(["vokabeln", "Vokabeln"], ["spiele", "Spiele"]);
+  if (k.fach === "Französisch") t.push(["grammatik", "Grammatik"], ["schreiben", "Schreiben"]);
   t.push(["themen", "Themen"]);
   return t;
 }
@@ -26,7 +27,7 @@ V.klausur = () => {
   if (!kmActive(k)) return pageHead("Klausur-Modus", { back: ["#/lernplan/" + k.id, "Klausur"] }) + '<div class="card">' + emptyState("check", "Diese Klausur ist geschrieben", "Der Klausur-Modus ist damit beendet. Deine Vokabeln behalten ihren Lernstand und kommen im normalen Plan weiter dran.", '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
   const tab = kmTab(k);
   const nav = '<div class="seg dx-tabs km-tabs">' + kmTabs(k).map(([t, l]) => '<a class="' + (t === tab ? "on" : "") + '" href="#/klausur/' + esc(k.id) + '?tab=' + t + '">' + l + '</a>').join("") + '</div>';
-  return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, vokabeln: kmVokabeln, spiele: kmSpiele, themen: kmThemen }[tab])(k) + '</div>';
+  return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen }[tab])(k) + '</div>';
 };
 function kmHead(k) {
   const d = daysUntil(k.datum); const r = readinessOf(k);
@@ -37,8 +38,9 @@ function bindKlausur() {
   const k = klById(decodeURIComponent(ROUTE.sub || "")); if (!kmActive(k)) return;
   const q = id => document.getElementById(id);
   document.querySelectorAll("[data-kmgo]").forEach(b => b.onclick = () => kmAction(k, b.dataset.kmgo));
-  ({ vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
+  ({ schreiben: () => bindKmSchreiben(k), vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
   const lk = q("km_link"); if (lk) lk.onclick = () => kmLinkModal(k);
+  bindGrammarGames("exam:" + k.id);
 }
 function kmAction(k, what) {
   const [kind, arg] = what.split(":");
@@ -114,6 +116,11 @@ function kmSpiele(k) {
   const keys = Object.keys(GAMES).filter(g => fr || (!GAMES[g].fr && g !== "artikel"));
   const order = fr ? ["verben", "artikel", "pronomen", "hoeren", "blitz", "memory", "salat"] : keys;
   return lessonCard(sc) + '<p class="hint" style="margin-top:0">Alle Spiele nur mit den ' + gameCards(sc).length + ' Wörtern dieser Klausur.' + (fr ? ' Verb-Puzzle und Pronomen üben die Grammatik.' : '') + '</p><div class="game-grid">' + order.filter(g => keys.includes(g)).map(g => gameTile(g, sc)).join("") + '</div>';
+}
+
+/* ---------- Grammatik: Spickzettel + direkt üben ---------- */
+function kmGrammatik(k) {
+  return '<p class="hint" style="margin-top:0">Kurz erklärt, mit Beispielen – tippe auf ein Thema. „Jetzt üben“ startet das passende Spiel.</p>' + GRAMMAR_NOTES.map(n => grammarCard(n)).join("");
 }
 
 /* ---------- Themen, Probeklausur, Material ---------- */

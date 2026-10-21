@@ -167,7 +167,8 @@ function nextSalat() {
 }
 function gameStage() {
   const g = GAME; const name = GAMES[g.type].name;
-  const top = '<div class="game-top"><a class="backlink" href="' + esc(g.back || "#/spiele") + '" id="gm_back">' + ICO.back + 'Spiele</a><span class="t-sub">' + esc(name) + ' · ' + esc(g.col) + '</span></div>';
+  const explain = grammarFor(g.type).length && !g.over ? '<button class="btn plain sm" id="gm_explain">Kurz erklärt</button>' : '';
+  const top = '<div class="game-top"><a class="backlink" href="' + esc(g.back || "#/spiele") + '" id="gm_back">' + ICO.back + 'Spiele</a>' + explain + '<span class="t-sub">' + esc(name) + ' · ' + esc(g.col) + '</span></div>';
   if (g.type === "memory") {
     const fin = g.done.length === g.tiles.length;
     return top + '<div class="game-hud"><span>Züge <b>' + g.moves + '</b></span><span>Paare <b>' + g.done.length / 2 + '/' + g.tiles.length / 2 + '</b></span></div>' +
@@ -213,7 +214,7 @@ function gameStage() {
       '<div class="fx-card"><div class="kind">Setz zusammen</div><div class="term long" style="text-align:center">' + esc(t.pr.de) + ' · ' + esc(t.verb) + '</div><div class="t-sub" style="text-align:center">' + esc(v.de) + '</div>' +
       '<div class="vp-out' + (res ? (res.ok ? " ok" : " bad") : "") + '">' + (g.pz.rows.map(r => g.pick[r.key] != null ? '<span class="' + (res ? (res.parts[r.key] ? "ok" : "bad") : "") + '">' + esc(g.pick[r.key]) + '</span>' : '<span class="gap">' + esc(r.label) + '</span>').join(" ")) + '</div>' +
       g.pz.rows.map(r => '<div class="vp-row"><div class="vp-l">' + esc(r.label) + '</div><div class="vp-opts">' + r.options.map((o, i) => '<button class="sl-tile vp-tile' + (g.pick[r.key] === o ? " on" : "") + '" data-vp="' + r.key + '|' + i + '"' + (res ? " disabled" : "") + '>' + esc(o) + '</button>').join("") + '</div></div>').join("") +
-      (res ? '<div class="fb ' + (res.ok ? "ok" : "bad") + '" style="margin-top:var(--s4)"><div class="fb-t"><b>' + (res.ok ? "Richtig!" : "Richtig wäre: " + esc(g.pz.answer)) + '</b></div>' + (v.hint ? '<div class="fb-x">' + esc(v.hint) + '</div>' : '') + '</div><div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="vp_next">Weiter</button></div>'
+      (res ? '<div class="fb ' + (res.ok ? "ok" : "bad") + '" style="margin-top:var(--s4)"><div class="fb-t"><b>' + (res.ok ? "Richtig!" : "Richtig wäre: " + esc(g.pz.answer)) + '</b></div>' + (v.hint ? '<div class="fb-x">' + esc(v.hint) + '</div>' : '') + '</div><div style="display:flex;justify-content:flex-end;gap:var(--s2);margin-top:var(--s4)">' + (res.ok ? '' : '<button class="btn" id="vp_rule">Regel ansehen</button>') + '<button class="btn primary" id="vp_next">Weiter</button></div>'
         : '<div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="vp_check"' + (all ? "" : " disabled") + '>Prüfen</button></div>') + '</div>';
   }
   if (g.type === "hoeren") {
@@ -231,6 +232,7 @@ function gameOver(title, sub, score, lowerIsBetter) {
   const key = bestKey(GAME.type, GAME.colId); const prev = lsGet(key, null);
   const isBest = prev == null || (lowerIsBetter ? score < prev : score > prev);
   if (isBest && !GAME.saved) lsSet(key, score);
+  if (!GAME.saved) addXP(GAME.type === "memory" ? 10 : 5 + Math.min(15, Math.round(score / 10)));   // XP fürs Durchspielen
   GAME.saved = true;
   const wrong = (GAME.wrong || []).slice(0, 8);
   return '<div class="fx-done"><div class="done-mark">' + ICO.check + '</div><h2 class="fx-title">' + esc(title) + '</h2><p class="lead" style="margin:var(--s3) auto 0">' + esc(sub) + '</p>' + (isBest ? '<div class="pill p-accent" style="margin-top:var(--s4)">Neuer Bestwert</div>' : '<div class="t-sub" style="margin-top:var(--s4)">Bestwert: ' + prev + (lowerIsBetter ? " Züge" : " Punkte") + '</div>') + '</div>' +
@@ -241,6 +243,8 @@ let BLITZ_TIMER = null;
 function bindGame() {
   const g = GAME; const q = id => document.getElementById(id);
   const again = q("gm_again"); if (again) again.onclick = () => startGame(g.type, g.colId);
+  const ex = q("gm_explain"); if (ex) ex.onclick = () => grammarModal(grammarFor(g.type));
+  const rl = q("vp_rule"); if (rl) rl.onclick = () => grammarModal([noteForVerb(g.task.verb)]);
   const learn = q("gm_learn"); if (learn) learn.onclick = () => startTraining(isExamScope(g.colId) ? { mode: "vocab", exam_vocab: String(g.colId).slice(5), direction: "both" } : { mode: "vocab", collection_id: g.colId, direction: "reverse" });
   if (g.type === "artikel" && !g.over) {
     const qq = g.q;
