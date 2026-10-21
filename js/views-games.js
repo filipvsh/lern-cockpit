@@ -5,13 +5,20 @@
      Blitz (60 s)    so viele richtige Antworten wie möglich, Serien geben Bonus
      Buchstabensalat Wort aus Buchstaben-Kacheln zusammensetzen – ohne Tastatur
      Hören           die App spricht das Wort (Sprachausgabe), du wählst die Bedeutung
+     Artikel-Duell   un oder une, le oder la (Französisch)
+     Pronomen        je, tu, il/elle/on … zuordnen (Französisch)
+     Verb-Puzzle     Pronomen + Stamm + Endung zusammensetzen (Französisch, js/fr-grammar.js)
+   Spielbereich: eine Sammlung, alle – oder „exam:<id>“ = nur die Wörter einer Klausur.
    Spiele ändern den Wiederholungsplan nicht. Bestwerte pro Gerät.
    ===================================================================== */
 const GAMES = {
   memory: { name: "Memory", desc: "Finde die Paare aus Wort und Übersetzung. Je weniger Züge, desto besser.", ico: "vokabeln", min: 4 },
   blitz: { name: "Blitz · 60 Sekunden", desc: "So viele richtige Antworten wie möglich. Serien geben Bonuspunkte.", ico: "clock", min: 4 },
   salat: { name: "Buchstabensalat", desc: "Setz das Wort aus Buchstaben-Kacheln zusammen – trainiert die Schreibweise, ganz ohne Tastatur.", ico: "edit", min: 3 },
-  hoeren: { name: "Hören", desc: "Die App spricht das Wort vor, du tippst die Bedeutung an. Training fürs Listening.", ico: "play", min: 4, speech: true }
+  hoeren: { name: "Hören", desc: "Die App spricht das Wort vor, du tippst die Bedeutung an. Training fürs Listening.", ico: "play", min: 4, speech: true },
+  artikel: { name: "Artikel-Duell", desc: "un oder une? le oder la? Das Geschlecht der Nomen sicher drauf haben.", ico: "flag", min: 4 },
+  pronomen: { name: "Pronomen", desc: "je, tu, il / elle / on, nous, vous, ils / elles – welches passt?", ico: "target", min: 0, fr: true },
+  verben: { name: "Verb-Puzzle", desc: "Pronomen + Stamm + Endung zusammensetzen: j'achète, nous achetons …", ico: "pen", min: 0, fr: true }
 };
 const VOICE_LANG = { fr: "fr-FR", en: "en-GB", es: "es-ES", la: "it-IT", de: "de-DE" };
 const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined";
@@ -29,7 +36,29 @@ const cardLangOf = c => { const col = colById(c.collection_id); return (col && c
 let GAME = null;          // laufendes Spiel
 let GAME_COL = lsGet("lc_game_col", "");
 const bestKey = (g, col) => "lc_best_" + g + "_" + (col || "all");
-const gameCards = colId => (colId ? cardsOf(colId) : activeCards()).filter(v => v.begriff && v.bedeutung);
+const isExamScope = sc => String(sc || "").startsWith("exam:");
+function scopeCards(sc) {
+  if (isExamScope(sc)) { const k = klById(String(sc).slice(5)); return k ? linkedCollections(k).flatMap(c => cardsOf(c.id)) : []; }
+  return sc ? cardsOf(sc) : activeCards();
+}
+const gameCards = colId => scopeCards(colId).filter(v => v.begriff && v.bedeutung);
+/** Französische Nomen mit le/la/un/une (l' und des verraten das Geschlecht nicht) */
+function articleCards(sc) {
+  return gameCards(sc).filter(c => cardLangOf(c) === "fr").map(c => { const m = shortAns(c.begriff).match(/^(le|la|un|une)\s+(.+)$/i); return m ? { card: c, art: m[1].toLowerCase(), noun: m[2] } : null; }).filter(Boolean);
+}
+const hasFrench = sc => gameCards(sc).some(c => cardLangOf(c) === "fr");
+/** wie viel „Material“ ein Spiel im Bereich hat */
+function gameAmount(k, sc) {
+  if (k === "hoeren") return gameCards(sc).filter(c => cardLangOf(c) !== "de").length;
+  if (k === "artikel") return articleCards(sc).length;
+  if (GAMES[k].fr) return hasFrench(sc) ? 99 : 0;
+  return gameCards(sc).length;
+}
+function gameTile(k, sc) {
+  const g = GAMES[k]; const best = lsGet(bestKey(k, sc), null); const nn = gameAmount(k, sc); const ok = (g.fr ? nn > 0 : nn >= g.min) && (!g.speech || canSpeak());
+  const why = g.speech && !canSpeak() ? "Dein Browser kann nicht vorlesen" : g.fr && !nn ? "Nur mit französischen Wörtern" : k === "artikel" && nn < g.min ? "Mindestens " + g.min + " Nomen mit le/la/un/une nötig" : nn < g.min ? "Mindestens " + g.min + (k === "hoeren" ? " Fremdsprachen-Wörter" : " Wörter") + " nötig" : "";
+  return '<button class="game-tile" data-game="' + k + '"' + (ok ? "" : " disabled") + '><span class="gi">' + ICO[g.ico] + '</span><b>' + g.name + '</b><span class="t-sub">' + g.desc + '</span><span class="gbest">' + (why || (best == null ? "Noch kein Bestwert" : k === "memory" ? "Bestwert: " + best + " Züge" : "Bestwert: " + best + " Punkte")) + '</span></button>';
+}
 const shortAns = s => String(s).split(/\s*[;,/]\s*/)[0].trim();
 
 V.spiele = () => {
@@ -41,8 +70,7 @@ V.spiele = () => {
   if (!cols.length) return head + '<div class="card">' + emptyState("vokabeln", "Noch keine Wörter", "Leg zuerst eine Sammlung mit ein paar Vokabeln an.", '<a class="btn primary sm" href="#/vokabeln">Zu den Vokabeln</a>') + '</div>';
   const n = gameCards(GAME_COL).length;
   const pick = '<div class="card tight" style="margin-bottom:var(--s5)"><label class="fld">Womit spielst du?<select id="gm_col"><option value="">Alle Sammlungen (' + gameCards("").length + ' Wörter)</option>' + cols.map(c => '<option value="' + esc(c.id) + '"' + (c.id === GAME_COL ? " selected" : "") + '>' + esc(c.name) + ' (' + gameCards(c.id).length + ')</option>').join("") + '</select></label></div>';
-  const tiles = Object.entries(GAMES).map(([k, g]) => { const best = lsGet(bestKey(k, GAME_COL), null); const nn = k === "hoeren" ? gameCards(GAME_COL).filter(c => cardLangOf(c) !== "de").length : n; const ok = nn >= g.min && (!g.speech || canSpeak());
-    return '<button class="game-tile" data-game="' + k + '"' + (ok ? "" : " disabled") + '><span class="gi">' + ICO[g.ico] + '</span><b>' + g.name + '</b><span class="t-sub">' + g.desc + '</span><span class="gbest">' + (g.speech && !canSpeak() ? "Dein Browser kann nicht vorlesen" : nn < g.min ? "Mindestens " + g.min + (k === "hoeren" ? " Fremdsprachen-Wörter" : " Wörter") + " nötig" : best == null ? "Noch kein Bestwert" : k === "memory" ? "Bestwert: " + best + " Züge" : "Bestwert: " + best + " Punkte") + '</span></button>'; }).join("");
+  const tiles = Object.keys(GAMES).map(k => gameTile(k, GAME_COL)).join("");
   return head + pick + '<div class="game-grid">' + tiles + '</div>';
 };
 function bindSpiele() {
@@ -50,9 +78,10 @@ function bindSpiele() {
   const sel = document.getElementById("gm_col"); if (sel) sel.onchange = () => { GAME_COL = sel.value; lsSet("lc_game_col", GAME_COL); route(); };
   document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game));
 }
-function startGame(type) {
-  const cards = Engine.shuffle(gameCards(GAME_COL));
-  const col = colById(GAME_COL);
+function startGame(type, scope) {
+  const sc = scope !== undefined ? scope : GAME_COL;
+  const cards = Engine.shuffle(gameCards(sc));
+  const col = colById(sc), exam = isExamScope(sc) ? klById(String(sc).slice(5)) : null;
   // Fremdsprache gefragt (Deutsch → Fremdsprache), bei Fachbegriffen der Begriff
   const prompt = c => c.bedeutung, answer = c => shortAns(c.begriff);
   if (type === "memory") {
@@ -70,8 +99,19 @@ function startGame(type) {
     const pool = cards.filter(c => cardLangOf(c) !== "de");
     GAME = { type, pool, all: pool, i: 0, rounds: Math.min(10, pool.length), score: 0, right: 0, wrong: [], q: null };
     nextHoeren();
+  } else if (type === "artikel") {
+    const pool = Engine.shuffle(articleCards(sc)).slice(0, 12);
+    GAME = { type, pool, i: 0, rounds: pool.length, score: 0, right: 0, streak: 0, wrong: [], q: null };
+    nextArtikel();
+  } else if (type === "pronomen") {
+    GAME = { type, i: 0, rounds: 12, score: 0, right: 0, wrong: [], q: null, tasks: Engine.shuffle(FRG.tasks()) };
+    nextPronomen();
+  } else if (type === "verben") {
+    GAME = { type, i: 0, rounds: 8, score: 0, right: 0, wrong: [], tasks: Engine.shuffle(FRG.tasks()) };
+    nextVerb();
   }
-  GAME.col = col ? col.name : "Alle Sammlungen"; GAME.colId = GAME_COL;
+  GAME.col = exam ? exam.fach + "-Klausur" : col ? col.name : "Alle Sammlungen"; GAME.colId = sc;
+  GAME.back = exam ? "#/klausur/" + exam.id + "?tab=spiele" : "#/spiele";
   GAME.prompt = prompt; GAME.answer = answer;
   location.hash = "#/spiele/" + type; if (ROUTE.name === "spiele") route();
 }
@@ -91,6 +131,32 @@ function nextHoeren() {
   const opts = Engine.shuffle(others.concat([right]));
   g.q = { card: c, say: shortAns(c.begriff), lang: cardLangOf(c), opts, correct: opts.indexOf(right), picked: null, spoken: false };
 }
+function nextArtikel() {
+  const g = GAME; if (g.i >= g.rounds) { g.over = true; return; }
+  const a = g.pool[g.i]; const def = /^l/.test(a.art) ? ["le", "la"] : ["un", "une"];
+  g.q = { a, opts: def, correct: def.indexOf(a.art), picked: null };
+}
+const PRON_FR = ["je", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles"];
+function nextPronomen() {
+  const g = GAME; if (g.i >= g.rounds) { g.over = true; return; }
+  const t = g.tasks[g.i % g.tasks.length];
+  if (g.i % 2 === 0) {
+    // Deutsch → Französisch
+    const right = t.pr.fr; const opts = Engine.shuffle([right].concat(Engine.shuffle(PRON_FR.filter(x => x !== right)).slice(0, 3)));
+    g.q = { kind: "de", prompt: t.pr.de, opts, correct: opts.indexOf(right), answer: right, picked: null };
+  } else {
+    // Verbform → Pronomen: nur Pronomen als Ablenker, deren Form anders lautet (sonst wären zwei richtig)
+    const v = FRG.VERBS[t.verb]; const right = FRG.pronounFor(t.pr, t.form);
+    const others = Engine.shuffle(FRG.PRONOUNS.filter(p => v.forms[p.person] && v.forms[p.person] !== t.form).map(p => FRG.pronounFor(p, v.forms[p.person]))).filter((x, i, a) => x !== right && a.indexOf(x) === i).slice(0, 3);
+    const opts = Engine.shuffle([right].concat(others));
+    g.q = { kind: "form", prompt: "___ " + t.form, sub: t.verb + " (" + v.de + ")", opts, correct: opts.indexOf(right), answer: t.answer, picked: null };
+  }
+}
+function nextVerb() {
+  const g = GAME; if (g.i >= g.rounds) { g.over = true; return; }
+  const t = g.tasks[g.i % g.tasks.length];
+  g.task = t; g.pz = FRG.puzzle(t); g.pick = {}; g.res = null;
+}
 function nextSalat() {
   const g = GAME; const c = g.pool[g.i]; if (!c) { g.over = true; return; }
   const word = shortAns(c.begriff);
@@ -100,7 +166,7 @@ function nextSalat() {
 }
 function gameStage() {
   const g = GAME; const name = GAMES[g.type].name;
-  const top = '<div class="game-top"><a class="backlink" href="#/spiele" id="gm_back">' + ICO.back + 'Spiele</a><span class="t-sub">' + esc(name) + ' · ' + esc(g.col) + '</span></div>';
+  const top = '<div class="game-top"><a class="backlink" href="' + esc(g.back || "#/spiele") + '" id="gm_back">' + ICO.back + 'Spiele</a><span class="t-sub">' + esc(name) + ' · ' + esc(g.col) + '</span></div>';
   if (g.type === "memory") {
     const fin = g.done.length === g.tiles.length;
     return top + '<div class="game-hud"><span>Züge <b>' + g.moves + '</b></span><span>Paare <b>' + g.done.length / 2 + '/' + g.tiles.length / 2 + '</b></span></div>' +
@@ -123,6 +189,32 @@ function gameStage() {
       '<div class="sl-tiles">' + g.tiles.map((t, i) => '<button class="sl-tile" data-sl="' + i + '"' + (used.has(t.k) ? " disabled" : "") + '>' + esc(t.ch) + '</button>').join("") + '</div>' +
       '<div class="sl-actions"><button class="btn plain sm" id="sl_back">Zurück</button><button class="btn plain sm" id="sl_hint">Tipp</button><button class="btn plain sm" id="sl_skip">Überspringen</button></div></div>';
   }
+  if (g.type === "artikel") {
+    if (g.over) return top + gameOver("Fertig!", g.score + " Punkte · " + g.right + " von " + g.rounds + " richtig", g.score, false);
+    const q = g.q; const c = q.a.card; const other = { le: "un", la: "une", un: "le", une: "la" }[q.a.art];
+    return top + '<div class="game-hud"><span>Wort <b>' + (g.i + 1) + '/' + g.rounds + '</b></span><span>Punkte <b>' + g.score + '</b></span><span>Serie <b>' + g.streak + '</b></span></div>' +
+      '<div class="fx-card blitz"><div class="kind">Welcher Artikel?</div><div class="term" style="text-align:center">___ ' + esc(q.a.noun) + '</div><div class="t-sub" style="text-align:center">' + esc(shortAns(c.bedeutung)) + '</div>' +
+      '<div class="choices art-choices">' + q.opts.map((o, i) => '<button class="opt-choice' + (q.picked != null ? (i === q.correct ? " right" : i === q.picked ? " wrongpick" : "") : "") + '" data-ar="' + i + '"' + (q.picked != null ? " disabled" : "") + '>' + o + '</button>').join("") + '</div>' +
+      (q.picked != null ? '<div class="hint" style="text-align:center;margin-top:var(--s3)"><b>' + esc(q.a.art + " " + q.a.noun) + '</b> · ' + esc(other + " " + q.a.noun) + ' – ' + (/^(la|une)$/.test(q.a.art) ? "feminin" : "maskulin") + '</div><div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="ar_next">Weiter</button></div>' : '') + '</div>';
+  }
+  if (g.type === "pronomen") {
+    if (g.over) return top + gameOver("Fertig!", g.score + " Punkte · " + g.right + " von " + g.rounds + " richtig", g.score, false);
+    const q = g.q;
+    return top + '<div class="game-hud"><span>Frage <b>' + (g.i + 1) + '/' + g.rounds + '</b></span><span>Punkte <b>' + g.score + '</b></span></div>' +
+      '<div class="fx-card blitz"><div class="kind">' + (q.kind === "de" ? "Wie heißt das auf Französisch?" : "Welches Pronomen passt?") + '</div><div class="term" style="text-align:center">' + esc(q.prompt) + '</div>' + (q.sub ? '<div class="t-sub" style="text-align:center">' + esc(q.sub) + '</div>' : '') +
+      '<div class="choices">' + q.opts.map((o, i) => '<button class="opt-choice' + (q.picked != null ? (i === q.correct ? " right" : i === q.picked ? " wrongpick" : "") : "") + '" data-pr="' + i + '"' + (q.picked != null ? " disabled" : "") + '>' + esc(o) + '</button>').join("") + '</div>' +
+      (q.picked != null ? '<div class="hint" style="text-align:center;margin-top:var(--s3)"><b>' + esc(q.answer) + '</b></div><div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="pr_next">Weiter</button></div>' : '') + '</div>';
+  }
+  if (g.type === "verben") {
+    if (g.over) return top + gameOver("Puzzle fertig!", g.score + " Punkte · " + g.right + " von " + g.rounds + " richtig", g.score, false);
+    const t = g.task, v = FRG.VERBS[t.verb], res = g.res; const all = g.pz.rows.every(r => g.pick[r.key] != null);
+    return top + '<div class="game-hud"><span>Verb <b>' + (g.i + 1) + '/' + g.rounds + '</b></span><span>Punkte <b>' + g.score + '</b></span></div>' +
+      '<div class="fx-card"><div class="kind">Setz zusammen</div><div class="term long" style="text-align:center">' + esc(t.pr.de) + ' · ' + esc(t.verb) + '</div><div class="t-sub" style="text-align:center">' + esc(v.de) + '</div>' +
+      '<div class="vp-out' + (res ? (res.ok ? " ok" : " bad") : "") + '">' + (g.pz.rows.map(r => g.pick[r.key] != null ? '<span class="' + (res ? (res.parts[r.key] ? "ok" : "bad") : "") + '">' + esc(g.pick[r.key]) + '</span>' : '<span class="gap">' + esc(r.label) + '</span>').join(" ")) + '</div>' +
+      g.pz.rows.map(r => '<div class="vp-row"><div class="vp-l">' + esc(r.label) + '</div><div class="vp-opts">' + r.options.map((o, i) => '<button class="sl-tile vp-tile' + (g.pick[r.key] === o ? " on" : "") + '" data-vp="' + r.key + '|' + i + '"' + (res ? " disabled" : "") + '>' + esc(o) + '</button>').join("") + '</div></div>').join("") +
+      (res ? '<div class="fb ' + (res.ok ? "ok" : "bad") + '" style="margin-top:var(--s4)"><div class="fb-t"><b>' + (res.ok ? "Richtig!" : "Richtig wäre: " + esc(g.pz.answer)) + '</b></div>' + (v.hint ? '<div class="fb-x">' + esc(v.hint) + '</div>' : '') + '</div><div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="vp_next">Weiter</button></div>'
+        : '<div style="display:flex;justify-content:flex-end;margin-top:var(--s4)"><button class="btn primary" id="vp_check"' + (all ? "" : " disabled") + '>Prüfen</button></div>') + '</div>';
+  }
   if (g.type === "hoeren") {
     if (g.over) return top + gameOver("Fertig gehört!", g.score + " Punkte · " + g.right + " von " + g.rounds + " richtig", g.score, false);
     const q = g.q;
@@ -142,13 +234,40 @@ function gameOver(title, sub, score, lowerIsBetter) {
   const wrong = (GAME.wrong || []).slice(0, 8);
   return '<div class="fx-done"><div class="done-mark">' + ICO.check + '</div><h2 class="fx-title">' + esc(title) + '</h2><p class="lead" style="margin:var(--s3) auto 0">' + esc(sub) + '</p>' + (isBest ? '<div class="pill p-accent" style="margin-top:var(--s4)">Neuer Bestwert</div>' : '<div class="t-sub" style="margin-top:var(--s4)">Bestwert: ' + prev + (lowerIsBetter ? " Züge" : " Punkte") + '</div>') + '</div>' +
     (wrong.length ? '<div class="card tight" style="margin-top:var(--s5)"><h2>Noch üben</h2>' + wrong.map(c => '<div class="meter"><span class="mt-l">' + esc(c.bedeutung) + '</span><span class="mt-v" style="color:var(--text)">' + esc(shortAns(c.begriff)) + '</span></div>').join("") + '</div>' : '') +
-    '<div style="display:flex;gap:var(--s3);justify-content:center;margin-top:var(--s5);flex-wrap:wrap"><button class="btn" id="gm_again">Nochmal</button>' + (GAME.colId ? '<button class="btn primary" id="gm_learn">Diese Wörter richtig lernen</button>' : '') + '</div>';
+    '<div style="display:flex;gap:var(--s3);justify-content:center;margin-top:var(--s5);flex-wrap:wrap"><button class="btn" id="gm_again">Nochmal</button>' + (GAME.colId && !GAMES[GAME.type].fr ? '<button class="btn primary" id="gm_learn">Diese Wörter richtig lernen</button>' : '') + '</div>';
 }
 let BLITZ_TIMER = null;
 function bindGame() {
   const g = GAME; const q = id => document.getElementById(id);
-  const again = q("gm_again"); if (again) again.onclick = () => startGame(g.type);
-  const learn = q("gm_learn"); if (learn) learn.onclick = () => startTraining({ mode: "vocab", collection_id: g.colId, direction: "reverse" });
+  const again = q("gm_again"); if (again) again.onclick = () => startGame(g.type, g.colId);
+  const learn = q("gm_learn"); if (learn) learn.onclick = () => startTraining(isExamScope(g.colId) ? { mode: "vocab", exam_vocab: String(g.colId).slice(5), direction: "both" } : { mode: "vocab", collection_id: g.colId, direction: "reverse" });
+  if (g.type === "artikel" && !g.over) {
+    const qq = g.q;
+    document.querySelectorAll("[data-ar]").forEach(b => b.onclick = () => {
+      if (qq.picked != null) return; qq.picked = +b.dataset.ar;
+      if (qq.picked === qq.correct) { g.right++; g.streak++; g.score += 10 + Math.min(g.streak - 1, 5) * 2; } else { g.streak = 0; if (!g.wrong.includes(qq.a.card)) g.wrong.push(qq.a.card); }
+      route();
+    });
+    const nx = q("ar_next"); if (nx) nx.onclick = () => { g.i++; nextArtikel(); route(); };
+  }
+  if (g.type === "pronomen" && !g.over) {
+    const qq = g.q;
+    document.querySelectorAll("[data-pr]").forEach(b => b.onclick = () => {
+      if (qq.picked != null) return; qq.picked = +b.dataset.pr;
+      if (qq.picked === qq.correct) { g.right++; g.score += 10; } else g.wrong.push({ bedeutung: qq.prompt, begriff: qq.answer });
+      route();
+    });
+    const nx = q("pr_next"); if (nx) nx.onclick = () => { g.i++; nextPronomen(); route(); };
+  }
+  if (g.type === "verben" && !g.over) {
+    document.querySelectorAll("[data-vp]").forEach(b => b.onclick = () => { const [key, i] = b.dataset.vp.split("|"); const row = g.pz.rows.find(r => r.key === key); g.pick[key] = row.options[+i]; route(); });
+    const ck = q("vp_check"); if (ck) ck.onclick = () => {
+      g.res = FRG.checkPuzzle(g.task, g.pick);
+      if (g.res.ok) { g.right++; g.score += 10; } else g.wrong.push({ bedeutung: g.task.pr.de + " · " + g.task.verb, begriff: g.pz.answer });
+      route();
+    };
+    const nx = q("vp_next"); if (nx) nx.onclick = () => { g.i++; nextVerb(); route(); };
+  }
   if (g.type === "memory") {
     document.querySelectorAll("[data-mem]").forEach(b => b.onclick = () => {
       const i = +b.dataset.mem; if (g.lock || g.open.includes(i)) return;

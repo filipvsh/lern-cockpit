@@ -26,6 +26,15 @@ test("Antwort: fehlender deutscher Artikel = fast richtig, falscher französisch
   assert.equal(E.checkAnswer("le gare", E.answerVariants("la gare"), "fr").verdict, "wrong");
   assert.equal(E.checkAnswer("la gare", E.answerVariants("la gare"), "fr").verdict, "correct");
 });
+test("Antwort Französisch: Artikel fehlt = falsch, gleiches Geschlecht (une/la, un/le, des/les) = richtig", () => {
+  assert.equal(E.checkAnswer("casquette", E.answerVariants("une casquette"), "fr").verdict, "wrong");
+  assert.equal(E.checkAnswer("la casquette", E.answerVariants("une casquette"), "fr").verdict, "correct");
+  assert.equal(E.checkAnswer("le casquette", E.answerVariants("une casquette"), "fr").verdict, "wrong");
+  assert.equal(E.checkAnswer("le short", E.answerVariants("un short"), "fr").verdict, "correct");
+  assert.equal(E.checkAnswer("les chaussures", E.answerVariants("des chaussures"), "fr").verdict, "correct");
+  assert.equal(E.checkAnswer("un anorak", E.answerVariants("l'anorak"), "fr").verdict, "correct");
+  assert.equal(E.checkAnswer("des anorak", E.answerVariants("l'anorak"), "fr").verdict, "wrong");
+});
 test("Antwort: englisches „to“ beim Verb ist optional", () => {
   assert.equal(E.checkAnswer("resolve", E.answerVariants("to resolve"), "en").verdict, "correct");
 });
@@ -377,4 +386,33 @@ test("Lernrunde: „Kenne ich schon“ beendet das Wort sofort, ohne weitere Abf
   }
   assert.ok(!asked.includes("n1")); assert.ok(asked.includes("n2"));
   assert.equal(E.roundProgress(s).left, 0);
+});
+
+/* ---------- Französisch: Konjugation & Pronomen ---------- */
+const G = require("../js/fr-grammar.js");
+test("Konjugation: j' vor Vokal, Stamm + Endung, Sonderformen", () => {
+  const t = G.tasks(["acheter", "porter", "aller", "avoir", "coûter"]);
+  const find = (verb, fr) => t.find(x => x.verb === verb && x.pr.fr === fr);
+  assert.equal(find("acheter", "je").answer, "j'achète");
+  assert.equal(find("acheter", "nous").answer, "nous achetons");
+  assert.equal(find("porter", "je").answer, "je porte");
+  assert.equal(find("aller", "ils").answer, "ils vont");
+  assert.equal(find("avoir", "je").answer, "j'ai");
+  assert.equal(find("acheter", "on").answer, "on achète");
+  assert.ok(!find("coûter", "je"), "je coûte gibt es nicht als Aufgabe");
+  assert.deepEqual(G.split("acheter", 3), { stem: "achet", ending: "ons", form: "achetons" });
+  assert.equal(G.split("acheter", 0).stem, "achèt");
+});
+test("Verb-Puzzle: richtige Teile immer auswählbar, Prüfung erkennt Fehler und Varianten", () => {
+  for (const task of G.tasks()) {
+    const pz = G.puzzle(task, () => 0.5);
+    pz.rows.forEach(r => assert.ok(r.options.includes(r.correct), task.answer + " " + r.key));
+    const pick = Object.fromEntries(pz.rows.map(r => [r.key, r.correct]));
+    assert.equal(G.checkPuzzle(task, pick).text, task.answer); assert.ok(G.checkPuzzle(task, pick).ok);
+  }
+  const task = G.tasks(["acheter"]).find(x => x.pr.fr === "nous");
+  const bad = G.checkPuzzle(task, { pronoun: "nous", stem: "achet", ending: "ez" });
+  assert.ok(!bad.ok); assert.equal(bad.parts.ending, false); assert.equal(bad.parts.stem, true);
+  const pay = G.tasks(["payer"]).find(x => x.pr.fr === "je");
+  assert.ok(G.checkPuzzle(pay, { pronoun: "je", stem: "pay", ending: "e" }).ok, "je paye geht auch");
 });

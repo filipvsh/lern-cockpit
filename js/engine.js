@@ -89,6 +89,12 @@
    * verdict: "correct" | "almost" (zählt als richtig, mit Hinweis) | "wrong"
    * Bewusst NICHT tolerant bei falschem Artikel (Genus-Fehler) oder anderen Wörtern.
    */
+  /** un ↔ le, une ↔ la, des ↔ les (l' passt zu beiden Singularen): gleiches Geschlecht = richtig */
+  const GENDER = { fr: { le: "m", un: "m", la: "f", une: "f", les: "p", des: "p", "l'": "mf" } };
+  function sameGender(a, b, lang) {
+    const g = GENDER[lang]; if (!g || !g[a] || !g[b]) return false;
+    return g[a] === g[b] || (g[a] === "mf" && g[b] !== "p") || (g[b] === "mf" && g[a] !== "p");
+  }
   function checkAnswer(given, expectedList, lang) {
     const g = normalize(given);
     const variants = (expectedList || []).map(normalize).filter(Boolean);
@@ -100,8 +106,10 @@
       const ga = splitArticle(g, lang), va = splitArticle(v, lang);
       if (ga.rest === va.rest) {
         if (va.optional || ga.optional) consider("correct", v);
-        else if (va.article && !ga.article) consider("almost", v, "Achte auf den Artikel: " + v);
+        // Französisch: Artikel gehört zum Wort (Geschlecht) – ohne Artikel nicht richtig
+        else if (va.article && !ga.article) lang === "fr" ? consider("wrong", v, "Artikel fehlt – richtig ist „" + v + "“") : consider("almost", v, "Achte auf den Artikel: " + v);
         else if (!va.article && ga.article) consider("correct", v);
+        else if (sameGender(ga.article, va.article, lang)) consider("correct", v, "Auch richtig – auf der Liste steht „" + v + "“");
         else consider("wrong", v, "Falscher Artikel – richtig ist „" + v + "“");
         continue;
       }
@@ -743,7 +751,7 @@
 
   return {
     DAY, uuid, shuffle, isoDay, startOfDay, daysBetween,
-    LANG_NAMES, normalize, stripAccents, answerVariants, levenshtein, checkAnswer,
+    LANG_NAMES, ARTICLES, normalize, stripAccents, sameGender, splitArticle, answerVariants, levenshtein, checkAnswer,
     SRS, FSRS, GRADE, fsrsStep, fsrsRetrievability, fsrsInterval, memoryOf, recallProbability, stageOf, markKnown, isTrivial, KNOWN_DAYS, calDays, masteryFromInterval, srsSchedule, isNew, isDue, isTrouble, buildVocabQueue, vocabStats,
     isTestSecure, testStatus, testNewQuota, testQueue, testCap, parseVocabList, ROUND, buildRound, roundAfter, pickDir, flipDir, roundProgress, diffParts,
     STATUSES, createSession, elapsedMs, remainingMs, isExpired, pause, resume, finish, current, recordAnswer, requeue, advance, summary,

@@ -69,6 +69,8 @@ function langPool(lang) {
   const soon = new Set(upcomingKL().filter(k => daysUntil(k.datum) <= 30).flatMap(k => linkedCollections(k).map(c => c.id)));
   return soon.size ? cards.filter(v => soon.has(v.collection_id)).concat(cards.filter(v => !soon.has(v.collection_id))) : cards;
 }
+/** Alle Karten der Sammlungen, die zu einer Klausur gehören */
+const examVocab = k => linkedCollections(k).flatMap(c => cardsOf(c.id));
 /** Themen-Gruppe aus Sammlungen mit gleichem Namensanfang (z. B. „Fahrschule · …“), in Namensreihenfolge der Gruppe */
 const GROUPS = { fahrschule: { name: "Fahrschule", re: /^Fahrschule\b/i } };
 const groupCols = g => GROUPS[g] ? activeCols().filter(c => GROUPS[g].re.test(c.name)).sort((a, b) => /extra/i.test(a.name) - /extra/i.test(b.name)) : [];
@@ -81,17 +83,18 @@ function buildSessionFromConfig(cfg) {
   const st = cfg.subtopic_id ? subById(cfg.subtopic_id) : null;
   const exam = cfg.exam_id != null && cfg.exam_id !== "" ? klById(cfg.exam_id) : (st ? examOfSub(st) : null);
   const focus = focusCollections();
-  const pool = col ? cardsOf(col.id) : cfg.group ? groupPool(cfg.group) : cfg.lang ? langPool(cfg.lang) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : activeCards();
+  const vk = cfg.exam_vocab != null ? klById(cfg.exam_vocab) : null;
+  const pool = col ? cardsOf(col.id) : vk ? examVocab(vk) : cfg.group ? groupPool(cfg.group) : cfg.lang ? langPool(cfg.lang) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : activeCards();
   if (cfg.mode === "vocab") {
     // „Vokabeln lernen“ mit Sprachwahl: bewusst gestartet → neue Wörter auch über das Tageslimit hinaus (pro Runde bleibt es bei maxNew)
-    let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: cfg.lang || cfg.group ? Engine.ROUND.maxNew : Math.min(Engine.ROUND.maxNew, newLeftToday()) });
+    let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: cfg.lang || cfg.group || vk ? Engine.ROUND.maxNew : Math.min(Engine.ROUND.maxNew, newLeftToday()) });
     if (!q.length || cfg.extra) {
       // Freiwillige Zusatzrunde: die Wörter, die du am ehesten vergisst
       q = pool.filter(v => !Engine.isNew(v)).map(v => [v, Engine.recallProbability(v, now)]).sort((a, b) => a[1] - b[1]).slice(0, 10).map(x => x[0]);
       label = " · Zusatzrunde"; extraRound = true;
     }
     round = Engine.buildRound(q, { direction: dir }); items = round.items;
-    label = (col ? col.name : cfg.group && GROUPS[cfg.group] ? GROUPS[cfg.group].name : cfg.lang ? langName(cfg.lang) : "Vokabeln") + label; scope = { collection_id: col ? col.id : null, subject: col ? langName(col.source_language) : cfg.lang ? langName(cfg.lang) : null };
+    label = (col ? col.name : vk ? vk.fach + "-Klausur · Vokabeln" : cfg.group && GROUPS[cfg.group] ? GROUPS[cfg.group].name : cfg.lang ? langName(cfg.lang) : "Vokabeln") + label; scope = { collection_id: col ? col.id : null, exam_id: vk ? vk.id : null, subject: col ? langName(col.source_language) : vk ? vk.fach : cfg.lang ? langName(cfg.lang) : null };
   } else if (cfg.mode === "errors") {
     const cards = Engine.buildVocabQueue(pool, { mode: "errors", limit: count });
     const exItems = troubleExercises().filter(e => !st || e.subtopic_id === st.id).slice(0, 8).map(e => { const s = subById(e.subtopic_id); return Engine.exerciseItem(e, s, s && topicById(s.topic_id)); });
@@ -215,7 +218,9 @@ function confirmEnd() {
       document.getElementById("ce_yes").onclick = async () => { closeModal(); await tsFinish(TS.mode === "exam" || TS.mode === "free" || TS.index >= TS.items.length ? "completed" : "abandoned"); };
     });
 }
-function leaveTrainer() { const back = TS && TS.scope && TS.scope.exam_id != null ? "#/lernplan/" + TS.scope.exam_id : TS && TS.scope.collection_id ? "#/vokabeln/" + TS.scope.collection_id : "#/trainer"; TS = null; UI = {}; tsSave(); location.hash = back; }
+/** Zurück zur Klausur-Seite, wenn dort gestartet, sonst zum Lernplan der Prüfung */
+const examBack = () => (TS.cfg && TS.cfg.from === "klausur" ? "#/klausur/" : "#/lernplan/") + TS.scope.exam_id;
+function leaveTrainer() { const back = TS && TS.scope && TS.scope.exam_id != null ? examBack() : TS && TS.scope.collection_id ? "#/vokabeln/" + TS.scope.collection_id : "#/trainer"; TS = null; UI = {}; tsSave(); location.hash = back; }
 // Hintergrund: im Prüfungsmodus läuft die Zeit weiter; sonst nach 10 Minuten Pause ab dem Verlassen
 document.addEventListener("visibilitychange", () => {
   if (!TS || TS.status !== "active") return;
@@ -269,7 +274,7 @@ function nextItem() {
 /* ---------------- Darstellung ---------------- */
 function tsClock() { if (!TS) return ""; const now = Date.now(); const ms = TS.time_limit_s ? Engine.remainingMs(TS, now) : Engine.elapsedMs(TS, now); return fmtClock(ms); }
 function sessionShell() {
-  const back = TS.scope.exam_id != null ? "#/lernplan/" + TS.scope.exam_id : "#/trainer";
+  const back = TS.scope.exam_id != null ? examBack() : "#/trainer";
   return '<div class="fx"><div class="fx-bar"><div class="left"><a class="closebtn" href="' + back + '" aria-label="Trainer verlassen" title="Verlassen – das Training bleibt gespeichert">' + ICO.x + '</a><span class="ctx">' + esc(modeName()) + ' · ' + esc(TS.label) + '</span></div><div class="timerwrap"><span class="timer' + (TS.time_limit_s ? " countdown" : "") + '" data-tsstate><i></i><span data-tstime>' + tsClock() + '</span></span></div><div class="right"><button class="btn plain sm" id="ts_pause">Pause</button><button class="btn plain sm" id="ts_end">' + (TS.mode === "exam" ? "Abgeben" : "Beenden") + '</button></div></div><div class="fx-stage" id="fxStage"></div><div class="fx-actions"><div class="in" id="fxAct"></div></div></div>';
 }
 V.trainerSession = () => {
