@@ -34,7 +34,8 @@ export class MockBackend {
     this.ai = o.ai !== false;                  // Edge Function vorhanden?
     this.open = !!o.open;                      // Migration 005: ohne Anmeldung (anon = Besitzer)
     this.version = o.version || (this.open ? 5 : 3);
-    this.files = {};                           // Storage: "bucket/pfad" → { type, data }
+    this.files = {};
+    this.push = !!o.push; this.pushCalls = [];                           // Storage: "bucket/pfad" → { type, data }
     this.offline = false;
     this.users = { "filip@example.org": { id: "aaaaaaaa-0000-4000-8000-000000000001", password: "geheim123", name: "Filip" } };
     this.log = [];
@@ -74,6 +75,8 @@ export class MockBackend {
       return json(404, {});
     }
     // ---- Edge Function
+    // Edge Function „push-reminder“: nur wenn { push: true } (sonst wie nicht deployt)
+    if (u.pathname === "/functions/v1/push-reminder") { if (!this.push) return json(404, undefined); this.pushCalls.push(body); return json(200, { ok: true, status: 201 }); }
     if (u.pathname === "/functions/v1/ai-tutor") {
       if (!this.ai) return json(404, undefined);
       if (!me) return json(401, { error: "unauthorized" });

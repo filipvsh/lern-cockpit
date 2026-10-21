@@ -1032,6 +1032,34 @@ await scenario("Lektion (Duolingo-Stil): Bilder, Übersetzen, Paare, Lücke, Sat
   await ctx.close();
 });
 
+await scenario("Push-Erinnerungen: Gerät anmelden, Hinweis ohne Server, Probe-Nachricht, abmelden", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  // Browser-Push simulieren (im Test läuft die App über file://, dort gibt es keinen echten Push-Dienst)
+  await page.evaluate(() => {
+    window.pushSupported = () => true; Notification.requestPermission = async () => "granted";
+    let sub = null;
+    const mk = () => ({ endpoint: "https://push.test/geraet-1", toJSON() { return { endpoint: this.endpoint, keys: { p256dh: "BPub", auth: "Auth" } }; }, async unsubscribe() { sub = null; return true; } });
+    window.pushReg = async () => ({ pushManager: { getSubscription: async () => sub, subscribe: async o => { if (!(o.applicationServerKey instanceof Uint8Array) || o.applicationServerKey.length !== 65) throw new Error("Schlüssel"); sub = mk(); return sub; } } });
+    PUSH.checked = false;
+  });
+  await go(page, "#/einstellungen"); await page.waitForSelector("#pu_on");
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "kein Querscrollen");
+  await page.click("#pu_on"); await page.waitForSelector("#pu_off");
+  assert.ok((await page.textContent("#push_card")).includes("Server-Teil"), "Hinweis: Funktion noch nicht eingerichtet");
+  await page.evaluate(() => Api.idle());
+  const subs = b.db.einstellungen.find(x => x.key === "push_subs");
+  assert.ok(subs && subs.value.length === 1 && subs.value[0].endpoint === "https://push.test/geraet-1" && subs.value[0].keys.auth === "Auth", "Gerät gespeichert");
+  // jetzt mit eingerichteter Funktion: Probe-Nachricht
+  b.push = true; await page.click("#pu_test"); await page.waitForTimeout(400);
+  assert.deepEqual(b.pushCalls.at(-1), { mode: "test", endpoint: "https://push.test/geraet-1" });
+  // Dashboard-Hinweis verschwindet, wenn angemeldet
+  await go(page, "#/dashboard"); await page.waitForSelector(".mo-card"); assert.ok(!(await page.$(".mo-push")), "kein Hinweis mehr");
+  await go(page, "#/einstellungen"); await page.waitForSelector("#pu_off"); await page.click("#pu_off"); await page.waitForSelector("#pu_on");
+  await page.evaluate(() => Api.idle());
+  assert.equal(b.db.einstellungen.find(x => x.key === "push_subs").value.length, 0, "abgemeldet");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

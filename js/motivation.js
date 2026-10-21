@@ -78,7 +78,8 @@ function motivationCard() {
   return '<div class="card mo-card' + (risk ? " risk" : today >= goal ? " done" : "") + '">' +
     '<div class="mo-row"><div class="mo-flame' + (today ? " lit" : "") + '">🔥<b>' + st + '</b></div>' +
     '<div class="mo-main"><div class="mo-t">' + title + '</div><div class="mo-bar"><i style="width:' + pct + '%"></i></div><div class="t-sub">' + today + ' / ' + goal + ' XP heute · Level ' + lv.level + ' (' + lv.into + '/' + lv.need + ')</div></div>' + go + '</div>' +
-    (risk ? '<div class="mo-risk">' + plural(st, "Tag", "Tage") + ' am Stück – eine Lektion (3 Min.) rettet sie.</div>' : '') + '</div>';
+    (risk ? '<div class="mo-risk">' + plural(st, "Tag", "Tage") + ' am Stück – eine Lektion (3 Min.) rettet sie.</div>' : '') +
+    (typeof pushSupported === "function" && pushSupported() && PUSH.checked && !pushOn() ? '<a class="mo-push" href="#/einstellungen">🔔 Push-Erinnerungen einschalten – damit deine Serie nicht reißt</a>' : '') + '</div>';
 }
 function badgesSection() {
   const e = earnedBadges();
