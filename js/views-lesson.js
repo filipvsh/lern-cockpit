@@ -8,16 +8,21 @@
    ===================================================================== */
 let LES = null;
 const lesScope = () => ROUTE.query.s || "";
-const lesXP = () => setting("lektion_xp", {}) || {};
-const lesXPToday = () => +(lesXP()[todayISO()] || 0);
-function lesStreak() { const m = lesXP(); let n = 0, d = todayISO(); if (!m[d]) d = addDays(d, -1); while (m[d]) { n++; d = addDays(d, -1); } return n; }
+const lesXPToday = () => xpToday();
+const lesStreak = () => xpStreak();
 const lesBack = sc => isExamScope(sc) ? "#/klausur/" + String(sc).slice(5) + "?tab=spiele" : "#/spiele";
 const lesLang = id => { const c = cardById(id); return c ? cardLangOf(c) : "fr"; };
+/* Spracherkennung (Nachsprechen) – Chrome/Edge/Android, Safari ab iOS 14.5 */
+const SpeechRec = () => window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const micPaused = () => +lsGet("lc_nomic_until", 0) > Date.now();
+const canMic = () => !!SpeechRec() && !micPaused();
+let LES_REC = null;
 
 function startLesson(scope) {
   const cards = gameCards(scope);
   const weak = cards.filter(v => Engine.isNew(v) || ["learning", "short"].includes(Engine.stageOf(v).key) || v.last_result === "wrong").map(v => v.id);
-  const items = LESSON.buildLesson({ cards: cards.map(v => ({ id: v.id, begriff: v.begriff, bedeutung: v.bedeutung })), weak, speech: canSpeak() && cards.some(v => cardLangOf(v) === "fr") });
+  const fr = cards.some(v => cardLangOf(v) === "fr");
+  const items = LESSON.buildLesson({ cards: cards.map(v => ({ id: v.id, begriff: v.begriff, bedeutung: v.bedeutung })), weak, speech: canSpeak() && fr, mic: canMic() && fr });
   if (!items.length) { toast("Für eine Lektion brauchst du mindestens 4 Wörter.", true); return; }
   LES = { scope, items, i: 0, total: items.length, right: 0, wrongFirst: 0, combo: 0, best: 0, retries: {}, ui: {}, started: Date.now(), done: false };
   location.hash = "#/lektion?s=" + encodeURIComponent(scope);
@@ -58,6 +63,11 @@ function lesTask(it, ui) {
     return head + '<div class="les-line">' + (used.length ? used.map((ti, k) => '<button class="les-tile in" data-lu="' + k + '"' + (ui.checked ? " disabled" : "") + '>' + esc(it.tiles[ti]) + '</button>').join("") : '<span class="t-sub">Tippe die Wörter in der richtigen Reihenfolge an</span>') + '</div>' +
       '<div class="les-bank">' + it.tiles.map((t, i) => '<button class="les-tile' + (used.includes(i) ? " gone" : "") + '" data-lt="' + i + '"' + (used.includes(i) || ui.checked ? " disabled" : "") + '>' + esc(t) + '</button>').join("") + '</div>';
   }
+  if (it.type === "speak") {
+    const st = ui.rec === "on" ? "Ich höre zu … sprich jetzt" : ui.rec === "err" ? ui.recErr : ui.heard ? "Gehört: „" + ui.heard + "“" + (ui.ok == null && ui.tries ? " – nicht ganz, versuch's nochmal" : "") : "Tippe aufs Mikrofon und sprich nach";
+    return '<h2 class="les-h">Sprich nach</h2><div class="les-prompt">' + sayBtn(it.say) + '<span>' + esc(it.target) + '</span></div><div class="t-sub les-de">' + esc(it.de) + '</div>' +
+      '<div class="les-micw"><button class="les-mic' + (ui.rec === "on" ? " on" : "") + '" id="les_mic"' + (ui.checked ? " disabled" : "") + ' aria-label="Sprechen">🎤</button><div class="t-sub les-heard">' + esc(st) + '</div></div>';
+  }
   if (it.type === "pairs") {
     const m = ui.matched || [];
     const col = (side, list) => list.map(x => { const done = m.includes(x.id); return '<button class="les-pair' + (done ? " done" : "") + (ui.sel && ui.sel.side === side && ui.sel.id === String(x.id) ? " on" : "") + (ui.bad && ui.bad[side] === String(x.id) ? " bad" : "") + '" data-lp="' + side + '|' + esc(String(x.id)) + '"' + (done ? " disabled" : "") + '>' + esc(x.text) + '</button>'; }).join("");
@@ -67,11 +77,12 @@ function lesTask(it, ui) {
 }
 function lesFoot(it, ui) {
   if (ui.checked) {
-    const sol = it.type === "pic" ? it.prompt + " – " + it.opts[it.correct].label : it.type === "mc" ? it.opts[it.correct] : it.type === "gap" ? it.full : it.type === "pairs" ? "" : it.target;
+    const sol = it.type === "speak" ? it.target + (ui.heard ? " (gehört: „" + ui.heard + "“)" : "") : it.type === "pic" ? it.prompt + " – " + it.opts[it.correct].label : it.type === "mc" ? it.opts[it.correct] : it.type === "gap" ? it.full : it.type === "pairs" ? "" : it.target;
     return '<div class="les-foot ' + (ui.ok ? "ok" : "bad") + '"><div class="les-fb"><b>' + (ui.ok ? ["Super!", "Richtig!", "Klasse!", "Genau!"][LES.i % 4] : "Richtige Lösung:") + '</b>' + (!ui.ok || it.type === "listen" || it.type === "build" ? '<span>' + esc(sol) + (it.de && it.type === "listen" ? " · " + esc(it.de) : "") + '</span>' : '') + '</div><button class="btn lg les-next" id="les_next">Weiter</button></div>';
   }
   if (it.type === "pairs") return '<div class="les-foot"><span class="t-sub">' + (ui.matched || []).length + ' von ' + it.left.length + ' Paaren</span></div>';
   const ready = it.type === "build" || it.type === "listen" ? (ui.order || []).length > 0 : ui.pick != null;
+  if (it.type === "speak") return '<div class="les-foot"><button class="btn plain" id="les_nomic">Kann gerade nicht sprechen</button></div>';
   return '<div class="les-foot">' + (it.type === "listen" ? '<button class="btn plain" id="les_noaudio">Kann gerade nicht hören</button>' : '<button class="btn plain" id="les_skip">Überspringen</button>') + '<button class="btn primary lg" id="les_check"' + (ready ? "" : " disabled") + '>Prüfen</button></div>';
 }
 function lesCheck() {
@@ -98,13 +109,42 @@ function lesNoAudio() {
   toast("Okay – Hör-Aufgaben in dieser Lektion ausgelassen");
   lesNext();
 }
+/** „Kann gerade nicht sprechen“: Sprech-Aufgaben fallen weg (1 Stunde lang auch in neuen Lektionen) */
+function lesNoMic() {
+  lsSet("lc_nomic_until", Date.now() + 3600e3); try { if (LES_REC) LES_REC.abort(); } catch (e) {}
+  const rest = LES.items.slice(LES.i).filter(x => x.type === "speak" && !x.retry).length;
+  LES.items = LES.items.slice(0, LES.i).concat(LES.items.slice(LES.i).filter(x => x.type !== "speak"));
+  LES.total = Math.max(1, LES.total - rest); LES.ui = {}; LES.i--;
+  toast("Okay – Sprechen ist für eine Stunde aus");
+  lesNext();
+}
+/** Mikrofon: zuhören, mit dem Ziel vergleichen; 1. Fehlversuch ohne Strafe */
+function lesListenMic(it, ui) {
+  const SR = SpeechRec(); if (!SR) return;
+  try { if (LES_REC) LES_REC.abort(); } catch (e) {}
+  const rec = new SR(); LES_REC = rec;
+  rec.lang = "fr-FR"; rec.interimResults = false; rec.maxAlternatives = 4;
+  ui.rec = "on"; route();
+  rec.onresult = e => {
+    const alts = [...(e.results[0] || [])].map(a => a.transcript); ui.heard = alts[0] || ""; ui.rec = null;
+    if (LESSON.speechOk(alts, it.target)) lesResult(true);
+    else { ui.tries = (ui.tries || 0) + 1; if (ui.tries >= 2) lesResult(false); else route(); }
+  };
+  rec.onerror = e => {
+    ui.rec = "err";
+    ui.recErr = e.error === "not-allowed" || e.error === "service-not-allowed" ? "Kein Zugriff aufs Mikrofon – erlaube es in den Browser-Einstellungen oder tippe „Kann gerade nicht sprechen“."
+      : e.error === "no-speech" ? "Ich habe nichts gehört – tippe nochmal aufs Mikrofon." : e.error === "network" ? "Spracherkennung braucht gerade Internet." : "Das Mikrofon hat nicht geklappt – nochmal versuchen.";
+    route();
+  };
+  rec.onend = () => { if (ui.rec === "on") { ui.rec = null; route(); } };
+  try { rec.start(); } catch (e) { ui.rec = "err"; ui.recErr = "Das Mikrofon hat nicht geklappt – nochmal versuchen."; route(); }
+}
 async function lesNext() {
+  try { if (LES_REC) LES_REC.abort(); } catch (e) {}
   LES.i++; LES.ui = {};
   if (LES.i >= LES.items.length) {
     LES.done = true; LES.xp = LESSON.lessonXP(LES.right, LES.total, LES.best);
-    const m = Object.assign({}, lesXP()); m[todayISO()] = (+m[todayISO()] || 0) + LES.xp;
-    Object.keys(m).sort().slice(0, -60).forEach(d => delete m[d]);   // nur die letzten 60 Tage aufheben
-    setSetting("lektion_xp", m);
+    await addXP(LES.xp, { perfect: LES.right === LES.total && !LES.wrongFirst });
   }
   route();
 }
@@ -112,7 +152,7 @@ function lesEnd() {
   const acc = Math.round(LES.right / LES.total * 100); const mins = Math.max(1, Math.round((Date.now() - LES.started) / 60000)); const st = lesStreak();
   return '<div class="les les-done"><div class="les-trophy">' + (acc === 100 ? "🏆" : acc >= 70 ? "🎉" : "💪") + '</div><h1 class="fx-title">' + (acc === 100 ? "Perfekte Lektion!" : "Lektion geschafft!") + '</h1>' +
     '<div class="les-stats"><div><b>+' + LES.xp + '</b><span>XP</span></div><div><b>' + acc + ' %</b><span>richtig</span></div><div><b>' + mins + '</b><span>' + (mins === 1 ? "Minute" : "Minuten") + '</span></div>' + (LES.best >= 3 ? '<div><b>🔥 ' + LES.best + '</b><span>beste Serie</span></div>' : '') + '</div>' +
-    '<p class="t-sub" style="text-align:center">Heute ' + lesXPToday() + ' XP' + (st > 1 ? ' · ' + st + ' Tage in Folge' : '') + '</p>' +
+    '<div class="les-goal"><div class="mo-bar"><i style="width:' + Math.min(100, Math.round(xpToday() / xpGoal() * 100)) + '%"></i></div><span class="t-sub">' + (xpToday() >= xpGoal() ? "🔥 Tagesziel geschafft – " : "Heute ") + xpToday() + ' / ' + xpGoal() + ' XP' + (st > 1 ? ' · ' + st + ' Tage in Folge' : '') + '</span></div>' +
     '<div class="les-endbtn"><button class="btn primary lg" id="les_again">Noch eine Lektion</button><a class="btn lg" href="' + lesBack(LES.scope) + '">Fertig</a></div></div>';
 }
 function bindLektion() {
@@ -143,6 +183,8 @@ function bindLektion() {
   const ck = q("les_check"); if (ck) ck.onclick = lesCheck;
   const sk = q("les_skip"); if (sk) sk.onclick = () => lesResult(false);
   const na = q("les_noaudio"); if (na) na.onclick = lesNoAudio;
+  const nm = q("les_nomic"); if (nm) nm.onclick = lesNoMic;
+  const mic = q("les_mic"); if (mic) mic.onclick = () => ui.rec === "on" ? (LES_REC && LES_REC.stop()) : lesListenMic(it, ui);
   const nx = q("les_next"); if (nx) { nx.onclick = lesNext; setTimeout(() => nx.focus(), 30); }
 }
 

@@ -387,7 +387,7 @@ V.fortschritt = () => {
   const weak = '<div>' + sectionHead("Schwachstellen") + '<div class="card tight">' + weakList(5) + '</div></div>';
   const hj = currentHJ(); const ges = gesamtSchnitt(hj);
   const noten = '<div class="section">' + sectionHead("Ergebnisse", '<a class="shl" href="#/noten">Alle Noten</a>') + '<div class="list"><a class="li" href="#/noten"><div class="li-main"><div class="li-title">Schnitt ' + hj + '</div><div class="li-sub">Alle belegten Fächer</div></div><span class="li-trail" style="color:var(--text);font-size:17px;font-weight:600">' + (ges == null ? "—" : fmtPt(ges) + " P.") + '<span class="chev">' + ICO.chev + '</span></span></a>' + pastKL().filter(k => k.punkte != null).slice(0, 4).map(k => '<a class="li" href="#/lernplan/' + esc(k.id) + '"><div class="li-main"><div class="li-title">' + esc(k.fach) + ' · ' + esc(klTitle(k)) + '</div><div class="li-sub">' + esc(fmtD(k.datum)) + ' · Note ' + PT_NOTE[k.punkte] + '</div></div><span class="pt ' + ptClass(k.punkte) + '">' + k.punkte + '</span></a>').join("") + '</div></div>';
-  return netNotice() + head + kpis + miles + '<div class="section"><div class="grid two">' + chart + err + '</div></div><div class="section"><div class="grid two">' + ready + weak + '</div></div><div class="section"><div class="grid two">' + topicsCard + vok + '</div></div>' + noten;
+  return netNotice() + head + motivationCard() + kpis + miles + badgesSection() + '<div class="section"><div class="grid two">' + chart + err + '</div></div><div class="section"><div class="grid two">' + ready + weak + '</div></div><div class="section"><div class="grid two">' + topicsCard + vok + '</div></div>' + noten;
 };
 
 /* =====================================================================
