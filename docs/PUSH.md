@@ -35,10 +35,10 @@ Supabase → **Edge Functions** → **Secrets** → **Add new secret**:
 | Name | Wert |
 |---|---|
 | `VAPID_PUBLIC_KEY` | `BGaHMIcRxYFempJIKVN333Keyy_ls30XZfsTzKULPRwZFFxvx0K32lUBQQcIOfDtGBO4qACgkveMXyTr_YFWNmg` |
-| `VAPID_PRIVATE_KEY` | *(steht im Chat, nicht im Repository – geheim halten)* |
+| `VAPID_PRIVATE_KEY` | *Wert `privateKey` aus der Datei `vapid.json`, die Claude dir in der Sitzung gegeben hat – nicht im Repository, geheim halten* |
 
 Der öffentliche Schlüssel steht auch in `js/push.js` – beide müssen zusammenpassen.
-Neues Schlüsselpaar nötig? `node --input-type=module -e "import('./supabase/functions/push-reminder/webpush.mjs').then(m=>m.generateVapidKeys()).then(console.log)"` –
+Datei verloren oder neues Schlüsselpaar nötig? `node --input-type=module -e "import('./supabase/functions/push-reminder/webpush.mjs').then(m=>m.generateVapidKeys()).then(console.log)"` –
 dann den öffentlichen Schlüssel in `js/push.js` **und** beide Secrets ersetzen (alle Geräte müssen sich danach neu anmelden).
 
 ## 3. Zeitplan starten
