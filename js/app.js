@@ -119,7 +119,7 @@ V.dashboard = () => {
   const chip = '<a class="dsh-streak' + (risk ? " risk" : today >= goal ? " done" : "") + '" href="#/fortschritt" title="Serie · XP heute"><span class="fl' + (today ? " lit" : "") + '">🔥</span><b>' + st + '</b><span class="xp">' + today + '/' + goal + ' XP</span></a>';
   const head = '<header class="dsh-h"><div style="min-width:0"><div class="eyebrow">' + esc(date) + '</div><h1>' + greeting() + ', ' + esc(name) + '</h1></div>' + chip + '</header>';
   const push = typeof pushSupported === "function" && pushSupported() && PUSH.checked && !pushOn() ? '<a class="dsh-hint" href="#/einstellungen">🔔 Erinnerungen einschalten – damit deine Serie nicht reißt</a>' : '';
-  return netNotice() + dbBanner() + head + '<div class="dsh">' + dashNow() + dashExams() + dashQuick() + dashSchool() + push + '</div>';
+  return netNotice() + dbBanner() + head + '<div class="dsh">' + dashNow() + dashExams() + dashQuick() + dashSchool() + push + '<div class="dsh-ver">Version ' + APP_VERSION + '</div></div>';
 };
 /** 1 · Jetzt dran: genau ein großer Knopf */
 function dashNow() {
