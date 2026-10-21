@@ -1,5 +1,5 @@
 /* Lern-Cockpit · Service Worker: App-Shell offline, Daten immer live (Supabase wird nie gecacht) */
-const CACHE="lc-v9-1";
+const CACHE="lc-v9-2";
 const SHELL=["./","./index.html","./manifest.webmanifest","./icon-192.png","./icon-512.png","./js/engine.js","./js/fr-grammar.js","./js/lesson.js","./js/api.js","./js/store.js","./js/ai.js","./js/trainer.js","./js/views-learn.js","./js/views-test.js","./js/views-mission.js","./js/views-material.js","./js/views-games.js","./js/deutsch-extrem-data.js","./js/views-deutsch.js","./js/views-klausur.js","./js/views-lesson.js","./js/content-packs.js","./js/app.js"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}));self.skipWaiting();});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
