@@ -46,96 +46,6 @@ async function ensureExercises(st, rows) {
 const mc = (question, options, correct_index, solution) => ({ type: "multiple_choice", question, options, correct_index, solution });
 const open_ = (question, solution, type) => ({ type: type || "free_text", question, solution });
 
-/* Fahrschule (vorübergehend): Abfahrtkontrolle Klasse B, Fahrschule Fleischmann, Stand 18.09.2011.
-   [Frage, Antwort, weitere richtige Antworten]. „;“ in der Antwort = jede der Varianten zählt. */
-const FS_PDF_NAME = "Fahrschule · Abfahrtkontrolle", FS_EXTRA_NAME = "Fahrschule · Extras";
-const FS_CHAIN = (seite, list) => list.map((x, i) => [i === 0 ? "Licht " + seite + " mit 2 Personen: 1. Kommando?" : "Licht " + seite + " mit 2 Personen: Was kommt nach „" + list[i - 1] + "“?", x, []]);
-const FAHRSCHULE_PDF = [
-  // Reifen
-  ["Reifen: Mindestprofiltiefe?", "1,6 mm", ["1,6 millimeter", "1.6 mm", "1,6"]],
-  ["Reifen: Was darf an den Reifenseiten nicht sein?", "Einschnitte, Risse oder Beulen", ["Einschnitte Risse Beulen", "Risse", "Beulen", "Einschnitte"]],
-  ["Reifen: Wo steht der richtige Reifendruck?", "Tankklappe; Bedienungsanleitung; B-Säule (Fahrertür öffnen)", ["in der Tankklappe", "an der B-Säule", "Fahrertür"]],
-  // Beleuchtung
-  ["Beleuchtung prüfen: Was muss eingeschaltet sein?", "Zündung", ["die Zündung"]],
-  ["Wie schaltest du das Standlicht ein?", "Lichtschalter 1x nach rechts drehen", ["1x nach rechts", "einmal nach rechts", "Lichtschalter einmal nach rechts", "1x nach rechts drehen"]],
-  ["Wie schaltest du das Abblendlicht ein?", "Lichtschalter 2x nach rechts drehen", ["2x nach rechts", "zweimal nach rechts", "Lichtschalter zweimal nach rechts", "2x nach rechts drehen"]],
-  ["Wie schaltest du das Fernlicht ein?", "Blinkerhebel nach vorn drücken", ["Blinkerhebel nach vorne drücken", "Hebel nach vorne drücken", "nach vorne drücken", "nach vorn drücken"]],
-  ["Fernlicht: Welche Farbe hat die Kontrollleuchte?", "blau", []],
-  ["Wie schaltest du die Nebelscheinwerfer ein?", "Abblendlicht an und Lichtschalter 1x herausziehen", ["Lichtschalter 1x herausziehen", "1x herausziehen", "einmal herausziehen", "Lichtschalter einmal herausziehen"]],
-  ["Wie schaltest du die Nebelschlussleuchte ein?", "Abblendlicht an und Lichtschalter 2x herausziehen", ["Lichtschalter 2x herausziehen", "2x herausziehen", "zweimal herausziehen", "Lichtschalter zweimal herausziehen"]],
-  ["Nebelschlussleuchte: Welche Farbe hat die Kontrollleuchte?", "gelb", []],
-  ["Wie schaltest du die Parkleuchte ein?", "Licht und Zündung aus und Blinker nach links", ["Blinker links", "Blinker nach links", "Blinker links anschalten", "Licht und Zündung aus, Blinker links"]],
-  ["Wann darf die Nebelschlussleuchte an?", "Sichtweite durch Nebel unter 50 m", ["unter 50 m", "weniger als 50 m", "unter 50 Meter", "weniger als 50 Meter", "50 m", "50 Meter"]],
-  ["Auf welcher Seite ist die Nebelschlussleuchte?", "nur links", ["links", "linke Seite", "linke Fahrzeugseite"]],
-  // Lenkspiel
-  ["Lenkspiel: Wie viel ist höchstens erlaubt?", "2 cm", ["2 zentimeter", "maximal 2 cm", "höchstens 2 cm", "2-3 Finger breit", "2 bis 3 Finger"]],
-  ["Lenkspiel prüfen: Welche Scheibe öffnest du?", "linke Seitenscheibe", ["links", "linke Scheibe", "Fahrerscheibe", "die linke Seitenscheibe"]],
-  ["Lenkspiel prüfen: Worauf schaust du, während du das Lenkrad bewegst?", "Vorderrad", ["auf das Vorderrad", "das Vorderrad", "Vorderrad beobachten", "Rad"]],
-  ["Lenkspiel: Ab wie viel Fingerbreit muss sich das Vorderrad bewegen?", "2-3 Finger", ["2 bis 3 Finger", "2-3", "2 bis 3", "2-3 Finger breit"]],
-  // Bremsen
-  ["Fußbremse prüfen: Wann muss der feste Widerstand kommen?", "nach einem Drittel des Pedalwegs", ["ein Drittel", "nach einem Drittel", "Drittel", "nach 1 Drittel"]],
-  ["Bremspedal lässt sich weiter durchtreten – was tun?", "Fahrzeug nicht benutzen und Fachwerkstatt benachrichtigen", ["nicht fahren", "Werkstatt", "Fachwerkstatt", "Fahrzeug nicht benutzen"]],
-  ["Handbremse prüfen: Wie ziehst du den Hebel?", "langsam hochziehen ohne den Knopf zu drücken", ["ohne Knopf", "ohne Arretierungsknopf", "langsam ohne Knopf", "langsam hochziehen ohne Knopf"]],
-  ["Handbremse: Nach wie vielen „Klack“ darf das Auto nicht mehr rollen?", "3 bis 5", ["3-5", "drei bis fünf", "nach 3 bis 5"]],
-  ["Kontrollleuchte Feststellbremse leuchtet auch bei …?", "Fehlern im Bremssystem", ["Fehler im Bremssystem", "Bremssystem", "Bremsfehler"]],
-  // Motoröl
-  ["Ölstand prüfen: Wie muss das Auto stehen?", "gerade (nicht schräg, nicht am Berg)", ["gerade", "eben", "waagerecht", "nicht schräg", "nicht am Berg"]],
-  ["Ölstand prüfen: Wie lange muss der Motor vorher aus sein?", "ca. 5 Minuten", ["5 Minuten", "5 min", "fünf Minuten"]],
-  ["Ölpeilstab: Was machst du nach dem ersten Herausziehen?", "mit einem Lappen säubern", ["abwischen", "säubern", "sauber machen", "mit Lappen säubern", "mit einem Lappen abwischen"]],
-  ["Ölpeilstab: Und nach dem Säubern?", "wieder ganz reinstecken und erneut herausziehen", ["wieder reinstecken", "reinstecken", "wieder ganz reinstecken", "reinstecken und wieder rausziehen"]],
-  ["Wann musst du Öl nachfüllen?", "wenn der Ölstand auf Min. ist", ["bei Min", "Min", "auf Min", "Minimum"]],
-  ["Wie viel Öl füllst du ungefähr nach?", "½ bis ¾ Liter", ["halber bis dreiviertel Liter", "einen halben bis dreiviertel Liter", "halben Liter", "ein halber Liter"]],
-  // Kühlmittel
-  ["Kühlmittel: Wann darfst du nachfüllen?", "nur bei abgekühltem Motor", ["bei kaltem Motor", "kalter Motor", "Motor kalt", "wenn der Motor kalt ist", "abgekühlter Motor"]],
-  ["Kühlmittel: Warum nur bei kaltem Motor?", "Verbrühungsgefahr", ["Verbrühung", "verbrühen", "heißer Dampf", "Gefahr beim Öffnen"]],
-  ["Kühlmittel: Wo muss der Stand sein?", "zwischen den zwei Strichen", ["zwischen den Strichen", "zwischen min und max", "zwischen den Markierungen"]],
-  ["Kühlmittel: Wann musst du nachfüllen?", "wenn der Stand unter dem unteren Strich ist", ["unter dem unteren Strich", "unter Min", "unterhalb des unteren Striches"]],
-  ["Frostschutz (Kühlmittel und Wischwasser): bis wie viel Grad?", "-25 °C", ["minus 25 Grad", "-25 Grad", "-25", "minus 25"]],
-  ["Wofür darf der Frostschutzprüfer nur verwendet werden?", "für das Kühlmittel", ["Kühlmittel", "nur für das Kühlmittel", "nicht für die Scheibenwaschanlage"]],
-  // Scheibenwaschanlage
-  ["Scheibenwaschanlage: Woran siehst du, ob genug drin ist?", "Nach dem Öffnen des Deckels muss Flüssigkeit zu sehen sein", ["Flüssigkeit sichtbar", "man sieht Flüssigkeit", "Flüssigkeit zu sehen"]],
-  ["Wischwasser: Was kommt im Sommer dazu?", "Reinigungsmittel", ["Reiniger"]],
-  ["Wischwasser: Was kommt im Winter dazu?", "Frostschutzmittel", ["Frostschutz"]],
-  ["Nach dem Auffüllen mit Frostschutz: Was musst du noch tun?", "Anlage betätigen, damit der Frostschutz in die Düsen kommt", ["Anlage betätigen", "betätigen", "Scheibenwaschanlage betätigen", "einmal sprühen"]],
-  // Licht mit 2 Personen
-  ["Licht mit 2 Personen: Wer setzt sich auf den Fahrersitz?", "der Fahrlehrer", ["Fahrlehrer", "Fahrlehrerin"]],
-  ["Licht mit 2 Personen: Was muss der Fahrlehrer einschalten?", "Zündung", ["die Zündung"]]
-].concat(FS_CHAIN("hinten", ["Abblendlicht", "Bremse", "Rückwärtsgang", "Nebelschlussleuchte", "Blinker links", "Blinker rechts", "Warnblinker"]))
- .concat(FS_CHAIN("vorne", ["Standlicht", "Abblendlicht", "Fernlicht", "Nebelscheinwerfer", "Blinker links", "Blinker rechts", "Warnblinker"]))
- .concat([
-  ["Licht hinten – „Abblendlicht“: Was muss leuchten?", "Rückleuchten und Kennzeichenleuchten", ["Rücklichter und Kennzeichenbeleuchtung", "Rückleuchten", "Kennzeichenleuchten", "Rücklichter"]],
-  ["Licht hinten – „Bremse“: Wie viele Bremslichter müssen leuchten?", "3", ["drei"]],
-  ["Licht hinten – „Rückwärtsgang“: Was muss leuchten?", "Rückfahrscheinwerfer rechts und links", ["Rückfahrscheinwerfer", "Rückfahrleuchten", "Rückfahrlicht"]]
-]);
-/* Extras: übliche Technikfragen Klasse B, nicht aus der PDF */
-const FAHRSCHULE_EXTRA = [
-  ["Bremsflüssigkeit: Wo muss der Stand sein?", "zwischen Min und Max", ["zwischen min und max", "zwischen den Markierungen"]],
-  ["Bremsflüssigkeit unter Min – was tun?", "nicht weiterfahren und Werkstatt aufsuchen", ["Werkstatt", "Fachwerkstatt", "Werkstatt aufsuchen"]],
-  ["Rote Öldruck-Kontrollleuchte leuchtet beim Fahren – was tun?", "sofort anhalten und Motor abstellen", ["anhalten", "sofort anhalten", "Motor aus", "Motor abstellen"]],
-  ["Rote Batterie-Leuchte (Ladekontrolle) leuchtet beim Fahren – was heißt das?", "Batterie wird nicht geladen (Lichtmaschine)", ["Batterie wird nicht geladen", "Lichtmaschine", "Lichtmaschine lädt nicht"]],
-  ["Kühlmitteltemperatur-Warnleuchte rot – was tun?", "anhalten und Motor abkühlen lassen", ["anhalten", "Motor abkühlen lassen"]],
-  ["Gelbe Motorkontrollleuchte – was heißt das?", "Störung an Motor oder Abgasanlage – Werkstatt", ["Werkstatt", "Motorstörung", "Abgasanlage", "Störung an Motor oder Abgasanlage"]],
-  ["ABS-Leuchte bleibt an – was heißt das?", "ABS ist ausgefallen – Bremse geht, aber ohne ABS", ["ABS ausgefallen", "ABS Fehler", "ohne ABS"]],
-  ["Reifendruck: Bei warmen oder kalten Reifen prüfen?", "bei kalten Reifen", ["kalt", "kalte Reifen", "kalten"]],
-  ["Empfohlene Profiltiefe bei Winterreifen?", "4 mm", ["4 millimeter", "4"]],
-  ["Pflicht im Auto (3 Dinge)?", "Warndreieck, Verbandkasten, Warnweste", ["Warndreieck", "Verbandkasten", "Warnweste"]],
-  ["Warndreieck: Abstand innerorts?", "ca. 50 m", ["50 m", "50 Meter"]],
-  ["Warndreieck: Abstand auf der Landstraße?", "ca. 100 m", ["100 m", "100 Meter"]],
-  ["Warndreieck: Abstand auf der Autobahn?", "mindestens 200 m", ["200 m", "200 Meter"]],
-  ["Frontscheibe beschlagen – was tun?", "Gebläse auf die Frontscheibe und Klimaanlage an", ["Gebläse auf die Scheibe", "Klimaanlage an", "Gebläse", "Defroster"]],
-  ["Wozu dient die Leuchtweitenregulierung?", "damit andere bei Beladung nicht geblendet werden", ["nicht blenden", "Gegenverkehr nicht blenden", "Blendung vermeiden"]],
-  ["Kopfstütze richtig einstellen?", "Oberkante auf Höhe des Scheitels", ["Kopfoberkante", "Höhe Kopfoberkante", "auf Höhe des Kopfes", "Scheitel"]],
-  ["Hupe: Wann prüfen?", "bei der Abfahrtkontrolle kurz drücken", ["kurz drücken", "kurz hupen"]]
-];
-async function ensureTermCollection(name, desc, rows) {
-  let col = ES.collections.find(c => c.name.toLowerCase() === name.toLowerCase());
-  if (!col) col = (await dbInsert("vocab_collections", { name, source_language: "de", target_language: "de", subject_id: null, description: desc })).row;
-  else if (isArchived(col.id)) await setArchived(col.id, false);
-  const have = new Set(cardsOf(col.id).map(v => Engine.normalize(v.begriff)));
-  const add = rows.filter(([q]) => !have.has(Engine.normalize(q))).map(([q, a, alts]) => ({ begriff: q, bedeutung: a, alternatives: alts || [], sprache: col.name, collection_id: col.id, source_language: "de", target_language: "de", subject_id: null, level: 0, next: todayISO() }));
-  if (add.length) { const r = await Api.insert("vokabeln", add); (Array.isArray(r) && r.length ? r : add).forEach(x => STATE.vo.push(normVO(x))); }
-  return add.length;
-}
 
 const PACKS = [
   { id: "vetements-1809", label: "Vokabeln „Les vêtements“", run: async () => {
@@ -153,10 +63,11 @@ const PACKS = [
     if (v) await dbPatch("vokabeln", v.id, { bedeutung: "vorziehen" });
     return true;
   } },
-  { id: "fahrschule-1", label: "Fahrschule: Abfahrtkontrolle", run: async () => {
-    const n = await ensureTermCollection(FS_PDF_NAME, "Abfahrtkontrolle Klasse B (PDF) – auswendig für die Praxisprüfung", FAHRSCHULE_PDF)
-      + await ensureTermCollection(FS_EXTRA_NAME, "Weitere Technikfragen Klasse B", FAHRSCHULE_EXTRA);
-    return n + " Karten";
+  { id: "fahrschule-weg", label: "Fahrschule archiviert", run: async () => {
+    // Fahrschule wird nicht mehr gebraucht: Sammlungen ins Archiv (Lernstand bleibt, nichts gelöscht)
+    const fs = ES.collections.filter(c => /^Fahrschule\b/i.test(c.name) && !isArchived(c.id));
+    for (const c of fs) await setArchived(c.id, true);
+    return fs.length ? plural(fs.length, "Sammlung", "Sammlungen") : true;
   } },
   { id: "englisch-archiv", label: "Englisch archiviert", run: async () => {
     if (upcomingExam(/^Englisch$/)) return false;   // solange eine Englisch-Klausur ansteht, bleibt alles
@@ -214,6 +125,28 @@ const PACKS = [
     ]);
     return "Thema Potenzfunktionen";
   } },
+  { id: "mathe-potenz-2", label: "Mathe: Klausur-Training", run: async () => {
+    const k = upcomingExam(/^Mathe$/); if (!k) return false;
+    const t = await ensureTopic(k, "Potenzfunktionen");
+    const s = await ensureSub(t, "Klausur-Training (gemischt)", 5);
+    await ensureExercises(s, [
+      open_("Untersuche f(x) = −2x⁴: Symmetrie und Verhalten für x → +∞ und x → −∞.", "Exponent 4 ist gerade → achsensymmetrisch zur y-Achse.\nFaktor −2 ist negativ → nach unten geöffnet.\nx → +∞: f(x) → −∞\nx → −∞: f(x) → −∞"),
+      open_("Gib Definitionsmenge und Wertemenge von f(x) = x⁻² an.", "x⁻² = 1/x² → durch 0 teilen geht nicht.\nD = ℝ \\ {0}\n1/x² ist immer positiv → W = ℝ⁺ (alle Zahlen > 0)"),
+      open_("Vereinfache (2x³)².", "(2x³)² = 2² · (x³)² = 4 · x⁶ = 4x⁶"),
+      open_("Vereinfache x⁻³ · x⁵ : x.", "x⁻³ · x⁵ = x² (Exponenten addieren: −3 + 5)\nx² : x = x¹ = x"),
+      open_("Löse x⁴ = 81.", "x⁴ = 81 → x = ⁴√81 = 3\nGerader Exponent → auch die negative Zahl: x = −3\nL = {−3; 3}"),
+      open_("Löse x³ = −8.", "Ungerader Exponent → genau eine Lösung, auch für negative Zahlen.\nx = ³√(−8) = −2\nL = {−2}"),
+      open_("Löse x⁻² = 4.", "x⁻² = 1/x² = 4 → x² = 1/4 → x = ±1/2\nL = {−0,5; 0,5}"),
+      open_("Berechne f(2) und f(−2) für f(x) = 3x⁻². Was fällt dir auf?", "f(2) = 3 · 1/2² = 3/4 = 0,75\nf(−2) = 3 · 1/(−2)² = 3/4 = 0,75\nGleiche Werte → passt zur Achsensymmetrie (gerader Exponent)."),
+      open_("Beschreibe, wie der Graph von f(x) = −(x + 1)³ + 2 aus dem Graphen von x³ entsteht.", "1. Um 1 nach links verschoben (x + 1)\n2. An der x-Achse gespiegelt (Minus davor)\n3. Um 2 nach oben verschoben (+ 2)\nWendepunkt (Symmetriezentrum) bei (−1|2)."),
+      open_("Gib eine Funktion der Form f(x) = a·x⁴ an, deren Graph durch den Punkt (1|3) geht.", "Punkt einsetzen: 3 = a · 1⁴ → a = 3\nf(x) = 3x⁴"),
+      open_("Gib eine Funktion der Form f(x) = a·x³ an, deren Graph durch (2|−4) geht.", "−4 = a · 2³ = 8a → a = −0,5\nf(x) = −0,5x³"),
+      mc("Welcher Punkt liegt auf dem Graphen von f(x) = x⁻¹?", ["(2|0,5)", "(2|−2)", "(0|0)", "(−1|1)"], 0, "1/2 = 0,5 → (2|0,5). Bei x = 0 ist f nicht definiert."),
+      mc("Welche Funktion ist punktsymmetrisch zum Ursprung?", ["f(x) = x⁻³", "f(x) = x⁻²", "f(x) = x² + 1", "f(x) = (x − 1)³"], 0, "Ungerader Exponent ohne Verschiebung → punktsymmetrisch. (x − 1)³ ist verschoben."),
+      mc("f(x) = x⁶ und g(x) = x² – welche Aussage stimmt für 0 < x < 1?", ["x⁶ < x²", "x⁶ > x²", "x⁶ = x²", "Kommt auf x an"], 0, "Zahlen zwischen 0 und 1 werden durch höhere Potenzen kleiner: 0,5⁶ ≈ 0,016 < 0,5² = 0,25.")
+    ]);
+    return "14 Klausur-Aufgaben";
+  } },
   { id: "franz-klausur", label: "Französisch-Klausur vorbereitet", run: async () => {
     const k = upcomingExam(/^Französisch$/); if (!k) return false;
     const col = ES.collections.find(c => c.name.toLowerCase() === VET_NAME.toLowerCase());
@@ -255,6 +188,6 @@ async function runContentPacks() {
       catch (e) { console.warn("Paket", p.id, e); }
     }
     if (Object.keys(done).length !== Object.keys(setting("packs_done", {}) || {}).length) { await setSetting("packs_done", done); await Api.idle(); bump(); }
-    if (news.length) { toast("Aktualisiert: " + news.join(" · ")); if (ROUTE.name !== "trainer" && !document.getElementById("mbg")) route(); }
+    if (news.length) { toast("Neu in der App: " + news.slice(0, 2).join(" · ") + (news.length > 2 ? " +" + (news.length - 2) : "")); if (ROUTE.name !== "trainer" && !document.getElementById("mbg")) route(); }
   } finally { PACKS_RUNNING = false; }
 }

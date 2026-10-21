@@ -32,7 +32,7 @@ async function login(page) {
     await page.waitForSelector("#auth_form");
     await page.fill("#a_mail", "filip@example.org"); await page.fill("#a_pw", "geheim123");
     await page.click("#a_go");
-    try { await page.waitForSelector(".dash", { timeout: i < 2 ? 6000 : 15000 }); return; }
+    try { await page.waitForSelector(".dsh", { timeout: i < 2 ? 6000 : 15000 }); return; }
     catch (e) { if (i === 2 || !(await page.$("#auth_form"))) throw e; }
   }
 }
@@ -49,6 +49,8 @@ async function playRoundUI(page, wrong) {
     await page.click("#va_next");
   }
 }
+/** Mathe-Aufgaben laufen im Papier-Modus – für Tipp-Tests auf „Lieber tippen“ umschalten */
+async function typeMode(page) { await page.waitForSelector("#oa, #oa_type"); if (await page.$("#oa_type")) await page.click("#oa_type"); await page.waitForSelector("#oa"); }
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: SHOTS + "/" + name + ".png", fullPage: true }); };
 const go = async (page, hash) => { await page.evaluate(h => { location.hash = h; }, hash); await page.waitForTimeout(250); };
 async function scenario(name, fn) {
@@ -75,11 +77,11 @@ await scenario("Anmeldung + Übernahme der Altdaten in das neue Modell", async (
   assert.equal(b.db.learning_events.filter(e => e.type === "self_assessment").length, 1, "nur „erledigt“ wird als Selbsteinschätzung übernommen");
   assert.ok(b.db.klausuren.every(k => k.topics_migrated), "Migration markiert");
   // erneutes Laden erzeugt keine Duplikate
-  b.log.length = 0; await page.reload(); await page.waitForSelector(".dash"); await page.waitForTimeout(300);
+  b.log.length = 0; await page.reload(); await page.waitForSelector(".dsh"); await page.waitForTimeout(300);
   assert.equal(b.db.topics.length, 1); assert.equal(b.db.vocab_collections.length, 3);
   assert.deepEqual(b.log.filter(l => !l.startsWith("GET") && !l.includes("/rpc/")), [], "zweites Laden schreibt nichts");
   await shot(page, "01-dashboard");
-  const text = await page.textContent(".dash");
+  const text = await page.textContent(".dsh");
   assert.ok(/fällige Vokabel|neue Vokabel/.test(text), "Tagesplan enthält Vokabeln");
   assert.ok(text.includes("Narrative Perspective") || text.includes("Characterisation"), "Tagesplan enthält Unterthema der nahen Prüfung");
   assert.ok(!/NaN|undefined/.test(text), "keine kaputten Werte");
@@ -92,7 +94,7 @@ await scenario("Reparatur: früher als Französisch eingeordnete Fach-Lektion wi
   Object.assign(chem, { source_language: "fr", subject_id: null });               // Zustand nach dem alten Fehler
   b.db.vokabeln.filter(v => v.collection_id === chem.id).forEach(v => v.source_language = "fr");
   const fr = b.db.vocab_collections.find(c => c.name === "Unité 1");
-  await page.reload(); await page.waitForSelector(".dash"); await page.waitForTimeout(400);
+  await page.reload(); await page.waitForSelector(".dsh"); await page.waitForTimeout(400);
   assert.equal(chem.source_language, "de"); assert.ok(chem.subject_id);
   assert.ok(b.db.vokabeln.filter(v => v.collection_id === chem.id).every(v => v.source_language === "de"));
   assert.equal(fr.source_language, "fr", "echte Französisch-Sammlung bleibt unberührt");
@@ -170,15 +172,15 @@ await scenario("Trainer: Pause, Fortsetzen, Reload-sicherer Timer, Beenden", asy
   await page.evaluate(() => { TS.started_at -= 5 * 60000; tsSave(); });
   await page.reload(); await page.waitForSelector(".timer.countdown");
   const t1 = await page.textContent("[data-tstime]"); assert.ok(/^(9|10):\d\d$/.test(t1), "nach Reload ~10:00 statt 15:00: " + t1);
-  await page.click("#ts_pause"); await page.waitForSelector("text=Pausiert");
+  await page.click("#ts_pause"); await page.waitForSelector("text=Pausiert"); await page.evaluate(() => Api.idle());
   assert.equal(b.db.training_sessions[0].status, "paused");
   const p1 = await page.textContent("[data-tstime]"); await page.waitForTimeout(1600);
   assert.equal(await page.textContent("[data-tstime]"), p1, "Timer steht in der Pause");
-  await page.click("#ts_resume"); assert.equal(b.db.training_sessions[0].status, "active");
+  await page.click("#ts_resume"); await page.evaluate(() => Api.idle()); assert.equal(b.db.training_sessions[0].status, "active");
   // Session-Pille außerhalb des Trainers
   await go(page, "#/dashboard"); await page.waitForSelector(".session-pill");
-  assert.ok((await page.textContent(".dash")).includes("Weitermachen"));
-  await page.click(".session-pill .btn"); await page.waitForSelector("#oa");
+  assert.ok((await page.textContent(".dsh")).includes("Weitermachen"));
+  await page.click(".session-pill .btn"); await typeMode(page);
   await page.fill("#oa", "Meine Antwort unter Prüfungsbedingungen."); await page.click("#oa_check");
   assert.equal(await page.$(".fb"), null, "keine Rückmeldung im Prüfungsmodus");
   assert.equal(await page.$("#hint_btn"), null, "keine Hinweise im Prüfungsmodus");
@@ -207,10 +209,10 @@ await scenario("Lernplan: Prüfung, Thema, Unterthema, Übung anlegen, üben, Le
   await page.click('[data-pick="1"]'); await page.click("#ch_check"); await page.waitForSelector("#ch_next");
   const ev = b.db.learning_events.find(e => e.exercise_id === ex.id); assert.equal(ev.type, "exercise_correct"); assert.equal(ev.subtopic_id, st.id);
   // restliche Vorlagen ohne KI: Selbsteinschätzung
-  await page.click("#ch_next"); await page.waitForSelector("#oa");
+  await page.click("#ch_next"); await typeMode(page);
   await page.fill("#oa", "Die Ableitung beschreibt die Steigung."); await page.click("#oa_check");
   await page.waitForSelector("[data-rate]"); await page.click('[data-rate="0.5"]'); await page.click("#oa_next");
-  await page.waitForSelector("#oa"); await page.click("#ts_end"); await page.click("#ce_yes");
+  await page.waitForSelector("#oa, #oa_show"); await page.click("#ts_end"); await page.click("#ce_yes");
   await page.waitForSelector("text=Lernstand");
   await shot(page, "05-session-ergebnis");
   await page.click("#sm_close"); await page.waitForSelector(".topic-head");
@@ -246,8 +248,8 @@ await scenario("KI: Erklären, Übung erzeugen + lösen, Prüfen, Korrigieren, S
   if (await page.$("#hint_btn")) { await page.click("#hint_btn"); await page.waitForSelector(".hint-it"); assert.equal(b.lastAi.level, 1); }
   // Weakspots und Weiterlernen auf dem Dashboard
   await page.click("#ts_end"); await page.click("#ce_yes"); await page.click("#sm_close");
-  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
-  const dash = await page.textContent(".dash");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh");
+  const dash = await page.textContent(".dsh");
   assert.ok(dash.includes("Narrative Perspective"), "Dashboard kennt das Unterthema");
   await shot(page, "08-dashboard-nach-lernen");
   await ctx.close();
@@ -278,7 +280,7 @@ await scenario("Offline: Antworten werden gepuffert und nach der Verbindung nach
   // Offline-Start aus dem gespeicherten Stand
   await page.evaluate(() => saveSnap());
   b.offline = true; await page.reload(); await page.waitForSelector("#va");   // laufende Session offline wiederhergestellt
-  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh");
   assert.ok((await page.textContent("#view")).includes("Offline"), "Offline-Hinweis statt leerer Seite");
   b.offline = false; await ctx.close();
 });
@@ -290,13 +292,13 @@ await scenario("Abmelden und erneut anmelden: Daten und aktive Session bleiben",
   await go(page, "#/einstellungen"); await page.click("#s_logout"); await page.waitForSelector("#auth_form");
   assert.equal(b.db.training_sessions[0].status, "abandoned", "Session beim Abmelden sauber beendet");
   await login(page);
-  assert.ok((await page.textContent(".dash")).includes("Short Story Writing"));
+  assert.ok((await page.textContent(".dsh")).includes("Short Story Writing"));
   await ctx.close();
 });
 
 await scenario("Ohne Migration: Einrichtungshinweis, Schulseiten funktionieren weiter", async () => {
   const b = new MockBackend({ engine: false }); const { ctx, page } = await open(b);
-  await page.waitForSelector(".dash"); assert.ok((await page.textContent(".dash")).includes("Lern-Engine einrichten"));
+  await page.waitForSelector(".dsh"); assert.ok((await page.textContent(".dsh")).includes("Lern-Engine einrichten"));
   await go(page, "#/aufgaben"); await page.waitForSelector("text=S. 42");
   await go(page, "#/vokabeln"); assert.ok((await page.textContent("#view")).includes("003_learning_engine.sql"));
   await ctx.close();
@@ -348,9 +350,9 @@ await scenario("Vokabeltest: eintragen, Liste einfügen, verteilt lernen, Probet
   assert.ok(t.includes("Alles wiederholen + Probetest"));
   await shot(page, "vt-02-detail");
   // Tagesplan: Test steht oben
-  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
-  assert.ok((await page.textContent(".mission")).includes("Vokabeltest in 4 Tagen"));
-  assert.ok((await page.textContent(".a-cont")).includes("Voc. 7A p. 222/223"), "Als Nächstes: der Test");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh");
+  assert.ok(await page.evaluate(() => todayPlan().items.some(i => i.kind === "test" && i.sub.includes("Vokabeltest in 4 Tagen"))));
+  assert.ok((await page.textContent(".dsh-now")).includes("Voc. 7A p. 222/223"), "Als Nächstes: der Test");
   // Lernen: Deutsch → Französisch, eine Antwort falsch
   await go(page, "#/lernplan/" + k.id); await page.click("#vt_learn"); await page.waitForSelector(".fx-card");
   await playRoundUI(page, n => n === 0);
@@ -460,21 +462,21 @@ await scenario("Auftrag für heute: Themen festlegen, Probeklausur schreiben und
   b.db.klausuren[0].datum = day(4);                                  // Englisch: Probeklausur heute fällig
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-000000000009", fach: "Mathe", thema: "Klausur Nr. 1", datum: day(7), nr: 1, themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForSelector(".mission");
-  let t = await page.textContent(".mission");
+  await page.waitForSelector(".dsh-now");
+  let t = await page.textContent(".dsh-now");
   assert.ok(t.includes("Festlegen, was in Mathe drankommt"), "zuerst Themen festlegen");
   assert.ok(t.includes("Probeklausur Englisch"), "Probeklausur 4 Tage vorher");
   assert.ok(t.indexOf("Festlegen") < t.indexOf("Probeklausur"), "Reihenfolge");
   await shot(page, "au-01-auftrag");
   // 1. Themen festlegen über den großen Knopf
-  await page.click("#plan_go"); await page.waitForSelector(".pickchip");
+  await page.click(".dsh-now .btn.primary"); await page.waitForSelector(".pickchip");
   await page.click('[data-pick="1"]'); await page.click('[data-pick="4"]');
   await page.fill("#ta_more", "Integrale (Ausblick)");
   await shot(page, "au-02-themen");
   await page.click("#ta_save"); await page.waitForTimeout(400); await page.evaluate(() => Api.idle());
   const mathTopic = b.db.topics.find(x => x.exam_id === "11111111-aaaa-4aaa-8aaa-000000000009");
   assert.deepEqual(b.db.subtopics.filter(x => x.topic_id === mathTopic.id).map(x => x.title), ["Negative Exponenten (x⁻¹, x⁻²)", "Strecken, Spiegeln, Verschieben", "Integrale (Ausblick)"]);
-  t = await page.textContent(".mission");
+  t = await page.textContent(".dsh-now");
   assert.ok(!t.includes("Festlegen, was in Mathe"), "Schritt erledigt: " + t);
   // 2. Probeklausur Englisch mit eigener Aufgabe
   const mi = await page.evaluate(() => todayPlan().items.findIndex(i => i.kind === "mock"));
@@ -500,8 +502,9 @@ await scenario("Auftrag für heute: Themen festlegen, Probeklausur schreiben und
   assert.ok(b.db.training_sessions.some(x => x.mode === "exam" && x.status === "completed" && x.exam_id === "11111111-aaaa-4aaa-8aaa-000000000001"));
   assert.ok(await page.$("#sm_next"), "direkt weiter zum nächsten Schritt");
   // Auftrag: Probeklausur abgehakt
-  await page.click("#sm_close"); await go(page, "#/dashboard"); await page.waitForSelector(".mission");
-  assert.ok(await page.$eval(".mstep.done", x => x.textContent.includes("Probeklausur Englisch")));
+  await page.click("#sm_close"); await go(page, "#/dashboard"); await page.waitForSelector(".dsh-now");
+  assert.ok(await page.evaluate(() => todayPlan().items.find(i => i.kind === "mock").done), "Probeklausur abgehakt");
+  assert.ok(!(await page.textContent(".dsh-now")).includes("Probeklausur Englisch"), "nicht mehr offen");
   // Fahrplan der Klausurseite: morgen nacharbeiten
   await go(page, "#/lernplan/11111111-aaaa-4aaa-8aaa-000000000001"); await page.waitForSelector(".tl");
   const tl = await page.textContent(".tl");
@@ -519,18 +522,18 @@ await scenario("Zugangslink: ohne Login-Seite rein, neuer Link macht den alten u
   assert.notEqual(b.users["filip@example.org"].password, "geheim123", "neues Zufallspasswort");
   // neues Gerät: Link öffnen → direkt im Dashboard, keine Anmeldung, Schlüssel aus der Adresse entfernt
   const B = await open(b, { hash: link1.slice(link1.indexOf("#")) });
-  await B.page.waitForSelector(".dash", { timeout: 15000 });
+  await B.page.waitForSelector(".dsh", { timeout: 15000 });
   assert.ok(!(await B.page.$("#auth_form")));
   assert.equal(await B.page.evaluate(() => location.hash), "#/dashboard");
   // Sitzung läuft ab → automatisch wieder drin
-  await B.page.evaluate(() => { localStorage.removeItem("lc_auth"); }); await B.page.reload(); await B.page.waitForSelector(".dash", { timeout: 15000 });
+  await B.page.evaluate(() => { localStorage.removeItem("lc_auth"); }); await B.page.reload(); await B.page.waitForSelector(".dsh", { timeout: 15000 });
   // neuer Link auf Gerät A → alter Link funktioniert nicht mehr
   await A.page.click("#s_link_new"); await A.page.click("#al_yes"); await A.page.waitForTimeout(400);
   const link2 = await A.page.inputValue("#s_link"); assert.notEqual(link2, link1);
   const C = await open(b, { hash: link1.slice(link1.indexOf("#")) });
   await C.page.waitForSelector("#auth_form", { timeout: 15000 });
   const D = await open(b, { hash: link2.slice(link2.indexOf("#")) });
-  await D.page.waitForSelector(".dash", { timeout: 15000 });
+  await D.page.waitForSelector(".dsh", { timeout: 15000 });
   // Abmelden vergisst den Link auf diesem Gerät
   await go(D.page, "#/einstellungen"); await D.page.click("#s_logout"); await D.page.waitForSelector("#auth_form");
   assert.equal(await D.page.evaluate(() => Api.hasAccess()), false);
@@ -541,7 +544,7 @@ await scenario("Ohne Anmeldung (Migration 005): direkt im Dashboard, Daten speic
   const b = new MockBackend({ open: true });
   b.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; });
   const { ctx, page } = await open(b);
-  await page.waitForSelector(".dash", { timeout: 15000 });
+  await page.waitForSelector(".dsh", { timeout: 15000 });
   assert.ok(!(await page.$("#auth_form")), "keine Login-Seite");
   // Vokabel anlegen und lernen funktioniert ohne Konto
   await page.evaluate(() => startTraining({ mode: "vocab", count: 5 })); await page.waitForSelector(".fx-card");
@@ -552,7 +555,7 @@ await scenario("Ohne Anmeldung (Migration 005): direkt im Dashboard, Daten speic
   const t = await page.textContent("#view");
   assert.ok(t.includes("ohne Anmeldung")); assert.ok(!(await page.$("#s_logout")));
   // zweites Gerät sieht denselben Stand, ebenfalls ohne Login
-  const B = await open(b); await B.page.waitForSelector(".dash", { timeout: 15000 });
+  const B = await open(b); await B.page.waitForSelector(".dsh", { timeout: 15000 });
   assert.ok(await B.page.evaluate(() => ES.sessions.length >= 1));
   await ctx.close(); await B.ctx.close();
 });
@@ -562,12 +565,12 @@ await scenario("Vokabeltest per Aushang eingetragen (ohne Wörter): sichtbar, W�
   const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000aa", fach: "Französisch", thema: "Voc. 8B test de vocabulaire", datum: day(3), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForSelector(".mission");
-  assert.ok((await page.textContent(".mission")).includes("Vokabeln eintragen: Voc. 8B"), "Test im Auftrag, obwohl noch ohne Wörter");
+  await page.waitForSelector(".dsh-now");
+  assert.ok((await page.textContent(".dsh-now")).includes("Vokabeln eintragen: Voc. 8B"), "Test im Auftrag, obwohl noch ohne Wörter");
   await go(page, "#/vokabeln"); await page.waitForSelector(".li");
   const vt = await page.textContent("#view");
   assert.ok(vt.includes("Vokabeltests") && vt.includes("noch keine Vokabeln eingetragen"), "Vokabelseite zeigt den Test");
-  await go(page, "#/dashboard"); await page.waitForSelector(".mission");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh-now");
   const i = await page.evaluate(() => todayPlan().items.findIndex(x => x.kind === "testsetup"));
   await page.click(`[data-plan="${i}"]`);
   await page.waitForSelector("#im_txt", { timeout: 8000 });
@@ -577,7 +580,7 @@ await scenario("Vokabeltest per Aushang eingetragen (ohne Wörter): sichtbar, W�
   const k = b.db.klausuren.find(x => x.id === "11111111-aaaa-4aaa-8aaa-0000000000aa");
   assert.equal(k.vokabel_lektionen.length, 1, "Sammlung verknüpft");
   assert.equal(b.db.vokabeln.filter(v => v.sprache === k.vokabel_lektionen[0]).length, 3);
-  await go(page, "#/dashboard"); await page.waitForSelector(".mission");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh-now");
   const kinds = await page.evaluate(() => todayPlan().items.filter(x => x.exam_id === "11111111-aaaa-4aaa-8aaa-0000000000aa").map(x => x.kind));
   assert.deepEqual(kinds, ["test"], "jetzt: Lernrunde für den Test");
   await ctx.close();
@@ -601,7 +604,7 @@ await scenario("Vokabeln in beide Richtungen gemischt: jedes Wort in beide Richt
   await ctx.close();
 });
 
-const openApp = async (o = {}) => { const b = new MockBackend(Object.assign({ open: true, version: 6 }, o)); b.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; }); const r = await open(b, o); await r.page.waitForSelector(".dash", { timeout: 15000 }); return Object.assign(r, { b }); };
+const openApp = async (o = {}) => { const b = new MockBackend(Object.assign({ open: true, version: 6 }, o)); b.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; }); const r = await open(b, o); await r.page.waitForSelector(".dsh", { timeout: 15000 }); return Object.assign(r, { b }); };
 const MINI_PDF = Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF");
 
 await scenario("Material: PDF hochladen, ansehen, auf der Prüfungsseite; Zeichenblatt speichern und weiterzeichnen", async () => {
@@ -678,7 +681,7 @@ await scenario("Aufräumen: kein „Geschrieben“, keine Hinweise; alte Vokabel
   const bb = new MockBackend(b0); bb.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; });
   bb.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000bb", fach: "Französisch", thema: "Vokabeltest: Unité 1", datum: day(-3), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: ["Unité 1"], topics_migrated: true, user_id: "aaaaaaaa-0000-4000-8000-000000000001" });
   bb.db.neuigkeiten.push({ id: "n1", titel: "Wandertag", gelesen: false, created: new Date().toISOString() });
-  const { ctx, page } = await open(bb); await page.waitForSelector(".dash", { timeout: 15000 });
+  const { ctx, page } = await open(bb); await page.waitForSelector(".dsh", { timeout: 15000 });
   assert.ok(!(await page.textContent("#view")).includes("Hinweise"), "keine Hinweise-Ecke");
   await go(page, "#/lernplan"); await page.waitForTimeout(300);
   assert.ok(!(await page.$('[data-lptab]')), "kein Tab „Geschrieben“");
@@ -700,7 +703,7 @@ await scenario("Deutsch Extrem-Modus: einrichten, alle 8 Bereiche am Handy, spei
   const EX = "0bf7d143-fdb2-45f2-9633-44e33dfb8a98";
   const b = new MockBackend({ open: true, version: 6 }); b.db.klausuren.forEach(k => { k.user_id = "aaaaaaaa-0000-4000-8000-000000000001"; });
   b.db.klausuren.push({ id: EX, fach: "Deutsch", thema: "Kommunikationsanalyse", datum: day(1), uhrzeit: "07:55", nr: 1, themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true, user_id: "aaaaaaaa-0000-4000-8000-000000000001" });
-  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await page.waitForSelector(".dash", { timeout: 15000 });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await page.waitForSelector(".dsh", { timeout: 15000 });
   const wide = async h => assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), h + " zu breit");
   await go(page, "#/lernplan"); await page.waitForSelector(`.dx-entry[href="#/extrem/${EX}"]`);
   await page.click(`.dx-entry[href="#/extrem/${EX}"]`); await page.waitForSelector(".dx-count", { timeout: 15000 });
@@ -773,7 +776,7 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m1", fach: "Mathe", thema: "Graphen, lineare Funktionen", datum: day(9), themen: [{ id: "a", text: "Grafen", done: false }, { id: "b", text: "linear", done: false }], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f1", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 7 && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 8 && !PACKS_RUNNING, null, { timeout: 15000 });
   await page.evaluate(() => Api.idle());
   const vet = b.db.vocab_collections.find(c => c.name === "Les vêtements");
   assert.ok(vet && vet.source_language === "fr", "Sammlung angelegt");
@@ -793,33 +796,22 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   assert.ok(mt.some(t => t.title === "Potenzfunktionen" && t.status === "active"));
   assert.ok(mt.filter(t => t.title !== "Potenzfunktionen").every(t => t.status === "paused") && mt.length >= 2, "alte Themen pausiert");
   const msubs = await page.evaluate(id => subsOfExam(id).map(s => s.title), mk.id);
-  assert.equal(msubs.length, 5); assert.ok(!msubs.includes("Grafen"));
+  assert.equal(msubs.length, 6); assert.ok(msubs.includes("Klausur-Training (gemischt)") && !msubs.includes("Grafen"));
   // Französisch: Vokabeln verknüpft, Themen für Texte / Listening / Grammatik
   const fk = b.db.klausuren.find(k => k.fach === "Französisch");
   assert.ok(fk.vokabel_lektionen.includes("Les vêtements"));
   const fsubs = await page.evaluate(id => subsOfExam(id).map(s => s.title), fk.id);
   assert.ok(fsubs.some(t => /Texte schreiben/.test(t)) && fsubs.some(t => /Listening/.test(t)) && fsubs.length === 3);
-  // Fahrschule: PDF-Karten + Extras, eigener Knopf, PDF zuerst, immer Frage → Antwort
-  const fsPdf = b.db.vocab_collections.find(c => c.name === "Fahrschule · Abfahrtkontrolle"), fsEx = b.db.vocab_collections.find(c => c.name === "Fahrschule · Extras");
-  assert.ok(fsPdf && fsEx && fsPdf.source_language === "de");
-  assert.equal(b.db.vokabeln.filter(v => v.collection_id === fsPdf.id).length, await page.evaluate(() => FAHRSCHULE_PDF.length));
-  assert.ok(b.db.vokabeln.some(v => v.begriff === "Reifen: Mindestprofiltiefe?" && v.bedeutung === "1,6 mm"));
-  assert.ok(await page.evaluate(() => Engine.checkAnswer("1,6 mm", Engine.vocabSides(STATE.vo.find(v => v.begriff === "Reifen: Mindestprofiltiefe?"), "forward").answers, "de").verdict === "correct"), "1,6 mm wird nicht am Komma zerlegt");
-  await go(page, "#/dashboard"); await page.waitForSelector('[data-vgroup="fahrschule"]');
-  await page.click('[data-vgroup="fahrschule"]'); await page.waitForSelector(".fx-card");
-  const fs = await page.evaluate(() => ({ label: TS.label, dir: TS.direction, cols: [...new Set(TS.items.map(it => cardById(it.vocab_id).collection_id))] }));
-  assert.equal(fs.label, "Fahrschule"); assert.equal(fs.dir, "forward"); assert.deepEqual(fs.cols, [fsPdf.id], "zuerst die PDF-Karten");
-  await page.evaluate(async () => { await tsFinish("abandoned", true); TS = null; tsSave(); await Api.idle(); });
-  await go(page, "#/dashboard");
   const counts = () => [b.db.vokabeln.length, b.db.topics.length, b.db.subtopics.length, b.db.exercises.length].join(",");
   const c1 = counts();
-  await page.reload(); await page.waitForSelector(".dash", { timeout: 15000 }); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());
+  await page.reload(); await page.waitForSelector(".dsh", { timeout: 15000 }); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());
   assert.equal(counts(), c1, "beim zweiten Start nichts doppelt");
   await ctx.close();
 });
 
 await scenario("Vokabeln lernen: Sprache antippen, Kenne ich schon, Hören-Spiel – Handy ohne Querscrollen", async () => {
   const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  await page.waitForSelector('[data-dq="vok"]'); await page.click('[data-dq="vok"]');   // Start → Kachel „Vokabeln“ → Sprache wählen
   await page.waitForSelector("#vl_card");
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   assert.ok(await noScroll(), "Dashboard ohne Querscrollen");
@@ -877,9 +869,9 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   Object.assign(b.db.vokabeln.find(v => v.begriff === "le travail"), { reps: 4, level: 4, interval_days: 40, next_review_at: day(30) + "T00:00:00.000Z", last_reviewed_at: day(-5) + "T10:00:00.000Z", last_result: "correct" });
   const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
-  await page.waitForSelector(`.km-ent[href="#/klausur/${FK}"]`);
-  await page.$eval(`.km-ent[href="#/klausur/${FK}"]`, a => a.click()); await page.waitForSelector(".km-steps");
-  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Überblick", "Vokabeln", "Spiele", "Grammatik", "Schreiben", "Themen"]);
+  await page.waitForSelector(`.dsh-ex[href="#/klausur/${FK}"]`);
+  await page.$eval(`.dsh-ex[href="#/klausur/${FK}"]`, a => a.click()); await page.waitForSelector(".km-steps");
+  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Start", "Videos", "Vokabeln", "Spiele", "Grammatik", "Schreiben", "Aufgaben"]);
   assert.ok(await noScroll(), "Überblick ohne Querscrollen");
   assert.ok((await page.textContent("#km_body")).includes("Dein bisheriger Stand zählt"));
   const sure = await page.evaluate(id => examVocab(klById(id)).filter(v => ["mid", "long"].includes(Engine.stageOf(v).key)).length, FK);
@@ -948,16 +940,16 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   await page.click("#wr_ai"); await page.waitForSelector(".wr-ai, .wr-card .hint", { timeout: 10000 });
   // Dranbleiben: XP aus Spielen zählen, Karte im Dashboard, Abzeichen im Fortschritt
   assert.ok(await page.evaluate(() => xpToday() > 0), "XP aus Spielen gutgeschrieben");
-  await go(page, "#/dashboard"); await page.waitForSelector(".mo-card");
-  assert.ok((await page.textContent(".mo-card")).includes("XP heute"));
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh-streak");
+  assert.ok(/\d+\/\d+ XP/.test(await page.textContent(".dsh-streak")));
   await go(page, "#/fortschritt"); await page.waitForSelector(".bd-grid"); assert.ok(await noScroll(), "Fortschritt ohne Querscrollen");
   await page.click('[data-xpgoal="50"]'); await page.waitForTimeout(300); assert.equal(await page.evaluate(() => xpGoal()), 50);
   // nach der Klausur: Modus weg
   await page.evaluate(id => { const k = klById(id); k.punkte = 11; bump(); }, FK);
   await go(page, `#/klausur/${FK}`); await page.waitForSelector(".empty");
   assert.ok((await page.textContent("#view")).includes("Diese Klausur ist geschrieben"));
-  await go(page, "#/dashboard"); await page.waitForSelector(".dash");
-  assert.ok(!(await page.$(`.km-ent[href="#/klausur/${FK}"]`)), "kein Eintrag mehr im Dashboard");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh");
+  assert.ok(!(await page.$(`.dsh-ex[href="#/klausur/${FK}"]`)), "kein Eintrag mehr im Dashboard");
   await ctx.close();
 });
 
@@ -974,15 +966,15 @@ await scenario("Lektion (Duolingo-Stil): Bilder, Übersetzen, Paare, Lücke, Sat
   const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   // Klausur-Modus steht oben im Dashboard
-  await page.waitForSelector(".km-list");
-  assert.ok(await page.evaluate(() => document.querySelector(".km-list").getBoundingClientRect().top < document.querySelector(".mission, .cont").getBoundingClientRect().top), "Klausur-Modus vor dem Auftrag");
+  await page.waitForSelector(".dsh-exams");
+  assert.ok(await page.evaluate(() => document.querySelector(".dsh-now").getBoundingClientRect().top < document.querySelector(".dsh-exams").getBoundingClientRect().top), "erst „Jetzt dran“, dann die Klausuren");
   await page.evaluate(() => {
     window.__said = []; speechSynthesis.speak = u => window.__said.push(u.text);
     // simulierte Spracherkennung: „hört“ window.__hear
     window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { setTimeout(() => this.onresult({ results: [[{ transcript: window.__hear }]] }), 30); } stop() {} abort() {} };
   });
-  await go(page, `#/klausur/${FK}?tab=spiele`); await page.waitForSelector("[data-lesson]");
-  await page.click("[data-lesson]"); await page.waitForSelector(".les-body");
+  await go(page, `#/klausur/${FK}?tab=spiele`); await page.waitForSelector("[data-lektion]");
+  await page.click("[data-lektion]"); await page.waitForSelector(".les-body");
   const types = await page.evaluate(() => LES.items.map(x => x.type));
   for (const t of ["pic", "mc", "pairs", "gap", "build", "listen", "speak"]) assert.ok(types.includes(t), "Aufgabentyp " + t + ": " + types);
   const total = types.length; let first = true; const seen = new Set();
@@ -1053,10 +1045,63 @@ await scenario("Push-Erinnerungen: Gerät anmelden, Hinweis ohne Server, Probe-N
   b.push = true; await page.click("#pu_test"); await page.waitForTimeout(400);
   assert.deepEqual(b.pushCalls.at(-1), { mode: "test", endpoint: "https://push.test/geraet-1" });
   // Dashboard-Hinweis verschwindet, wenn angemeldet
-  await go(page, "#/dashboard"); await page.waitForSelector(".mo-card"); assert.ok(!(await page.$(".mo-push")), "kein Hinweis mehr");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh-streak"); assert.ok(!(await page.$(".dsh-hint")), "kein Hinweis mehr");
   await go(page, "#/einstellungen"); await page.waitForSelector("#pu_off"); await page.click("#pu_off"); await page.waitForSelector("#pu_on");
   await page.evaluate(() => Api.idle());
   assert.equal(b.db.einstellungen.find(x => x.key === "push_subs").value.length, 0, "abgemeldet");
+  await ctx.close();
+});
+
+await scenario("Mathe ohne Tippen: Videos abhaken, Graphen-Quiz, Papier-Modus; Noten antippen; neue Handy-Leiste", async () => {
+  const b = new MockBackend({ packs: true });
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const MK = "11111111-aaaa-4aaa-8aaa-0000000000m9";
+  b.db.klausuren.push({ id: MK, fach: "Mathe", thema: "Graphen", datum: day(8), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  await page.waitForFunction(() => (setting("packs_done", {}) || {})["mathe-potenz-2"] && !PACKS_RUNNING, null, { timeout: 15000 });
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  // Handy-Leiste
+  assert.deepEqual(await page.$$eval("#mnav a", a => a.map(x => x.textContent.replace(/\d+$/, "").trim())), ["Start", "Klausuren", "Vokabeln", "Noten"]);
+  // Klausur-Modus Mathe: Start → Video zuerst
+  await go(page, "#/klausur/" + MK); await page.waitForSelector(".km-steps"); assert.ok(await noScroll());
+  assert.ok((await page.textContent(".km-step")).includes("Video: Potenzen"), "erst das Video");
+  await go(page, "#/klausur/" + MK + "?tab=videos"); await page.waitForSelector("[data-vid]"); assert.ok(await noScroll(), "Videos ohne Querscrollen");
+  assert.ok(await page.$('.vid-a[href="https://www.youtube.com/watch?v=0mZzbYLarGQ"]'), "Lehrerschmidt-Video dabei");
+  await shot(page, "m-01-videos");
+  const xp0 = await page.evaluate(() => xpToday());
+  await page.click('[data-vid="Oo7gFQoG16c"]'); await page.waitForSelector('.vid.seen [data-vid="Oo7gFQoG16c"]');
+  await page.evaluate(() => Api.idle());
+  assert.ok(b.db.einstellungen.find(x => x.key === "videos_gesehen").value.Oo7gFQoG16c, "abgehakt gespeichert");
+  assert.equal(await page.evaluate(() => xpToday()), xp0 + 5, "+5 XP");
+  assert.ok((await page.textContent(".vid-count")).startsWith("1/"));
+  // Graphen-Quiz
+  await go(page, "#/klausur/" + MK + "?tab=themen"); await page.waitForSelector('[data-game="graph"]'); await page.click('[data-game="graph"]');
+  await page.waitForSelector("svg.graph path.curve"); assert.ok(await noScroll(), "Quiz ohne Querscrollen"); await shot(page, "m-02-graph");
+  for (let i = 0; i < 8; i++) { await page.waitForSelector("[data-gq]"); const c = await page.evaluate(() => GAME.q.correct); await page.click(`[data-gq="${c}"]`); await page.waitForSelector("#gq_next"); await page.click("#gq_next"); }
+  await page.waitForSelector(".done-mark"); assert.ok((await page.textContent("#view")).includes("8 von 8 richtig"));
+  assert.ok((await page.getAttribute("#gm_back", "href")).endsWith("?tab=themen"), "zurück zu den Aufgaben");
+  // Papier-Modus: Aufgabe auf Papier, Lösung zeigen, selbst bewerten
+  const sub = await page.evaluate(id => subsOfExam(id).find(s => /Klausur-Training/.test(s.title)).id, MK);
+  await page.evaluate(id => startTraining({ mode: "topic", subtopic_id: id, from: "klausur" }), sub);
+  for (let g = 0; g < 10; g++) {   // bis zur ersten Rechenaufgabe (MC-Aufgaben direkt beantworten)
+    await page.waitForSelector("#oa_show, [data-pick]");
+    if (await page.$("#oa_show")) break;
+    await page.click('[data-pick="0"]'); await page.click("#ch_check"); await page.click("#ch_next");
+  }
+  assert.ok(!(await page.$("textarea#oa")), "kein Tippen nötig"); assert.ok(await page.$(".paper"));
+  await shot(page, "m-03-papier");
+  await page.click("#oa_show"); await page.waitForSelector(".paper-rate [data-rate]");
+  assert.ok((await page.textContent(".solution")).length > 10, "Lösung mit Rechenweg");
+  await page.click('.paper-rate [data-rate="1"]'); await page.waitForSelector("#oa_next");
+  await page.evaluate(() => Api.idle());
+  assert.ok(b.db.learning_events.some(e => e.type === "self_assessment" && e.subtopic_id === sub && +e.result === 1), "Selbstbewertung gespeichert");
+  await page.evaluate(async () => { await tsFinish("abandoned", true); TS = null; tsSave(); await Api.idle(); });
+  // Noten: Punkte antippen
+  await go(page, "#/noten"); await page.waitForSelector("[data-npt]"); assert.ok(await noScroll(), "Noten ohne Querscrollen");
+  await page.click('[data-npt="13"]'); assert.equal(await page.inputValue("#n_pt"), "13");
+  await page.click("#n_add"); await page.waitForTimeout(400);
+  assert.ok(b.db.noten.some(n => +n.punkte === 13), "Note gespeichert");
+  await shot(page, "m-04-noten");
   await ctx.close();
 });
 

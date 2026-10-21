@@ -72,7 +72,7 @@ function langPool(lang) {
 /** Alle Karten der Sammlungen, die zu einer Klausur gehören */
 const examVocab = k => linkedCollections(k).flatMap(c => cardsOf(c.id));
 /** Themen-Gruppe aus Sammlungen mit gleichem Namensanfang (z. B. „Fahrschule · …“), in Namensreihenfolge der Gruppe */
-const GROUPS = { fahrschule: { name: "Fahrschule", re: /^Fahrschule\b/i } };
+const GROUPS = {};   // z. B. { fahrschule: { name: "Fahrschule", re: /^Fahrschule\b/i } } – eigener Knopf im Kasten „Vokabeln lernen“
 const groupCols = g => GROUPS[g] ? activeCols().filter(c => GROUPS[g].re.test(c.name)).sort((a, b) => /extra/i.test(a.name) - /extra/i.test(b.name)) : [];
 const groupPool = g => groupCols(g).flatMap(c => cardsOf(c.id));
 /** cfg: {mode, collection_id, subtopic_id, exam_id, topic_id, direction, count, minutes, ref, label} */
@@ -455,22 +455,41 @@ function renderMatch(item, pairs) {
 }
 /* Offene Aufgaben: Freitext, Schreiben, Übersetzung */
 const RATE = [[1, "Sicher"], [0.5, "Teilweise"], [0, "Unsicher"]];
+const RATE_PAPER = [[1, "✓ Richtig"], [0.5, "Teilweise"], [0, "✗ Falsch"]];
+/** Mathe & Naturwissenschaften: auf Papier rechnen statt tippen (umschaltbar) */
+function paperMode(item) {
+  const ex = item.exercise; if (!ex || UI.typeMode || ex.type === "short_writing" || ex.type === "translation") return false;
+  const st = item.subtopic_id ? subById(item.subtopic_id) : null; const k = st ? examOfSub(st) : null;
+  const fach = (k && k.fach) || TS.scope.subject || "";
+  return /^(Vert\. )?Mathe$|^Physik$|^Chemie$/.test(fach);
+}
 const TYPE_NAMES = { free_text: "Freitext", short_writing: "Kurze Schreibaufgabe", translation: "Übersetzung", multiple_choice: "Multiple Choice", matching: "Zuordnung" };
 function renderOpen(item) {
   const ex = item.exercise; const phase = UI.phase || "answer";
   let below = "";
   if (phase === "ai") below = '<div class="fb neutral"><div class="fb-t"><span class="spinner"></span><b>Die KI prüft deine Antwort …</b></div></div>';
   if (phase === "rubric") below = rubricHtml(UI.rubric);
-  if (phase === "self") below = '<div class="fx-check">' + (ex.expected_answer || ex.solution ? '<div class="solution"><div class="kind">Musterlösung</div>' + esc(ex.expected_answer || ex.solution).replace(/\n/g, "<br>") + '</div>' : '') + '<div class="t-sub">' + (UI.aiError ? esc(UI.aiError) + " " : "") + 'Wie gut war deine Antwort? Deine Einschätzung fließt (mit geringerem Gewicht) in den Lernstand.</div><div class="choice">' + RATE.map(r => '<button data-rate="' + r[0] + '" class="' + (UI.rate === r[0] ? "on" : "") + '">' + r[1] + '</button>').join("") + '</div></div>';
+  const paper = paperMode(item);
+  if (phase === "self") below = '<div class="fx-check">' + (ex.expected_answer || ex.solution ? '<div class="solution"><div class="kind">' + (paper ? "Lösung mit Rechenweg" : "Musterlösung") + '</div>' + esc(ex.expected_answer || ex.solution).replace(/\n/g, "<br>") + '</div>' : '') + '<div class="t-sub">' + (UI.aiError ? esc(UI.aiError) + " " : "") + (paper ? 'Vergleich mit deinem Rechenweg auf dem Papier – wie war\'s?' : 'Wie gut war deine Antwort? Deine Einschätzung fließt (mit geringerem Gewicht) in den Lernstand.') + '</div><div class="choice' + (paper ? " paper-rate" : "") + '">' + (paper ? RATE_PAPER : RATE).map(r => '<button data-rate="' + r[0] + '" class="' + (UI.rate === r[0] ? "on" : "") + '">' + r[1] + '</button>').join("") + '</div></div>';
   if (phase === "auto") below = UI.auto.verdict === "correct" || UI.auto.verdict === "almost" ? feedbackBox(UI.auto.verdict === "correct" ? "ok" : "almost", UI.auto.verdict === "correct" ? "Richtig" : "Fast richtig", esc(UI.auto.note || "")) : "";
   const done = phase === "rubric" || (phase === "self" && UI.rate != null) || phase === "auto" || phase === "recorded";
-  setStage(stageHead(item) + '<div class="fx-card"><div class="kind">' + esc(TYPE_NAMES[ex.type] || "Aufgabe") + (item.template ? " · Übungsvorlage" : ex.source === "ai" ? " · von der KI erstellt" : "") + '</div><div class="task">' + esc(ex.question).replace(/\n/g, "<br>") + '</div><textarea id="oa" placeholder="Deine Antwort …"' + (phase !== "answer" ? " readonly" : "") + '>' + esc(UI.given || "") + '</textarea>' + hintArea(item) + below + '</div>',
+  setStage(stageHead(item) + '<div class="fx-card"><div class="kind">' + (paper ? "Rechenaufgabe" : esc(TYPE_NAMES[ex.type] || "Aufgabe") + (item.template ? " · Übungsvorlage" : ex.source === "ai" ? " · von der KI erstellt" : "")) + '</div><div class="task">' + esc(ex.question).replace(/\n/g, "<br>") + '</div>' + (paper ? '<div class="paper"><span class="paper-i">✍️</span><div><b>Auf Papier rechnen</b><div class="t-sub">Schreib den Rechenweg auf – wie in der Klausur. Dann Lösung zeigen und vergleichen.</div>' + (phase === "answer" ? '<button class="btn plain sm" id="oa_type">Lieber tippen</button>' : '') + '</div></div>'
+    : '<textarea id="oa" placeholder="Deine Antwort …"' + (phase !== "answer" ? " readonly" : "") + '>' + esc(UI.given || "") + '</textarea>') + hintArea(item) + below + '</div>',
     done ? '<span class="grow"></span><button class="btn primary lg" id="oa_next">Weiter</button>'
       : phase === "self" ? '<span class="grow"></span><button class="btn primary lg" disabled>Weiter</button>'
       : phase === "ai" ? '<span class="grow"></span><button class="btn primary lg loading">Prüfen</button>'
+      : paper ? hintButton(item) + '<span class="grow"></span><button class="btn primary lg" id="oa_show">' + (TS.feedback ? "Lösung zeigen" : "Erledigt – weiter") + '</button>'
       : hintButton(item) + '<span class="grow"></span><span class="kb">⌘ ↵</span><button class="btn primary lg" id="oa_check">' + (TS.feedback ? "Antwort prüfen" : "Weiter") + '</button>');
   const ta = document.getElementById("oa");
-  if (phase === "answer") {
+  if (phase === "answer" && paper) {
+    bindHint(item);
+    document.getElementById("oa_type").onclick = () => { UI.typeMode = true; tsSave(); renderOpen(item); };
+    document.getElementById("oa_show").onclick = () => {
+      UI.given = "(auf Papier gerechnet)";
+      if (!TS.feedback) { record(null, { verdict: "open", given: UI.given, pending: true }); UI = {}; nextItem(); return; }   // Prüfungsmodus: Auswertung am Ende
+      UI.phase = "self"; tsSave(); renderOpen(item);
+    };
+  } else if (phase === "answer") {
     setTimeout(() => { if (window.innerWidth > 720) ta.focus(); }, 30);
     ta.oninput = () => { UI.given = ta.value; tsSaveDebounced(); };
     bindHint(item);

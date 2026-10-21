@@ -110,34 +110,70 @@ function weakList(limit) {
   if (!ws.length) return emptyState("target", "Noch keine Schwachstellen erkannt", ES.events.length ? "Alles, was du geübt hast, sitzt bisher ordentlich." : "Noch nicht genug Lernaktivität für eine zuverlässige Einschätzung.").replace('class="empty"', 'class="empty sm"');
   return ws.map(w => '<div class="weak"><div class="meter' + (w.pct < 60 ? " weak" : "") + '" style="padding:0"><span class="mt-l">' + esc(w.label) + '<span class="mt-s">' + esc(w.sub) + '</span></span><span class="mt-v">' + w.pct + ' %</span>' + progBar(w.pct, w.pct < 60 ? "o" : "") + '</div><div class="weak-meta"><span>' + (w.kind === "subtopic" ? (w.errors ? plural(w.errors, "Fehler", "Fehler") + " in 14 Tagen · " : "") + "zuletzt geübt " + agoText(w.daysSince) : plural(w.errors, "Karte", "Karten") + " mit Fehlern") + (w.mistakes && w.mistakes.length ? " · " + esc(w.mistakes.join(", ")) : "") + '</span><a class="btn sm" href="' + w.href + '">Jetzt trainieren</a></div></div>').join("");
 }
+/* ---------------- Start: ganz einfach – 1. Jetzt dran · 2. Klausuren · 3. Schnell üben · 4. Schule ---------------- */
 V.dashboard = () => {
-  const kl = upcomingKL(); const next = kl[0];
-  const head = d => '<header class="ph"><div><div class="eyebrow">' + esc(new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })) + ' · ' + esc(nowStatus()) + '</div><h1 class="t-large">' + greeting() + ', ' + esc((Api.user && Api.user.name) || (ES.profile && ES.profile.name) || USER_NAME) + '.</h1><p class="lead">' + esc(d) + '</p></div></header>';
-  if (!engineReady()) return head("Dein Lern-Cockpit bekommt gerade eine Lern-Engine.") + '<div class="dash"><div class="a-cont">' + setupCard() + '</div><div class="a-today">' + sectionHead("Heute", '<a class="shl" href="#/aufgaben">Alle Aufgaben</a>') + (hwToday() || '<div class="card">' + emptyState("check", "Keine Aufgaben für heute", "") + '</div>') + '</div>' + lessonsToday() + '</div>';
-  const plan = todayPlan(); const r = next ? readinessOf(next) : null; const open = plan.items.filter(i => !i.done);
-  let sum = open.length ? "Heute " + (open.length === 1 ? "steht eine Lerneinheit" : "stehen " + open.length + " Lerneinheiten") + " an – etwa " + open.reduce((a, i) => a + i.minutes, 0) + " Minuten." : plan.items.length ? "Dein Tagesplan ist erledigt." : "Heute ist nichts geplant.";
-  if (next) { const d = daysUntil(next.datum); sum += " Nächste Prüfung: " + next.fach + " " + (d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen") + (r && r.score != null ? " – " + r.score + " % vorbereitet." : "."); }
-  let exam;
-  if (next) {
-    const d = daysUntil(next.datum);
-    exam = '<a class="card exam link" href="#/lernplan/' + esc(next.id) + '"><div class="eyebrow">Deine nächste Prüfung</div><div><div class="t-sub"><span class="dot" style="background:' + fcol(next.fach) + ';margin-right:6px"></span>' + esc(next.fach) + '</div><h3>' + esc(klTitle(next)) + '</h3><div class="meta">' + esc(fmtDL(next.datum)) + (next.uhrzeit ? " · " + esc(next.uhrzeit) : "") + '</div></div><div class="exam-days"><div><div class="t-sub" style="margin-bottom:6px">Noch</div><span class="num xl">' + d + '</span><span class="unit">' + (d === 1 ? "Tag" : "Tage") + '</span></div>' + (r.score != null ? ring(r.score / 100, 84, 7, r.score + "%", "bereit") : '') + '</div>' + (r.score == null ? '<div class="t-sub">' + (r.total ? "Noch nicht genug Lernaktivität für eine zuverlässige Einschätzung." : "Noch keine Unterthemen – lege sie im Lernplan an.") + '</div>' : '<div class="t-sub">Basis: ' + r.withData + ' von ' + r.total + ' Bereichen geübt</div>') + (kl.length > 1 ? '<div class="others">' + kl.slice(1, 3).map(k => '<span style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-2)"><span><b style="font-weight:500;color:var(--text)">' + esc(k.fach) + '</b> · ' + esc(klTitle(k)) + '</span><span>' + daysLabel(daysUntil(k.datum)) + '</span></span>').join("") + '</div>' : '') + '</a>';
-    if (typeof isExtremExam === "function" && isExtremExam(next)) exam += extremEntry(next);   // Deutsch Extrem-Modus
-  } else exam = '<div class="card exam">' + emptyState("flag", "Keine Prüfung geplant", "Trag die nächste ein, sobald der Klausurplan hängt.", '<a class="btn sm" href="#/lernplan">Zum Lernplan</a>') + '</div>';
-  const un = unreadNews(); const t = todayISO(); const term = STATE.termine.filter(x => x.datum >= t && x.datum <= addDays(t, 10)).slice(0, 3);
-  const info = '';   // Hinweise/Neuigkeiten nicht mehr auf dem Dashboard
-  return netNotice() + dbBanner() + head(sum) + '<div class="dash"><div class="a-cont">' + motivationCard() + vocabLauncher() + (typeof kmEntries === "function" ? kmEntries() : "") + (tsActive() ? contCard(continueItem()) : missionCard(plan)) + '</div><div class="a-exam">' + exam + '</div>' +
-    '<div class="a-today">' + sectionHead("Heute", '<button class="shl" id="plan_new" title="Plan mit aktuellen Daten neu berechnen">Neu planen</button>') + (hwToday() || '<div class="card">' + emptyState("check", "Keine Hausaufgaben für morgen", "").replace('class="empty"', 'class="empty sm"') + '</div>') + laterHW() + '</div>' +
-    '<div class="a-weak">' + sectionHead("Deine Schwachstellen", '<a class="shl" href="#/fortschritt">Fortschritt</a>') + '<div class="card tight">' + weakList(3) + '</div></div>' + lessonsToday() + info + '</div>';
+  const name = (Api.user && Api.user.name) || (ES.profile && ES.profile.name) || USER_NAME;
+  const date = new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
+  if (!engineReady()) return '<header class="ph"><div><div class="eyebrow">' + esc(date) + '</div><h1 class="t-large">' + greeting() + ', ' + esc(name) + '.</h1></div></header><div class="dsh">' + setupCard() + dashSchool() + '</div>';
+  const st = xpStreak(), today = xpToday(), goal = xpGoal(); const risk = streakAtRisk();
+  const chip = '<a class="dsh-streak' + (risk ? " risk" : today >= goal ? " done" : "") + '" href="#/fortschritt" title="Serie · XP heute"><span class="fl' + (today ? " lit" : "") + '">🔥</span><b>' + st + '</b><span class="xp">' + today + '/' + goal + ' XP</span></a>';
+  const head = '<header class="dsh-h"><div style="min-width:0"><div class="eyebrow">' + esc(date) + '</div><h1>' + greeting() + ', ' + esc(name) + '</h1></div>' + chip + '</header>';
+  const push = typeof pushSupported === "function" && pushSupported() && PUSH.checked && !pushOn() ? '<a class="dsh-hint" href="#/einstellungen">🔔 Erinnerungen einschalten – damit deine Serie nicht reißt</a>' : '';
+  return netNotice() + dbBanner() + head + '<div class="dsh">' + dashNow() + dashExams() + dashQuick() + dashSchool() + push + '</div>';
 };
+/** 1 · Jetzt dran: genau ein großer Knopf */
+function dashNow() {
+  if (tsActive()) return contCard(continueItem());
+  const plan = todayPlan(); const items = plan.items; const open = items.filter(i => !i.done); const done = items.length - open.length;
+  const steps = items.length ? '<div class="dsh-steps"><div class="dsh-bar"><i style="width:' + Math.round(done / items.length * 100) + '%"></i></div><span class="t-sub">' + done + ' von ' + items.length + ' erledigt</span></div>' : '';
+  if (!open.length) return '<div class="card dsh-now done"><div class="dsh-l">Heute</div><h2>' + (items.length ? "Alles geschafft 🎉" : "Heute ist nichts geplant") + '</h2><p class="t-sub">' + (items.length ? "Stark! Wenn du magst: eine kurze Lektion für extra XP." : "Trag deine nächste Klausur ein – dann plant die App für dich.") + '</p>' +
+    (gameCards(quickScope()).length >= 4 ? '<button class="btn primary lg wide" data-lektion="' + esc(quickScope()) + '">' + ICO.play + 'Lektion starten</button>' : '<a class="btn primary lg wide" href="#/lernplan">Klausur eintragen</a>') + steps + '</div>';
+  const it = open[0], idx = items.indexOf(it);
+  const rest = open.slice(1, 4).map(x => '<button class="dsh-next" data-plan="' + items.indexOf(x) + '"><span class="dsh-dot"></span><span class="dsh-nt">' + esc(x.title) + '</span><span class="t-sub">' + x.minutes + ' Min.</span></button>').join("");
+  return '<div class="card dsh-now"><div class="dsh-l">Jetzt dran</div><h2>' + esc(it.title) + '</h2><p class="t-sub">' + esc(it.sub || "") + ' · ca. ' + Math.max(1, it.minutes - (it.doneMin || 0)) + ' Min.</p>' +
+    '<button class="btn primary lg wide" data-plan="' + idx + '">' + ICO.play + 'Starten</button>' + (rest ? '<div class="dsh-rest"><div class="dsh-l2">Danach</div>' + rest + '</div>' : '') + steps + '</div>';
+}
+/** 2 · Klausuren: Tippen öffnet den Klausur-Modus */
+function dashExams() {
+  const ks = upcomingKL(); if (!ks.length) return '';
+  return '<section class="dsh-sec"><div class="dsh-sh"><h2>Deine Klausuren</h2><a class="shl" href="#/lernplan">Alle</a></div><div class="card tight dsh-exams">' + ks.slice(0, 5).map(k => {
+    const d = daysUntil(k.datum); const r = readinessOf(k); const test = isVocabTest(k); const href = test ? "#/lernplan/" + k.id : "#/klausur/" + k.id;
+    const pct = r && r.score != null ? r.score : null;
+    return '<a class="dsh-ex" href="' + esc(href) + '"><span class="dot" style="background:' + fcol(k.fach) + '"></span><span class="dsh-et"><b>' + esc(k.fach) + (test ? " · Vokabeltest" : "") + '</b><span class="t-sub">' + esc(test ? vtName(k) : klTitle(k)) + '</span>' +
+      (pct != null ? '<span class="dsh-rd"><i style="width:' + pct + '%"></i></span>' : '') + '</span><span class="dsh-days' + (d <= 3 ? " soon" : "") + '"><b>' + (d === 0 ? "heute" : d) + '</b>' + (d === 0 ? "" : d === 1 ? "Tag" : "Tage") + '</span><span class="chev">' + ICO.chev + '</span></a>'; }).join("") + '</div></section>';
+}
+/** 3 · Schnell üben: vier große Kacheln */
+function dashQuick() {
+  const sc = quickScope(); const canLesson = gameCards(sc).length >= 4;
+  const tile = (attrs, ico, t, sub) => '<' + (attrs.startsWith("href") ? "a" : "button") + ' class="dsh-tile" ' + attrs + '><span class="dsh-ti">' + ico + '</span><b>' + t + '</b><span class="t-sub">' + sub + '</span></' + (attrs.startsWith("href") ? "a" : "button") + '>';
+  return '<section class="dsh-sec"><div class="dsh-sh"><h2>Schnell üben</h2></div><div class="dsh-tiles">' +
+    tile('data-dq="vok"', "🗂️", "Vokabeln", "Sprache wählen, los") +
+    (canLesson ? tile('data-lektion="' + esc(sc) + '"', "🦉", "Lektion", "Wie Duolingo") : tile('href="#/spiele"', "🦉", "Lektion", "Wie Duolingo")) +
+    tile('href="#/spiele"', "🎮", "Spiele", "Kurz zwischendurch") +
+    tile('href="#/noten"', "📊", "Noten", "Eintragen & Schnitt") + '</div></section>';
+}
+/** 4 · Schule heute: Hausaufgaben + Stundenplan (eingeklappt) */
+function dashSchool() {
+  const hw = hwToday(); const lessons = lessonsToday();
+  if (!hw && !lessons) return '';
+  return '<section class="dsh-sec"><div class="dsh-sh"><h2>Schule</h2><a class="shl" href="#/aufgaben">Aufgaben</a></div>' + (hw ? '<div class="card tight">' + hw + '</div>' : '<div class="card tight"><div class="t-sub" style="padding:4px 2px">Keine Hausaufgaben für morgen ✓</div>' + laterHW() + '</div>') +
+    (lessons ? '<details class="card tight dsh-plan"><summary>Stundenplan heute</summary>' + lessons + '</details>' : '') + '</section>';
+}
 function bindDashboard() {
   if (!engineReady()) return;
-  bindVocabLauncher(); bindLessonCards();
+  bindLessonCards();
   const c = document.getElementById("cont_go"); if (c) c.onclick = () => { const it = continueItem(); if (it && it.start) startTraining(it.start); };
   const plan = todayPlan();
   document.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => startPlanItem(plan.items[+b.dataset.plan]));
-  const go = document.getElementById("plan_go"); if (go) go.onclick = startNextPlanItem;
-  const nw = document.getElementById("plan_new"); if (nw) nw.onclick = () => { todayPlan(true); route(); toast("Plan neu berechnet"); };
-  const nt = document.getElementById("ms_notify"); if (nt) nt.onclick = async () => { try { const p = await Notification.requestPermission(); toast(p === "granted" ? "Erinnerung an – um " + setting("erinnerung_uhrzeit", "18:00") + " Uhr, falls der Auftrag noch offen ist" : "Erinnerungen sind im Browser blockiert", p !== "granted"); } catch (e) {} route(); };
+  const vq = document.querySelector('[data-dq="vok"]'); if (vq) vq.onclick = vocabPicker;
+}
+/** Vokabeln: bei einer Sprache direkt los, sonst kurz wählen */
+function vocabPicker() {
+  const html = vocabLauncher();
+  const langs = [...new Set(activeCols().map(c => c.source_language))].filter(l => l && l !== "de");
+  if (langs.length === 1 && !Object.keys(GROUPS).some(g => groupPool(g).length)) { startTraining({ mode: "vocab", lang: langs[0], direction: vlDir() }); return; }
+  if (!html) { location.hash = "#/vokabeln"; return; }
+  openModal("Vokabeln lernen", html.replace('class="card vl-card"', 'class="vl-card in-modal"'), '<a class="btn" href="#/vokabeln" onclick="closeModal()">Alle Sammlungen</a>', () => bindVocabLauncher());
 }
 
 /* =====================================================================
