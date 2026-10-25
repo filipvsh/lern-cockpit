@@ -1105,6 +1105,50 @@ await scenario("Mathe ohne Tippen: Videos abhaken, Graphen-Quiz, Papier-Modus; N
   await ctx.close();
 });
 
+await scenario("Grammatik-Drill: Stiefel-Regel, Runde mit Fehler + Wiederholung, selbst schreiben mit Akzent, „Wo hakt's?“, Tabellen-Challenge", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  await go(page, "#/drill"); await page.waitForSelector(".dr-topic"); assert.equal(await page.$$eval(".dr-topic", x => x.length), 6); assert.ok(await noScroll());
+  await go(page, "#/drill/stiefel"); await page.waitForSelector(".dr-tab"); assert.ok(await noScroll(), "Merk-Karte ohne Querscrollen");
+  assert.equal(await page.$$eval(".dr-verb[open] .dr-tab tr.boot", x => x.length), 4, "je, tu, il, ils im Stiefel");
+  assert.equal(await page.textContent(".dr-verb[open] .dr-tab tr.boot mark"), "è");
+  await shot(page, "dr-01-stiefel");
+  // Runde: erste Aufgabe absichtlich falsch, Rest richtig
+  await page.click("[data-drstart]"); await page.waitForSelector(".dr-q");
+  let first = true, guard = 0;
+  while (guard++ < 40) {
+    const st = await page.evaluate(() => DRL.done ? null : { type: DRL.items[DRL.i].type, answer: DRL.items[DRL.i].answer, opts: DRL.ui.opts });
+    if (!st) break;
+    if (st.type === "pick") { const k = first ? st.opts.findIndex(o => o !== st.answer) : st.opts.indexOf(st.answer); await page.click(`[data-dro="${k}"]`); }
+    else await page.fill("#dr_in", first ? "falsch" : st.answer);
+    await page.click("#dr_check"); await page.waitForSelector(first ? ".les-foot.bad" : ".les-foot.ok");
+    if (first) await shot(page, "dr-02-fehler");
+    first = false; await page.click("#dr_next");
+  }
+  await page.waitForSelector(".les-done");
+  const r = await page.evaluate(() => ({ n: DRL.items.length, total: DRL.total, right: DRL.right }));
+  assert.equal(r.n, r.total + 1, "Fehler kam in der Runde noch einmal"); assert.equal(r.right, r.total - 1);
+  assert.ok(await page.$(".les-done .dr-heat"), "Wo hakt's? am Ende");
+  await page.evaluate(() => Api.idle()); await page.waitForTimeout(1500); await page.evaluate(() => Api.idle());
+  const saved = b.db.einstellungen.find(x => x.key === "drill"); assert.ok(saved && Object.keys(saved.value.stiefel).length === 12, "Lernstand gespeichert");
+  // Box 2 → selbst schreiben, Akzent-Taste
+  await page.evaluate(() => { const st = {}; ["acheter:0"].forEach(k => st[k] = { b: 2, r: 2, w: 0 }); const all = Object.assign({}, setting("drill", {})); all.stiefel = Object.assign({}, st); STATE.settings.drill = all; for (const it of DRILL.items("stiefel")) if (it.key !== "acheter:0") all.stiefel[it.key] = { b: 3, r: 3, w: 0 }; });
+  await page.click("#dr_again"); await page.waitForSelector(".dr-q");
+  const typ = await page.evaluate(() => DRL.items[0]); assert.equal(typ.type, "type"); assert.equal(typ.key, "acheter:0");
+  await page.fill("#dr_in", "ach"); await page.click('[data-dracc="è"]'); await page.type("#dr_in", "te");
+  assert.equal(await page.inputValue("#dr_in"), "achète"); await page.click("#dr_check"); await page.waitForSelector(".les-foot.ok");
+  await shot(page, "dr-03-schreiben");
+  // Tabellen-Challenge
+  await go(page, "#/drill/stiefel?challenge=préférer"); await page.waitForSelector("[data-drc]"); assert.ok(await noScroll(), "Challenge ohne Querscrollen");
+  const forms = await page.evaluate(() => DRILL.VERBS["préférer"].forms);
+  for (let p = 0; p < 6; p++) await page.fill(`[data-drc="${p}"]`, p === 3 ? "préfèrons" : forms[p]);
+  await page.click("#drc_check"); await page.waitForSelector("input.bad"); assert.equal(await page.textContent("tr:nth-child(4) .dr-sol"), "préférons", "Fehler zeigt richtige Form");
+  await page.fill('[data-drc="3"]', "préférons"); await page.click("#drc_check"); await page.waitForSelector(".fb.ok");
+  assert.ok((await page.textContent(".fb.ok")).includes("Bestzeit"));
+  await shot(page, "dr-04-challenge");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

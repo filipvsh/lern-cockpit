@@ -53,6 +53,7 @@ function kmAction(k, what) {
   else if (kind === "setup") topicAssistant(k);
   else if (kind === "lesson") startLesson("exam:" + k.id);
   else if (kind === "game") startGame(arg, "exam:" + k.id);
+  else if (kind === "drill") location.hash = "#/drill";
   else if (kind === "tab") location.hash = "#/klausur/" + k.id + "?tab=" + arg;
 }
 
@@ -72,6 +73,7 @@ function kmSteps(k) {
   const today = roadmapOf(k).find(s => s.day === 0);
   if (today && today.kind === "mock") out.push({ go: "mock", title: "Probeklausur schreiben", sub: today.sub, main: true });
   if (/Mathe/.test(k.fach)) out.push({ go: "game:graph", title: "Graphen-Quiz", sub: "Graph ansehen, Funktion antippen – ohne Tippen", main: false });
+  if (k.fach === "Französisch") out.push({ go: "drill", title: "Grammatik-Drill 👢", sub: "acheter/préférer/mettre, ce/cet, quel, beau – bis es sitzt", main: false });
   if (kmHasVocab(k) && hasFrench("exam:" + k.id)) out.push({ go: "tab:spiele", title: "Spiele", sub: "Artikel, Pronomen, Verb-Puzzle, Hören …", main: false });
   return out;
 }
@@ -127,7 +129,7 @@ function kmSpiele(k) {
 
 /* ---------- Grammatik: Spickzettel + direkt üben ---------- */
 function kmGrammatik(k) {
-  return '<p class="hint" style="margin-top:0">Kurz erklärt, mit Beispielen – tippe auf ein Thema. „Jetzt üben“ startet das passende Spiel.</p>' + GRAMMAR_NOTES.map(n => grammarCard(n)).join("");
+  return drillCard() + '<p class="hint" style="margin-top:0">Kurz erklärt, mit Beispielen – tippe auf ein Thema. „Jetzt üben“ startet das passende Spiel.</p>' + GRAMMAR_NOTES.map(n => grammarCard(n)).join("");
 }
 
 /* ---------- Themen, Probeklausur, Material ---------- */

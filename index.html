@@ -685,6 +685,24 @@ body.focus{background:var(--surface)}
  .n-top{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:var(--s4)}.n-top .card{padding:12px}.n-top h2{font-size:12px;margin-bottom:4px}.n-top .pbig{font-size:28px!important}.n-top .sm,.n-top .hint{display:none}
  .nm-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--sep)}.nm-row:first-child{border-top:0}
  .nm-l{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.nm-l .dot{flex:0 0 auto}.nm-v{grid-row:1/3;grid-column:2;align-self:center}.nm-d{font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}}
+/* ---- Grammatik-Drill ---- */
+.dr-topics{display:grid;gap:10px;max-width:760px}.dr-topic{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text)}.dr-topic>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}.dr-topic b{font-size:16px}
+.dr-card{display:flex;align-items:center;gap:12px;margin-bottom:var(--s5);text-decoration:none;color:var(--text);border:2px solid #ffc800}.dr-ic{font-size:32px}.dr-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.dr-tx b{font-size:17px}
+.dr-head{margin:var(--s2) 0 var(--s4);max-width:760px}.dr-head .t-large{margin:2px 0 4px}.dr-head .prog{margin-top:8px}.dr-go{max-width:760px;margin-bottom:var(--s5)}
+.dr-rule{display:flex;gap:14px;align-items:flex-start;max-width:760px;margin-bottom:var(--s4);background:#fff8e1;border:1px solid #ffe08a}.dr-rule p{margin:6px 0 0;line-height:1.5}.dr-boot{font-size:40px;line-height:1}
+.dr-verb{max-width:760px;margin-bottom:var(--s3)}.dr-verb summary{cursor:pointer;display:flex;flex-direction:column;gap:2px}.dr-verb summary b{font-size:18px}.dr-verb .btn{margin-top:10px}
+.dr-tab{border-collapse:separate;border-spacing:0 4px;margin-top:10px;width:100%;max-width:420px}.dr-tab td{padding:6px 10px;font-size:18px}.dr-tab tr td:first-child{border-radius:10px 0 0 10px}.dr-tab tr td:last-child{border-radius:0 10px 10px 0}
+.dr-tab tr.boot td{background:#fff1d6}.dr-p{color:var(--text-2);width:96px;white-space:nowrap}.dr-f{font-weight:600}.dr-f mark{background:#ff9600;color:#fff;border-radius:4px;padding:0 2px}.dr-e{color:var(--accent)}.dr-b{width:34px;text-align:center}
+.dr-tab tr.dr-pc td{background:var(--fill);font-size:15px}
+.dr-mini{border-collapse:collapse;margin-top:8px;font-size:14px}.dr-mini td{padding:5px 8px;border-bottom:1px solid var(--sep)}.dr-mini b{color:var(--accent)}.dr-adj td{white-space:nowrap}
+.dr-rule>div:last-child{min-width:0;overflow-x:auto}
+.dr-heat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.dr-h{display:flex;flex-direction:column;align-items:center;padding:10px 6px;border-radius:12px;background:var(--fill);font-variant-numeric:tabular-nums}.dr-h b{font-size:14px}.dr-h span{font-size:13px;color:var(--text-2)}
+.dr-h.g{background:#d7ffb8}.dr-h.o{background:#fff1d6}.dr-h.r{background:#ffdfe0}
+.dr-q{font-size:28px;font-weight:600;margin:6px 0 2px}.dr-gap{display:inline-block;min-width:80px;border-bottom:3px solid var(--accent);color:var(--accent);text-align:center}.dr-sub{margin-bottom:18px}
+.dr-in{font-size:22px!important;height:56px!important;text-align:center}.dr-acc{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}.dr-acc button{min-width:44px;height:44px;border-radius:12px;border:2px solid var(--line);border-bottom-width:4px;background:var(--surface);font:inherit;font-size:20px;color:var(--text);cursor:pointer}
+.dr-wrong{width:min(420px,100%);text-align:left;display:grid;gap:4px}
+.dr-ch input{font-size:18px;height:44px;font-weight:600}.dr-ch input.ok{border-color:var(--green);background:#d7ffb8}.dr-ch input.bad{border-color:var(--red);background:#ffdfe0}.dr-sol{color:var(--green);font-weight:600;font-size:15px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dr-rule{background:#2b2410;border-color:#5a4a16}:root:not([data-theme="light"]) .dr-tab tr.boot td{background:#3a2a10}:root:not([data-theme="light"]) .dr-h.g{background:#1f3b12}:root:not([data-theme="light"]) .dr-h.o{background:#3a2a10}:root:not([data-theme="light"]) .dr-h.r{background:#4a1c1c}}
 .dx-hero{margin:var(--s2) 0 var(--s4)}.dx-hero .t-large{margin:2px 0}
 .dx-tabs{display:flex;max-width:100%;overflow-x:auto;margin-bottom:var(--s4);-webkit-overflow-scrolling:touch}.dx-tabs a{flex:0 0 auto;padding:7px 12px;border-radius:calc(var(--r-sm) - 2px);font-size:14px;color:var(--text);text-decoration:none;white-space:nowrap}.dx-tabs a.on{background:var(--surface);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.1)}
 .dx-count{text-align:center;padding:var(--s6)}.dx-big{font-size:clamp(22px,6vw,30px);font-weight:700;letter-spacing:-.02em;margin-top:6px}
@@ -1042,6 +1060,7 @@ button.vrow:hover{background:var(--surface-2)}
 <script src="js/engine.js"></script>
 <script src="js/fr-grammar.js"></script>
 <script src="js/lesson.js"></script>
+<script src="js/drill.js"></script>
 <script src="js/mathe.js"></script>
 <script src="js/fr-check.js"></script>
 <script src="js/api.js"></script>
@@ -1049,7 +1068,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="14";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="15";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
@@ -1259,7 +1278,7 @@ const ICO={
 };
 const NAV_MAIN=["dashboard","vokabeln","lernplan","trainer","material","spiele","ki","fortschritt"];
 const NAV_SCHOOL=["aufgaben","stundenplan","noten","info"];
-const TITLES={dashboard:"Dashboard",vokabeln:"Vokabeln",lernplan:"Lernplan",klausur:"Lernplan",trainer:"Trainer",material:"Material",spiele:"Spiele",ki:"KI",fortschritt:"Fortschritt",aufgaben:"Aufgaben",noten:"Noten",stundenplan:"Stundenplan",info:"Infos",ernaehrung:"Ernährung",einstellungen:"Einstellungen"};
+const TITLES={drill:"Grammatik-Drill",dashboard:"Dashboard",vokabeln:"Vokabeln",lernplan:"Lernplan",klausur:"Lernplan",trainer:"Trainer",material:"Material",spiele:"Spiele",ki:"KI",fortschritt:"Fortschritt",aufgaben:"Aufgaben",noten:"Noten",stundenplan:"Stundenplan",info:"Infos",ernaehrung:"Ernährung",einstellungen:"Einstellungen"};
 const SUBTITLES={aufgaben:"Hausaufgaben und To-dos an einem Ort.",noten:"Punkte, Schnitt und Verlauf pro Halbjahr.",stundenplan:"Deine Woche. Tippe auf eine Stunde für Details.",info:"Termine, Neuigkeiten und alles rund um die Schule.",ernaehrung:"Dein Plan für einen Schultag.",einstellungen:"Tagesziel, Erinnerungen und Datenbank."};
 function navBadge(name){if(!STATE.loaded)return "";
  if(name==="aufgaben"){const n=openHW().filter(h=>h.faellig&&daysUntil(h.faellig)<=1).length;return n?'<span class="nbadge'+(openHW().some(h=>h.faellig&&daysUntil(h.faellig)<0)?" hot":"")+'">'+n+'</span>':""}
@@ -1268,6 +1287,7 @@ function navBadge(name){if(!STATE.loaded)return "";
  if(name==="info"){const n=unreadNews().length;return n?'<span class="nbadge">'+n+'</span>':""}
  return ""}
 function navLink(n,active){return '<a href="#/'+n+'" class="'+(n===active?"on":"")+'" title="'+TITLES[n]+'"'+(n===active?' aria-current="page"':'')+'><span class="navico">'+ICO[n]+'</span><span class="navlbl">'+TITLES[n]+'</span>'+navBadge(n)+'</a>';}
+if(!ICO.drill)ICO.drill=ICO.pen;
 function renderNav(active){
  document.getElementById("nav").innerHTML=NAV_MAIN.map(n=>navLink(n,active)).join("");
  document.getElementById("nav2").innerHTML=NAV_SCHOOL.map(n=>navLink(n,active)).join("");
@@ -1276,7 +1296,7 @@ function renderNav(active){
  const mb=n=>{const b=navBadge(n);return b&&n!=="lernplan"?b:""};
  document.getElementById("mnav").innerHTML=m.map(n=>'<a href="#/'+n+'" class="'+(n===active||(n==="lernplan"&&active==="klausur")?"on":"")+'"><span class="navico">'+ICO[n]+'</span>'+(ML[n]||TITLES[n])+mb(n)+'</a>').join("")+'<button id="moreBtn" class="'+(inMore?"on":"")+'"><span class="navico">'+ICO.mehr+'</span>Mehr</button>';
  document.getElementById("moreBtn").onclick=()=>{const it=n=>'<a href="#/'+n+'"><span class="navico">'+ICO[n]+'</span>'+TITLES[n]+navBadge(n)+'</a>';
-  openSheet('<div class="sl">'+["trainer","spiele","material","fortschritt","ki"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.filter(n=>n!=="noten").map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
+  openSheet('<div class="sl">'+["trainer","drill","spiele","material","fortschritt","ki"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.filter(n=>n!=="noten").map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
  const sn=document.getElementById("syncNote");if(sn)sn.innerHTML=STATE.dbReady?'Synchronisiert'+(STATE.syncedAt?' · '+new Date(STATE.syncedAt).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):''):(STATE.loaded?'<span style="color:var(--orange)">Datenbank-Update ausstehend</span>':'');}
 /* ---------- MODAL / SHEET / TOAST ---------- */
 function openModal(title,body,foot,onMount){closeModal();const o=document.getElementById("overlay");o.innerHTML='<div class="mbg" id="mbg"><div class="modal" role="dialog"><div class="mh"><h3>'+title+'</h3><button class="xbtn" id="mclose">✕</button></div><div class="mb">'+body+'</div>'+(foot?'<div class="mf">'+foot+'</div>':'')+'</div></div>';
@@ -1563,6 +1583,7 @@ if(!location.hash)location.hash="#/dashboard";
 <script src="js/views-klausur.js"></script>
 <script src="js/views-writing.js"></script>
 <script src="js/views-lesson.js"></script>
+<script src="js/views-drill.js"></script>
 <script src="js/motivation.js"></script>
 <script src="js/push.js"></script>
 <script src="js/content-packs.js"></script>
