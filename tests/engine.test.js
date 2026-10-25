@@ -497,3 +497,40 @@ test("Keine doppelten globalen const/let-Namen über index.html und js/ (sonst s
   const seen = {};
   inline.concat(files).forEach((src, i) => [...src.matchAll(/^(?:const|let)\s+([A-Za-z_$][\w$]*)/gm)].forEach(m => { assert.ok(!seen[m[1]], "doppelt: " + m[1]); seen[m[1]] = true; }));
 });
+
+/* ---------- Grammatik-Drill ---------- */
+const DR = require("../js/drill.js");
+test("Drill: Stiefel-Verben richtig konjugiert, Stiefel = je/tu/il/ils", () => {
+  assert.deepEqual(DR.BOOT, [0, 1, 2, 5]);
+  for (const [v, d] of Object.entries(DR.VERBS)) d.forms.forEach((f, p) => {
+    const stem = d.stems[d.boot.includes(p) ? 0 : 1];
+    assert.equal(stem + d.end[p], f, v + " " + p);
+  });
+  assert.equal(DR.pron(0, "achète"), "j'"); assert.equal(DR.pron(0, "préfère"), "je");
+  assert.deepEqual(DR.parts("acheter", 0), { pre: "ach", ch: "è", post: "t", end: "e", inBoot: true });
+});
+test("Drill: jede Aufgabe hat 3 falsche, eindeutige Ablenker – y-Variante zählt als richtig", () => {
+  for (const t of DR.TOPICS) for (const it of DR.items(t.id)) {
+    const d = DR.distractors(it, () => 0.5);
+    assert.ok(d.length >= 3 || (it.options && d.length === it.options.length - 1), it.key);
+    assert.ok(!d.includes(it.answer) && !d.includes(DR.altOf(it)), it.key + ": " + d);
+  }
+  const ess = DR.items("stiefel").find(i => i.key === "essayer:5");
+  assert.equal(DR.check("essayent", ess.answer, ess), "ok");
+  assert.equal(DR.check("achètons", "achetons"), "accent"); assert.equal(DR.check("achetez", "achetons"), "wrong");
+});
+test("Drill: ce/cet/cette/ces, quel…, beau/bel/belle", () => {
+  const n = w => DR.NOUNS.find(x => x.w === w);
+  assert.equal(DR.demo(n("acteur")), "cet"); assert.equal(DR.demo(n("CD")), "ce"); assert.equal(DR.demo(n("amie")), "cette"); assert.equal(DR.demo(n("films")), "ces");
+  assert.equal(DR.quel(n("acteur")), "quel"); assert.equal(DR.quel(n("chaussures")), "quelles"); assert.equal(DR.quel(n("films")), "quels");
+  const b = DR.items("beau").find(i => i.key === "vieux:avion"); assert.equal(b.answer, "vieil");
+  assert.equal(DR.items("beau").find(i => i.key === "nouveau:maison").answer, "nouvelle");
+});
+test("Drill: Runde startet mit den schwächsten, ab Box 2 wird geschrieben; Fehler setzt zurück", () => {
+  let st = {}; ["acheter:0", "acheter:1"].forEach(k => { st = DR.learn(st, k, true); st = DR.learn(st, k, true); });
+  const r = DR.round("stiefel", st, 30, () => 0.5);
+  assert.equal(r.length, 30); assert.ok(r.slice(0, 28).every(i => i.box === 0), "ungeübte zuerst");
+  assert.equal(r.find(i => i.key === "acheter:0").type, "type");
+  st = DR.learn(st, "acheter:0", false); assert.equal(st["acheter:0"].b, 0);
+  const bp = DR.byPerson("stiefel", st); assert.equal(bp.length, 6); assert.equal(bp[0].pct, 67);
+});

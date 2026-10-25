@@ -73,7 +73,7 @@ V.spiele = () => {
   const n = gameCards(GAME_COL).length;
   const pick = '<div class="card tight" style="margin-bottom:var(--s5)"><label class="fld">Womit spielst du?<select id="gm_col"><option value="">Alle Sammlungen (' + gameCards("").length + ' Wörter)</option>' + cols.map(c => '<option value="' + esc(c.id) + '"' + (c.id === GAME_COL ? " selected" : "") + '>' + esc(c.name) + ' (' + gameCards(c.id).length + ')</option>').join("") + '</select></label></div>';
   const tiles = Object.keys(GAMES).map(k => gameTile(k, GAME_COL)).join("");
-  return head + pick + lessonCard(GAME_COL) + '<div class="game-grid">' + tiles + '</div>';
+  return head + pick + lessonCard(GAME_COL) + drillCard() + '<div class="game-grid">' + tiles + '</div>';
 };
 function bindSpiele() {
   if (GAME && ROUTE.sub === GAME.type) return bindGame();
