@@ -58,20 +58,38 @@ function conjTable(verb, opts) {
     return '<tr class="' + (x.inBoot ? "boot" : "") + '"><td class="dr-p">' + DRILL.pron(p, f) + '</td><td class="dr-f">' + esc(x.pre) + (x.ch ? '<mark>' + esc(x.ch) + '</mark>' : '') + esc(x.post) + '<span class="dr-e">' + esc(x.end) + '</span></td>' + (opts && opts.boot !== false ? '<td class="dr-b">' + (x.inBoot ? (mettre ? "Sg." : "👢") : (mettre ? "Pl." : "")) + '</td>' : '') + '</tr>'; }).join("") +
     '<tr class="dr-pc"><td class="dr-p">j\'ai</td><td class="dr-f" colspan="2">' + esc(v.pc) + '</td></tr></tbody></table>';
 }
+/** Spickzettel: Endungen · Stiefel · was sich ändert */
+function formHTML(verb, p) {
+  const x = DRILL.parts(verb, p);
+  return esc(x.pre) + (x.ch ? (x.inBoot ? '<mark>' + esc(x.ch) + '</mark>' : esc(x.ch)) : '') + esc(x.post) + '<em>' + esc(x.end) + '</em>';
+}
+function stiefelCheat() {
+  const P = ["je", "tu", "il/elle/on", "nous", "vous", "ils/elles"];
+  const cell = (p, c) => '<div class="' + (DRILL.VERBS.acheter.boot.includes(p) ? "in" : "out") + ' ' + c + '"><span class="p">' + P[p] + '</span><b>' + formHTML("acheter", p) + '</b></div>';
+  const rows = [["acheter", "kaufen", "e → è"], ["préférer", "lieber mögen", "é → è"], ["répéter", "wiederholen", "é → è"], ["payer", "bezahlen", "y → i"], ["essayer", "anprobieren", "y → i"]];
+  return '<div class="card dr-cheat"><h2>👢 Spickzettel</h2><div class="t-sub">In 3 Schritten zur richtigen Form</div>' +
+    '<div class="dr-step"><i>1</i>Endung – ist immer gleich</div><div class="dr-ends">' + ["je", "tu", "il", "nous", "vous", "ils"].map((x, p) => '<div><span>' + x + '</span><b>' + ["-e", "-es", "-e", "-ons", "-ez", "-ent"][p] + '</b></div>').join("") + '</div>' +
+    '<div class="dr-step"><i>2</i>Im Stiefel? Dann ändert sich der Stamm</div>' +
+    '<div class="dr-bg">' + cell(0, "c1") + cell(3, "c4") + cell(1, "c2") + cell(4, "c5") + cell(2, "c3") + cell(5, "c6") + '</div>' +
+    '<div class="dr-legend"><span class="l-in">im Stiefel: je, tu, il, ils → Stamm ändert sich</span><span>draußen: nous, vous → wie im Infinitiv</span></div>' +
+    '<div class="dr-step"><i>3</i>Was ändert sich?</div><table class="dr-chg"><thead><tr><th>Verb</th><th>im Stiefel</th><th>draußen</th></tr></thead><tbody>' +
+    rows.map(([v, de, r]) => '<tr><td><b>' + v + '</b><span class="t-sub">' + de + '</span></td><td><span class="rule">' + r + '</span><br>' + (x => x.endsWith("'") ? x : x + " ")(DRILL.pron(0, DRILL.VERBS[v].forms[0])) + formHTML(v, 0) + '</td><td>nous ' + formHTML(v, 3) + '</td></tr>').join("") + '</tbody></table>' +
+    '<div class="dr-tip">🧠 <b>Merksatz:</b> Im Stiefel wird\'s schwer – der Akzent kippt nach unten (<b>è</b>), das y wird zum schlanken <b>i</b>. Passé composé immer mit <b>-é</b>: j\'ai acheté, préféré, payé.</div></div>';
+}
 function drillTopicPage(t) {
   const st = drillStats(t.id); const p = DRILL.progress(t.id, st);
   let card = "";
-  if (t.id === "stiefel") card = '<div class="card dr-rule"><div class="dr-boot">👢</div><div><b>Die Stiefel-Regel</b><p>Bei <b>je, tu, il/elle/on, ils/elles</b> (im Stiefel) ändert sich der Stamm: <b>è</b> statt e/é, <b>i</b> statt y. Bei <b>nous</b> und <b>vous</b> (außerhalb) bleibt er wie im Infinitiv.</p><p class="t-sub">Endungen immer: -e, -es, -e, -ons, -ez, -ent · Passé composé: j\'ai acheté, préféré …</p></div></div>' +
-    t.verbs.map((v, i) => '<details class="card dr-verb"' + (i === 0 ? " open" : "") + '><summary><b>' + esc(v) + '</b><span class="t-sub">' + esc(DRILL.VERBS[v].de) + ' · ' + esc(DRILL.VERBS[v].note) + '</span></summary>' + conjTable(v) + '<a class="btn sm" href="#/drill/stiefel?challenge=' + encodeURIComponent(v) + '">⏱ Tabellen-Challenge</a></details>').join("");
+  if (t.id === "stiefel") card = stiefelCheat() + '<div class="dr-more">Alle Verben einzeln (antippen zum Aufklappen):</div>' +
+    t.verbs.map(v => '<details class="card dr-verb"><summary><b>' + esc(v) + '</b><span class="t-sub">' + esc(DRILL.VERBS[v].de) + ' · ' + esc(DRILL.VERBS[v].note) + '</span></summary>' + conjTable(v) + '<a class="btn sm" href="#/drill/stiefel?challenge=' + encodeURIComponent(v) + '">⏱ Tabellen-Challenge</a></details>').join("");
   else if (t.id === "mettre") card = '<div class="card dr-rule"><div class="dr-boot">✂️</div><div><b>mettre: Singular kurz, Plural doppel-t</b><p>je <b>mets</b>, tu <b>mets</b>, il <b>met</b> – nous <b>mettons</b>, vous <b>mettez</b>, ils <b>mettent</b>. Passé composé: j\'ai <b>mis</b>.</p><p class="t-sub">Bedeutet: (hin)legen, stellen, setzen, Kleidung anziehen, Tisch decken.</p></div></div><div class="card dr-verb">' + conjTable("mettre") + '<a class="btn sm" href="#/drill/mettre?challenge=mettre">⏱ Tabellen-Challenge</a></div>';
   else if (t.id === "pc") card = '<div class="card dr-rule"><div class="dr-boot">⏮️</div><div><b>Passé composé = avoir + Partizip</b><p>-er-Verben: Endung <b>-é</b> → j\'ai achet<b>é</b>, essay<b>é</b>, pay<b>é</b>, préfér<b>é</b>, répét<b>é</b>. Unregelmäßig: mettre → j\'ai <b>mis</b>.</p><p class="t-sub">j\'ai · tu as · il/elle a · nous avons · vous avez · ils/elles ont</p></div></div>';
   else if (t.id === "ce") card = '<div class="card dr-rule"><div class="dr-boot">👉</div><div><b>ce, cet, cette, ces = dieser, diese, dieses</b><table class="dr-mini"><tr><td>männlich + Konsonant</td><td><b>ce</b> CD, ce pull</td></tr><tr><td>männlich + Vokal/h</td><td><b>cet</b> acteur, cet homme</td></tr><tr><td>weiblich</td><td><b>cette</b> BD, cette amie</td></tr><tr><td>Plural (m. und f.)</td><td><b>ces</b> films, ces BD</td></tr></table></div></div>';
   else if (t.id === "quel") card = '<div class="card dr-rule"><div class="dr-boot">❓</div><div><b>quel … ? = welcher, welche, welches?</b><table class="dr-mini"><tr><td></td><td>Singular</td><td>Plural</td></tr><tr><td>männlich</td><td><b>quel</b> CD ?</td><td><b>quels</b> films ?</td></tr><tr><td>weiblich</td><td><b>quelle</b> BD ?</td><td><b>quelles</b> BD ?</td></tr></table><p class="t-sub">Angleichung wie bei Adjektiven: f + e, Plural + s. Vor Vokal bleibt es <b>quel</b> (quel acteur).</p></div></div>';
   else if (t.id === "beau") card = '<div class="card dr-rule"><div class="dr-boot">✨</div><div><b>beau, nouveau, vieux stehen VOR dem Nomen</b><table class="dr-mini dr-adj"><tr><td></td><td>beau</td><td>nouveau</td><td>vieux</td></tr><tr><td>m.</td><td>beau film</td><td>nouveau film</td><td>vieux film</td></tr><tr><td>m. + Vokal</td><td><b>bel</b> avion</td><td><b>nouvel</b> avion</td><td><b>vieil</b> avion</td></tr><tr><td>f.</td><td><b>belle</b></td><td><b>nouvelle</b></td><td><b>vieille</b></td></tr><tr><td>m. Pl.</td><td>beaux</td><td>nouveaux</td><td>vieux</td></tr><tr><td>f. Pl.</td><td>belles</td><td>nouvelles</td><td>vieilles</td></tr></table></div></div>';
   const bp = t.kind === "conj" ? DRILL.byPerson(t.id, st) : [];
-  const heat = bp.some(x => x.n) ? '<div class="card"><h2>Wo hakt\'s?</h2><div class="dr-heat">' + bp.map(x => '<div class="dr-h ' + (x.pct == null ? "" : x.pct >= 85 ? "g" : x.pct >= 60 ? "o" : "r") + '"><b>' + esc(x.label) + '</b><span>' + (x.pct == null ? "–" : x.pct + " %") + '</span></div>').join("") + '</div><p class="t-sub" style="margin-bottom:0">Rot/orange kommt in den nächsten Runden öfter dran.</p></div>' : '';
+  const heat = bp.some(x => x.n) ? '<div class="card dr-heatc"><h2>Wo hakt\'s?</h2><div class="dr-heat">' + bp.map(x => '<div class="dr-h ' + (x.pct == null ? "" : x.pct >= 85 ? "g" : x.pct >= 60 ? "o" : "r") + '"><b>' + esc(x.label) + '</b><span>' + (x.pct == null ? "–" : x.pct + " %") + '</span></div>').join("") + '</div><p class="t-sub" style="margin-bottom:0">Rot/orange kommt in den nächsten Runden öfter dran.</p></div>' : '';
   return '<a class="backlink" href="#/drill">' + ICO.back + 'Grammatik-Drill</a><div class="dr-head"><h1 class="t-large">' + esc(t.title) + '</h1><div class="t-sub">' + p.ok + ' von ' + p.n + ' sitzen</div>' + progBar(p.pct, p.pct >= 80 ? "g" : "") + '</div>' +
-    '<button class="btn primary lg wide dr-go" data-drstart="' + t.id + '">' + ICO.play + 'Runde starten (12 Aufgaben)</button>' + heat + card;
+    '<button class="btn primary lg wide dr-go" data-drstart="' + t.id + '">' + ICO.play + 'Runde starten (12 Aufgaben)</button>' + (t.id === "stiefel" ? card + heat : heat + card);
 }
 
 /* ---------- Runde ---------- */

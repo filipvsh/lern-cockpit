@@ -17,7 +17,7 @@ let passed = 0, failed = 0;
 const errors = [];
 
 async function open(backend, o = {}) {
-  const ctx = await browser.newContext({ viewport: o.viewport || { width: 1280, height: 860 } });
+  const ctx = await browser.newContext({ viewport: o.viewport || { width: 1280, height: 860 }, colorScheme: o.colorScheme || "light" });
   const page = await ctx.newPage();
   page.on("pageerror", e => errors.push("pageerror: " + e.message));
   page.on("console", m => { if (m.type() === "error" && !/Failed to load resource|ERR_INTERNET_DISCONNECTED|ERR_FAILED/.test(m.text())) errors.push("console: " + m.text()); });
@@ -1109,10 +1109,19 @@ await scenario("Grammatik-Drill: Stiefel-Regel, Runde mit Fehler + Wiederholung,
   const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   await go(page, "#/drill"); await page.waitForSelector(".dr-topic"); assert.equal(await page.$$eval(".dr-topic", x => x.length), 6); assert.ok(await noScroll());
-  await go(page, "#/drill/stiefel"); await page.waitForSelector(".dr-tab"); assert.ok(await noScroll(), "Merk-Karte ohne Querscrollen");
-  assert.equal(await page.$$eval(".dr-verb[open] .dr-tab tr.boot", x => x.length), 4, "je, tu, il, ils im Stiefel");
-  assert.equal(await page.textContent(".dr-verb[open] .dr-tab tr.boot mark"), "è");
+  await go(page, "#/drill/stiefel"); await page.waitForSelector(".dr-cheat"); assert.ok(await noScroll(), "Merk-Karte ohne Querscrollen");
+  assert.equal(await page.$$eval(".dr-bg .in", x => x.length), 4, "je, tu, il, ils im Stiefel");
+  assert.equal(await page.textContent(".dr-bg .c1 mark"), "è"); assert.equal(await page.$(".dr-bg .c4 mark"), null, "nous ohne Markierung");
+  assert.equal(await page.$$eval(".dr-chg tbody tr", x => x.length), 5);
+  await page.click(".dr-verb summary"); assert.equal(await page.$$eval(".dr-verb[open] .dr-tab tr.boot", x => x.length), 4);
   await shot(page, "dr-01-stiefel");
+  {
+    // Rechner im Dunkelmodus: App bleibt hell, keine dunklen Balken mit dunkler Schrift
+    const d = await open(b, { viewport: { width: 1390, height: 900 }, colorScheme: "dark" }); await login(d.page);
+    await go(d.page, "#/drill/stiefel"); await d.page.waitForSelector(".dr-cheat");
+    const bg = await d.page.$eval(".dr-bg .c1", e => getComputedStyle(e).backgroundColor); assert.equal(bg, "rgb(255, 241, 214)", "Stiefel-Feld bleibt hell");
+    await shot(d.page, "dr-01b-desktop-dunkel"); await d.ctx.close();
+  }
   // Runde: erste Aufgabe absichtlich falsch, Rest richtig
   await page.click("[data-drstart]"); await page.waitForSelector(".dr-q");
   let first = true, guard = 0;
