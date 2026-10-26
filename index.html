@@ -709,6 +709,11 @@ body.focus{background:var(--surface)}
 .dr-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--text-2);margin-top:8px}.dr-legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--fill);border:2px solid var(--line)}.dr-legend .l-in::before{background:#fff1d6;border:2px solid #ff9600}
 .dr-chg{width:100%;border-collapse:collapse;font-size:15px}.dr-chg th{text-align:left;font-size:12px;color:var(--text-2);font-weight:600;padding:4px 6px}.dr-chg td{padding:9px 6px;border-top:1px solid var(--sep);vertical-align:top}.dr-chg td:first-child b{display:block}.dr-chg .rule{display:inline-block;background:#ff9600;color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;font-size:14px;white-space:nowrap}.dr-chg em{font-style:normal;color:var(--accent);font-weight:600}.dr-chg mark{background:#ff9600;color:#fff;border-radius:3px;padding:0 1px}
 .dr-tip{margin-top:14px;padding:10px 12px;border-radius:12px;background:#eef4ff;font-size:14px;line-height:1.45}
+.dr-hint{margin-top:12px;padding:10px 12px;border-radius:12px;background:#fff8e1;border:1px solid #ffe08a;font-size:15px;line-height:1.4}.dr-tipw{display:flex;justify-content:center;margin-top:12px}
+.dr-from{font-size:18px;color:var(--text-2);margin:2px 0}.dr-from span{color:var(--accent)}.dr-gap s{color:var(--red);text-decoration-thickness:2px}
+.dr-testc{border:2px solid var(--accent)}.dr-testc .dr-ic{font-size:28px}.dr-rules{display:grid;gap:8px;max-width:760px;font-size:15px;margin-bottom:var(--s4)}
+.dr-hist{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--sep)}.dr-hist:first-of-type{border-top:0}.dr-note{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;font-weight:800;font-size:18px;background:var(--fill)}.dr-note.n1,.dr-note.n2{background:#d7ffb8}.dr-note.n3{background:#fff1d6}.dr-note.n4,.dr-note.n5,.dr-note.n6{background:#ffdfe0}
+.dr-res{width:min(560px,100%);text-align:left;display:grid;gap:0;padding:4px 14px}.dr-ri{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--sep);font-size:15px;line-height:1.4}.dr-ri:first-child{border-top:0}.dr-rk{flex:none;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;background:var(--green)}.dr-ri.wrong .dr-rk{background:var(--red)}.dr-ri.accent .dr-rk{background:#ff9600}.dr-ri b{color:var(--accent)}
 .dr-more{max-width:760px;margin:var(--s4) 0 var(--s2);font-size:15px;color:var(--text-2)}.dr-heatc{max-width:760px}
 .dx-hero{margin:var(--s2) 0 var(--s4)}.dx-hero .t-large{margin:2px 0}
 .dx-tabs{display:flex;max-width:100%;overflow-x:auto;margin-bottom:var(--s4);-webkit-overflow-scrolling:touch}.dx-tabs a{flex:0 0 auto;padding:7px 12px;border-radius:calc(var(--r-sm) - 2px);font-size:14px;color:var(--text);text-decoration:none;white-space:nowrap}.dx-tabs a.on{background:var(--surface);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.1)}
@@ -1075,7 +1080,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="16";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="17";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";

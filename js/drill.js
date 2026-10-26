@@ -3,7 +3,9 @@
    Themen aus dem Buch (Lektion 7): acheter/essayer/payer/préférer/répéter
    (Stiefel-Regel), mettre, Passé composé, ce/cet/cette/ces,
    quel/quelle/quels/quelles, beau/nouveau/vieux.
-   Lernweg je Aufgabe: Antippen (Box 0–1) → selbst schreiben (ab Box 2).
+   Alles wird selbst geschrieben – wie in der Arbeit. Je besser eine Form
+   sitzt (Box), desto schwerer das Format: Form bilden → Satz ergänzen →
+   Umformen → Fehler finden. Dazu eine Probe-Arbeit mit Note.
    Getestet in tests/engine.test.js.
    ===================================================================== */
 (function (root, factory) {
@@ -64,7 +66,7 @@
     const t = TOPICS.find(x => x.id === topicId); if (!t) return [];
     if (t.kind === "conj") return t.verbs.flatMap(v => VERBS[v].forms.map((f, p) => ({ key: v + ":" + p, verb: v, person: p, prompt: pron(p, f) + " ___", sub: VERBS[v].inf + " · " + VERBS[v].de, answer: f, why: (v === "mettre" ? (p < 3 ? "Singular" : "Plural") + " (" + PERSONS[p][0] + "): Stamm " + VERBS[v].stems[p < 3 ? 0 : 1] + "-" : BOOT.includes(p) ? "👢 Im Stiefel (" + PERSONS[p][0] + "): Stamm " + VERBS[v].stems[0] + "-" : "Außerhalb des Stiefels (" + PERSONS[p][0] + "): Stamm " + VERBS[v].stems[1] + "-") + " · " + VERBS[v].note })));
     if (t.kind === "pc") return t.verbs.flatMap(v => [0, 3, 4].map(p => ({ key: "pc:" + v + ":" + p, verb: v, person: p, prompt: AUX[p] + " ___", sub: VERBS[v].inf + " · " + VERBS[v].de, answer: VERBS[v].pc, why: "Passé composé = avoir + Partizip: " + VERBS[v].inf + " → " + VERBS[v].pc + (v === "mettre" ? " (unregelmäßig!)" : " (-er → -é)") })));
-    if (t.kind === "pick") return NOUNS.map(n => ({ key: t.id + ":" + n.w, prompt: (t.id === "ce" ? "J'aime ___ " : "Tu aimes ___ ") + n.w + (t.id === "quel" ? " ?" : "."), sub: n.de + " · " + (n.g === "f" ? "weiblich" : "männlich") + (n.pl ? ", Plural" : ""), answer: t.id === "ce" ? demo(n) : quel(n), options: t.options, why: t.id === "ce" ? demoWhy(n) : quelWhy(n) }));
+    if (t.kind === "pick") return NOUNS.map(n => ({ key: t.id + ":" + n.w, prompt: t.id === "ce" ? "J'aime ___ " + n.w + "." : "___ " + n.w + " est-ce que tu préfères ?", sub: n.de + " · " + (n.g === "f" ? "weiblich" : "männlich") + (n.pl ? ", Plural" : ""), answer: t.id === "ce" ? demo(n) : quel(n), options: t.options, why: t.id === "ce" ? demoWhy(n) : quelWhy(n) }));
     if (t.kind === "adj") return Object.keys(ADJ).flatMap(a => ADJ_NOUNS.map(([art, noun, k, de]) => ({ key: a + ":" + noun, prompt: art + " ___ " + noun, sub: a + " · " + de, answer: ADJ[a][k], options: [...new Set(ADJ[a])], why: ADJ_WHY[k] + " → " + ADJ[a][k] + " · steht vor dem Nomen" })));
     return [];
   }
@@ -81,13 +83,81 @@
     mix(v.forms.filter(f => f !== it.answer)).forEach(f => out.push(f));
     return [...new Set(out.filter(x => x && x !== it.answer && x !== altOf(it)))].slice(0, 3);
   }
-  /** Runde bauen: schwächste zuerst (Box), nicht-gesehene gemischt; n Aufgaben */
+  /* ---------- Formate (alle zum Selberschreiben) ---------- */
+  const SUBJ = [["Je"], ["Tu"], ["Marie", "Mon frère", "On", "Il", "Elle"], ["Nous", "Léa et moi, nous"], ["Vous"], ["Mes parents", "Les filles", "Ils", "Elles"]];
+  const TAILS = {
+    acheter: ["un pull.", "des baskets au marché.", "une robe pour la fête.", "du pain."],
+    essayer: ["la veste bleue.", "le jean.", "les chaussures.", "de comprendre."],
+    payer: ["avec la carte.", "les billets.", "le pull.", "le café."],
+    préférer: ["le rouge.", "les jupes courtes.", "le sport.", "rester à la maison."],
+    répéter: ["la question.", "les mots.", "la phrase.", "après le prof."],
+    mettre: ["un anorak.", "la table.", "un T-shirt.", "les livres sur la table."]
+  };
+  const pick = (a, r) => a[Math.floor(r() * a.length) % a.length];
+    /** Subjekt vor Verbform – mit j' bei Vokal */
+  const subj = (p, form, r) => { const x = pick(SUBJ[p], r); return x === "Je" && vowel(form) ? "J'" : x; };
+  const joinGap = (sj, gap) => sj.endsWith("'") ? sj + gap : sj + " " + gap;
+  const FMT = { form: "Schreib die Form", satz: "Ergänze den Satz", um: "Forme um", fix: "Finde den Fehler – schreib es richtig" };
+  /** Tipp ohne Lösung */
+  function hint(it) {
+    if (it.verb && !String(it.key).startsWith("pc:")) {
+      const v = VERBS[it.verb], p = it.person;
+      const where = it.verb === "mettre" ? (p < 3 ? "Singular → nur ein t" : "Plural → doppel-t") : v.boot.includes(p) ? "👢 im Stiefel → Stamm ändert sich (" + v.note.split(" im")[0] + ")" : "außerhalb des Stiefels → Stamm wie im Infinitiv";
+      return where + " · Endung für " + PERSONS[p][0] + ": -" + (v.end[p] || "(keine)");
+    }
+    if (String(it.key).startsWith("pc:")) return "avoir + Partizip · -er-Verben enden auf -é" + (it.verb === "mettre" ? " – aber mettre ist unregelmäßig" : "");
+    return it.why.split("→")[0].trim();
+  }
+  /** Aufgabe in ein Format bringen. level 0..3 (aus der Box), r: Zufall */
+  function variant(it, level, r) {
+    const o = Object.assign({}, it, { type: "type", fmt: "form" });
+    o.hint = hint(it);
+    if (it.verb && !String(it.key).startsWith("pc:")) {
+      const v = VERBS[it.verb], p = it.person, f = it.answer;
+      const fmt = level <= 0 ? "form" : level === 1 ? "satz" : level === 2 ? pick(["um", "satz"], r) : pick(["fix", "um", "satz"], r);
+      o.fmt = fmt;
+      if (fmt === "form") { o.prompt = it.prompt; o.sub = v.inf + " (" + v.de + ") · " + PERSONS[p][0] + " = " + PERSONS[p][1]; }
+      else if (fmt === "satz") { o.prompt = joinGap(subj(p, f, r), "___") + " " + pick(TAILS[it.verb], r); o.sub = "(" + v.inf + ")"; }
+      else if (fmt === "um") {
+        const q = pick([0, 1, 2, 3, 4, 5].filter(x => x !== p && (v.boot.includes(x) !== v.boot.includes(p) || r() < 0.3)), r);
+        o.prompt = pron(p, f) + (pron(p, f).endsWith("'") ? "" : " ") + "___"; o.from = pron(q, v.forms[q]) + (pron(q, v.forms[q]).endsWith("'") ? "" : " ") + v.forms[q];
+        o.sub = o.from + " → " + PERSONS[p][0] + " ?";
+      } else {
+        const wrong = distractors(it, r)[0]; const sj = subj(p, wrong, r);
+        o.wrong = wrong; o.prompt = joinGap(sj === "J'" && !vowel(f) ? "Je" : sj, "___") + " " + pick(TAILS[it.verb], r);
+        o.sub = "(" + v.inf + ") – da stimmt was nicht";
+      }
+      return o;
+    }
+    if (String(it.key).startsWith("pc:")) {
+      const v = VERBS[it.verb], p = it.person;
+      if (level >= 2) { const aux = ["ai", "as", "a", "avons", "avez", "ont"][p]; o.fmt = "satz"; const sj = subj(p, aux, r); o.prompt = "Hier, " + joinGap(/^(Marie|Léa)/.test(sj) ? sj : sj.charAt(0).toLowerCase() + sj.slice(1), "___") + " " + pick(TAILS[it.verb], r); o.answer = aux + " " + v.pc; o.sub = "(" + v.inf + ") – Passé composé: Hilfsverb + Partizip"; }
+      return o;
+    }
+    // ce/quel/beau: ab Level 2 ohne Geschlechts-Hinweis
+    if (level >= 2) { o.sub = String(it.sub).split(" · ")[0]; o.fmt = "satz"; }
+    return o;
+  }
+  /** Runde bauen: schwächste zuerst (Box), alles selbst schreiben; n Aufgaben */
   function round(topicId, stats, n, rng) {
     const r = rng || Math.random; const st = stats || {};
     const list = items(topicId).map(it => ({ it, b: (st[it.key] || {}).b || 0, r: r() }));
     list.sort((a, b) => a.b - b.b || a.r - b.r);
-    return list.slice(0, n || 12).map(x => Object.assign({}, x.it, { box: x.b, type: x.b >= 2 && !x.it.options ? "type" : "pick" }));
+    return list.slice(0, n || 12).map(x => Object.assign(variant(x.it, Math.min(3, x.b), r), { box: x.b }));
   }
+  /** Probe-Arbeit: gemischt aus allen Themen, schwere Formate, ohne Tipps */
+  const TEST_MIX = [["stiefel", 8], ["mettre", 3], ["pc", 3], ["ce", 2], ["quel", 2], ["beau", 2]];
+  function testRound(allStats, rng) {
+    const r = rng || Math.random; const out = [];
+    TEST_MIX.forEach(([t, n]) => {
+      const st = (allStats || {})[t] || {};
+      const list = items(t).map(it => ({ it, s: ((st[it.key] || {}).b || 0) + r() * 2 })).sort((a, b) => a.s - b.s).slice(0, n);
+      list.forEach(x => out.push(Object.assign(variant(x.it, 2 + (r() < 0.5 ? 1 : 0), r), { topic: t, hint: null })));
+    });
+    return out.map(x => [r(), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  }
+  /** Note aus Prozent (Schulnoten-Schlüssel) */
+  const grade = pct => pct >= 92 ? 1 : pct >= 81 ? 2 : pct >= 67 ? 3 : pct >= 50 ? 4 : pct >= 30 ? 5 : 6;
   /** Antwort bewerten: richtig / nur Akzent falsch / falsch */
   const strip = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
   function check(given, answer, it) {
@@ -117,5 +187,5 @@
     const changed = stem !== other && i < stem.length;
     return { pre: stem.slice(0, i), ch: changed ? stem[i] : "", post: changed ? stem.slice(i + 1) : stem.slice(i), end: f.slice(stem.length), inBoot };
   }
-  return { ALT, altOf, PERSONS, BOOT, VERBS, NOUNS, ADJ, TOPICS, AUX, pron, items, distractors, round, check, learn, byPerson, progress, parts, demo, quel };
+  return { FMT, hint, variant, testRound, grade, TEST_MIX, ALT, altOf, PERSONS, BOOT, VERBS, NOUNS, ADJ, TOPICS, AUX, pron, items, distractors, round, check, learn, byPerson, progress, parts, demo, quel };
 });

@@ -526,11 +526,35 @@ test("Drill: ce/cet/cette/ces, quel…, beau/bel/belle", () => {
   const b = DR.items("beau").find(i => i.key === "vieux:avion"); assert.equal(b.answer, "vieil");
   assert.equal(DR.items("beau").find(i => i.key === "nouveau:maison").answer, "nouvelle");
 });
-test("Drill: Runde startet mit den schwächsten, ab Box 2 wird geschrieben; Fehler setzt zurück", () => {
+test("Drill: Runde startet mit den schwächsten, alles wird geschrieben; Fehler setzt zurück", () => {
   let st = {}; ["acheter:0", "acheter:1"].forEach(k => { st = DR.learn(st, k, true); st = DR.learn(st, k, true); });
   const r = DR.round("stiefel", st, 30, () => 0.5);
   assert.equal(r.length, 30); assert.ok(r.slice(0, 28).every(i => i.box === 0), "ungeübte zuerst");
-  assert.equal(r.find(i => i.key === "acheter:0").type, "type");
+  assert.ok(r.every(i => i.type === "type"), "keine Auswahl mehr");
+  assert.equal(r.find(i => i.key === "acheter:5").fmt, "form", "neu → Form bilden"); assert.ok(["um", "satz"].includes(r.find(i => i.key === "acheter:0").fmt));
   st = DR.learn(st, "acheter:0", false); assert.equal(st["acheter:0"].b, 0);
   const bp = DR.byPerson("stiefel", st); assert.equal(bp.length, 6); assert.equal(bp[0].pct, 67);
+});
+
+test("Drill: Formate – Satz, Umformen, Fehler finden, Passé composé – passen zur Lösung", () => {
+  let n = 1; const rng = () => ((n = (n * 9301 + 49297) % 233280) / 233280);
+  const all = DR.TOPICS.flatMap(t => DR.items(t.id));
+  for (const it of all) for (const lv of [0, 1, 2, 3, 3, 3]) {
+    const v = DR.variant(it, lv, rng);
+    assert.equal(v.type, "type"); assert.equal((v.prompt.match(/___/g) || []).length, 1, v.prompt);
+    assert.ok(v.answer && DR.FMT[v.fmt], it.key);
+    if (v.wrong) { assert.notEqual(v.wrong, v.answer); assert.notEqual(v.wrong, DR.altOf(it)); }
+    if (v.fmt === "um") assert.ok(v.from && !v.from.endsWith(" " + v.answer), v.from);
+    if (/J'___|j'___/.test(v.prompt)) assert.ok(/^[aeiouéèh]/.test(v.answer), v.prompt + " " + v.answer);
+    if (/\b[Jj]e ___/.test(v.prompt)) assert.ok(!/^[aeiouéè]/.test(v.answer), v.prompt + " " + v.answer);
+    if (it.verb && lv === 0) assert.ok(v.hint && !v.hint.includes(v.answer), "Tipp verrät nicht die Lösung: " + v.hint);
+  }
+  const pc = DR.variant(DR.items("pc").find(i => i.key === "pc:mettre:3"), 3, rng); assert.equal(pc.answer, "avons mis"); assert.ok(pc.prompt.startsWith("Hier, "));
+});
+test("Drill: Probe-Arbeit mischt alle Themen, 20 Aufgaben, Note nach Prozent", () => {
+  const t = DR.testRound({}, () => 0.3);
+  assert.equal(t.length, 20); assert.equal(new Set(t.map(x => x.topic + x.key)).size, 20);
+  assert.deepEqual([...new Set(t.map(x => x.topic))].sort(), ["beau", "ce", "mettre", "pc", "quel", "stiefel"]);
+  assert.ok(t.every(x => x.type === "type" && !x.hint));
+  assert.deepEqual([100, 92, 85, 70, 55, 40, 10].map(DR.grade), [1, 1, 2, 3, 4, 5, 6]);
 });
