@@ -1108,7 +1108,7 @@ await scenario("Mathe ohne Tippen: Videos abhaken, Graphen-Quiz, Papier-Modus; N
 await scenario("Grammatik-Drill: Stiefel-Regel, Runde mit Fehler + Wiederholung, selbst schreiben mit Akzent, „Wo hakt's?“, Tabellen-Challenge", async () => {
   const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
-  await go(page, "#/drill"); await page.waitForSelector(".dr-topic"); assert.equal(await page.$$eval(".dr-topic", x => x.length), 6); assert.ok(await noScroll());
+  await go(page, "#/drill"); await page.waitForSelector(".dr-topic"); assert.equal(await page.$$eval(".dr-topic", x => x.length), 7, "6 Themen + Probe-Arbeit"); assert.ok(await noScroll());
   await go(page, "#/drill/stiefel"); await page.waitForSelector(".dr-cheat"); assert.ok(await noScroll(), "Merk-Karte ohne Querscrollen");
   assert.equal(await page.$$eval(".dr-bg .in", x => x.length), 4, "je, tu, il, ils im Stiefel");
   assert.equal(await page.textContent(".dr-bg .c1 mark"), "è"); assert.equal(await page.$(".dr-bg .c4 mark"), null, "nous ohne Markierung");
@@ -1124,26 +1124,28 @@ await scenario("Grammatik-Drill: Stiefel-Regel, Runde mit Fehler + Wiederholung,
   }
   // Runde: erste Aufgabe absichtlich falsch, Rest richtig
   await page.click("[data-drstart]"); await page.waitForSelector(".dr-q");
-  let first = true, guard = 0;
+  let k = 0, guard = 0;
   while (guard++ < 40) {
-    const st = await page.evaluate(() => DRL.done ? null : { type: DRL.items[DRL.i].type, answer: DRL.items[DRL.i].answer, opts: DRL.ui.opts });
+    const st = await page.evaluate(() => DRL.done ? null : { type: DRL.items[DRL.i].type, answer: DRL.items[DRL.i].answer });
     if (!st) break;
-    if (st.type === "pick") { const k = first ? st.opts.findIndex(o => o !== st.answer) : st.opts.indexOf(st.answer); await page.click(`[data-dro="${k}"]`); }
-    else await page.fill("#dr_in", first ? "falsch" : st.answer);
-    await page.click("#dr_check"); await page.waitForSelector(first ? ".les-foot.bad" : ".les-foot.ok");
-    if (first) await shot(page, "dr-02-fehler");
-    first = false; await page.click("#dr_next");
+    assert.equal(st.type, "type"); assert.equal(await page.$("[data-dro]"), null, "keine Auswahl-Knöpfe");
+    if (k === 1) { await page.click("#dr_tip"); await page.waitForSelector(".dr-hint"); assert.ok(!(await page.textContent(".dr-hint")).includes(st.answer), "Tipp verrät nichts"); await shot(page, "dr-02b-tipp"); }
+    await page.fill("#dr_in", k === 0 ? "falsch" : st.answer);
+    await page.click("#dr_check"); await page.waitForSelector(k === 0 ? ".les-foot.bad" : ".les-foot.ok");
+    if (k === 0) await shot(page, "dr-02-fehler");
+    k++; await page.click("#dr_next");
   }
   await page.waitForSelector(".les-done");
   const r = await page.evaluate(() => ({ n: DRL.items.length, total: DRL.total, right: DRL.right }));
-  assert.equal(r.n, r.total + 1, "Fehler kam in der Runde noch einmal"); assert.equal(r.right, r.total - 1);
+  assert.equal(r.n, r.total + 1, "Fehler kam in der Runde noch einmal"); assert.equal(r.right, r.total - 2, "Fehler und Tipp zählen nicht");
   assert.ok(await page.$(".les-done .dr-heat"), "Wo hakt's? am Ende");
   await page.evaluate(() => Api.idle()); await page.waitForTimeout(1500); await page.evaluate(() => Api.idle());
-  const saved = b.db.einstellungen.find(x => x.key === "drill"); assert.ok(saved && Object.keys(saved.value.stiefel).length === 12, "Lernstand gespeichert");
-  // Box 2 → selbst schreiben, Akzent-Taste
-  await page.evaluate(() => { const st = {}; ["acheter:0"].forEach(k => st[k] = { b: 2, r: 2, w: 0 }); const all = Object.assign({}, setting("drill", {})); all.stiefel = Object.assign({}, st); STATE.settings.drill = all; for (const it of DRILL.items("stiefel")) if (it.key !== "acheter:0") all.stiefel[it.key] = { b: 3, r: 3, w: 0 }; });
+  const saved = b.db.einstellungen.find(x => x.key === "drill"); assert.ok(saved && Object.keys(saved.value.stiefel).length === 11, "Lernstand gespeichert (ohne die Tipp-Aufgabe)");
+  // gut gelernt → schweres Format (Satz / Umformen / Fehler finden), Akzent-Taste
+  await page.evaluate(() => { const all = Object.assign({}, setting("drill", {})); all.stiefel = {}; for (const it of DRILL.items("stiefel")) all.stiefel[it.key] = { b: it.key === "acheter:0" ? 3 : 5, r: 3, w: 0 }; STATE.settings.drill = all; });
   await page.click("#dr_again"); await page.waitForSelector(".dr-q");
-  const typ = await page.evaluate(() => DRL.items[0]); assert.equal(typ.type, "type"); assert.equal(typ.key, "acheter:0");
+  const typ = await page.evaluate(() => DRL.items[0]); assert.equal(typ.key, "acheter:0"); assert.ok(["satz", "um", "fix"].includes(typ.fmt), typ.fmt);
+  if (typ.fmt === "fix") assert.ok(await page.$(".dr-gap s"), "falsche Form durchgestrichen");
   await page.fill("#dr_in", "ach"); await page.click('[data-dracc="è"]'); await page.type("#dr_in", "te");
   assert.equal(await page.inputValue("#dr_in"), "achète"); await page.click("#dr_check"); await page.waitForSelector(".les-foot.ok");
   await shot(page, "dr-03-schreiben");
@@ -1155,6 +1157,36 @@ await scenario("Grammatik-Drill: Stiefel-Regel, Runde mit Fehler + Wiederholung,
   await page.fill('[data-drc="3"]', "préférons"); await page.click("#drc_check"); await page.waitForSelector(".fb.ok");
   assert.ok((await page.textContent(".fb.ok")).includes("Bestzeit"));
   await shot(page, "dr-04-challenge");
+  await ctx.close();
+});
+
+await scenario("Probe-Arbeit: 20 Aufgaben ohne Hilfe, Zurück, Abgeben, Note und Korrektur, Ergebnis gespeichert", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  await go(page, "#/drill"); await page.waitForSelector(".dr-testc"); await page.click(".dr-testc");
+  await page.waitForSelector("#drt_start"); await shot(page, "drt-01-start"); await page.click("#drt_start"); await page.waitForSelector("#drt_in");
+  assert.equal(await page.$("#dr_tip"), null, "keine Tipps"); assert.ok(await noScroll());
+  const n = await page.evaluate(() => DRT.items.length); assert.equal(n, 20);
+  for (let i = 0; i < n; i++) {
+    const a = await page.evaluate(() => DRT.items[DRT.i].answer);
+    // 2 falsch, 1 nur Akzent falsch
+    const val = i < 2 ? "xyz" : i === 2 ? a.normalize("NFD").replace(/[̀-ͯ]/g, "") : a;
+    await page.fill("#drt_in", val);
+    if (i === 3) { await page.click("#drt_back"); assert.equal(await page.inputValue("#drt_in"), await page.evaluate(() => DRT.given[2]), "Zurück behält Antwort"); await page.click("#drt_next"); }
+    assert.equal(await page.$(".les-foot.ok, .les-foot.bad"), null, "keine Rückmeldung während der Arbeit");
+    if (i === 5) await shot(page, "drt-02-aufgabe");
+    await page.press("#drt_in", "Enter");
+  }
+  await page.waitForSelector(".dr-res");
+  const R = await page.evaluate(() => DRT.result);
+  const acc = await page.evaluate(() => DRT.items[2].answer !== DRT.items[2].answer.normalize("NFD").replace(/[̀-ͯ]/g, ""));
+  assert.equal(R.pts, acc ? 17.5 : 18); assert.equal(R.note, 2);
+  assert.equal(await page.textContent(".fx-title"), "Note 2");
+  assert.equal(await page.$$eval(".dr-ri.wrong", x => x.length), 2); assert.ok(await noScroll());
+  await shot(page, "drt-03-note");
+  await page.evaluate(() => Api.idle()); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());
+  const h = b.db.einstellungen.find(x => x.key === "drill_tests"); assert.equal(h.value.length, 1); assert.equal(h.value[0].note, 2);
+  await page.click('a[href="#/drill"]'); await page.waitForSelector(".dr-testc"); assert.ok((await page.textContent(".dr-testc")).includes("zuletzt Note 2"));
   await ctx.close();
 });
 

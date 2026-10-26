@@ -2,12 +2,14 @@
    LERN-COCKPIT · GRAMMATIK-DRILL – Oberfläche
    #/drill                Themen
    #/drill/<Thema>        Merk-Karte (Stiefel-Tabelle), „Wo hakt's?“, Start
-   #/drill/<Thema>?run=1  Runde: antippen → später selbst schreiben
+   #/drill/<Thema>?run=1  Runde: alles selbst schreiben, Format wird mit der Zeit schwerer
+   #/drill/test           Probe-Arbeit: 20 gemischte Aufgaben, ohne Hilfe, mit Note
    #/drill/<Thema>?challenge=<Verb>  ganze Tabelle auf Zeit
    Lernstand in einstellungen.drill = { Thema: { Aufgabe: {b, r, w} } }.
    ===================================================================== */
 let DRL = null;          // laufende Runde
 let DRC = null;          // laufende Tabellen-Challenge
+let DRT = null;          // laufende Probe-Arbeit
 let DRL_SAVE = null;
 const drillStats = t => ((setting("drill", {}) || {})[t]) || {};
 function drillSave(t, stats) {
@@ -19,6 +21,7 @@ const ACCENTS = ["é", "è", "ê", "à", "ç", "ï", "ô", "'"];
 
 V.drill = () => {
   if (!engineReady()) return pageHead("Grammatik-Drill") + setupCard();
+  if (ROUTE.sub === "test") return drillTest();
   const t = drillTopic();
   if (!t) return drillHome();
   if (ROUTE.query.challenge && t.kind === "conj") return drillChallenge(t, ROUTE.query.challenge);
@@ -28,6 +31,7 @@ V.drill = () => {
 function bindDrill() {
   const t = drillTopic(); const q = id => document.getElementById(id);
   document.querySelectorAll("[data-drstart]").forEach(b => b.onclick = () => drillStart(b.dataset.drstart));
+  if (ROUTE.sub === "test") return bindTest();
   if (!t) return;
   if (ROUTE.query.challenge) return bindChallenge(t);
   if (ROUTE.query.run && DRL) return bindRun();
@@ -41,9 +45,13 @@ function drillStart(topicId) {
 
 /* ---------- Übersicht ---------- */
 function drillHome() {
-  return pageHead("Grammatik-Drill", { back: ["#/dashboard", "Start"], sub: "Französisch aus Lektion 7 – bis es sitzt. Erst antippen, dann selbst schreiben." }) +
-    '<div class="dr-topics">' + DRILL.TOPICS.map(t => { const p = DRILL.progress(t.id, drillStats(t.id));
+  return pageHead("Grammatik-Drill", { back: ["#/dashboard", "Start"], sub: "Französisch aus Lektion 7 – alles selbst schreiben, wie in der Arbeit." }) +
+    '<div class="dr-topics">' + testCard() + DRILL.TOPICS.map(t => { const p = DRILL.progress(t.id, drillStats(t.id));
       return '<a class="card dr-topic" href="#/drill/' + t.id + '"><div><b>' + esc(t.title) + '</b><span class="t-sub">' + p.ok + ' von ' + p.n + ' sitzen</span>' + progBar(p.pct, p.pct >= 80 ? "g" : "") + '</div><span class="chev">' + ICO.chev + '</span></a>'; }).join("") + '</div>';
+}
+function testCard() {
+  const last = (setting("drill_tests", []) || []).slice(-1)[0];
+  return '<a class="card dr-topic dr-testc" href="#/drill/test"><span class="dr-ic">📝</span><div><b>Probe-Arbeit</b><span class="t-sub">20 Aufgaben aus allen Themen · ohne Hilfe · mit Note' + (last ? ' · zuletzt Note ' + last.note : '') + '</span></div><span class="chev">' + ICO.chev + '</span></a>';
 }
 /** kleine Karte für andere Seiten (Klausur-Modus, Spiele) */
 function drillCard() {
@@ -93,30 +101,35 @@ function drillTopicPage(t) {
 }
 
 /* ---------- Runde ---------- */
+/** Aufgabe mit Lücke; bei „Fehler finden“ steht das falsche Wort durchgestrichen in der Lücke */
+function drillQ(it, given) {
+  const gap = given != null ? '<span class="dr-gap">' + esc(given) + '</span>' : it.wrong ? '<span class="dr-gap"><s>' + esc(it.wrong) + '</s></span>' : '<span class="dr-gap">___</span>';
+  return (it.from && it.fmt === "um" ? '<div class="dr-from">' + esc(it.from) + ' <span>→</span></div>' : '') + '<div class="dr-q"><span>' + esc(it.prompt).replace("___", gap) + '</span></div>';
+}
 function drillRun() {
   const R = DRL;
   if (R.done) return drillEnd();
-  const it = R.items[R.i], ui = R.ui; ui.opts = ui.opts || (it.type === "pick" ? Engine.shuffle([it.answer].concat(DRILL.distractors(it))) : null);
+  const it = R.items[R.i], ui = R.ui;
   const pct = Math.round(R.i / R.items.length * 100);
   const top = '<div class="les-top"><a class="closebtn" href="#/drill/' + R.topic + '" aria-label="Runde beenden">' + ICO.x + '</a><div class="les-prog"><i style="width:' + pct + '%"></i></div><span class="les-combo dim">' + R.right + '</span></div>';
-  const head = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<h2 class="les-h">' + (it.type === "type" ? "Schreib die Form" : "Welche Form passt?") + '</h2><div class="dr-q"><span>' + esc(it.prompt).replace("___", '<span class="dr-gap">' + (ui.checked ? esc(ui.given || "") : "___") + '</span>') + '</span></div><div class="t-sub dr-sub">' + esc(it.sub) + '</div>';
-  let body;
-  if (it.type === "pick") body = '<div class="les-opts">' + ui.opts.map((o, k) => '<button class="les-opt' + (ui.pick === k ? " on" : "") + (ui.checked ? (o === it.answer ? " right" : ui.pick === k ? " wrongpick" : "") : "") + '" data-dro="' + k + '"' + (ui.checked ? " disabled" : "") + '><span class="k">' + (k + 1) + '</span>' + esc(o) + '</button>').join("") + '</div>';
-  else body = '<input id="dr_in" class="answer-input dr-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Form eintippen …" value="' + esc(ui.given || "") + '"' + (ui.checked ? " readonly" : "") + '><div class="dr-acc">' + ACCENTS.map(a => '<button data-dracc="' + esc(a) + '"' + (ui.checked ? " disabled" : "") + '>' + esc(a) + '</button>').join("") + '</div>';
+  const head = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<h2 class="les-h">' + DRILL.FMT[it.fmt || "form"] + '</h2>' + drillQ(it, ui.checked ? ui.given : null) + '<div class="t-sub dr-sub">' + esc(it.sub) + '</div>';
+  const body = '<input id="dr_in" class="answer-input dr-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Form eintippen …" value="' + esc(ui.given || "") + '"' + (ui.checked ? " readonly" : "") + '><div class="dr-acc">' + ACCENTS.map(a => '<button data-dracc="' + esc(a) + '"' + (ui.checked ? " disabled" : "") + '>' + esc(a) + '</button>').join("") + '</div>' +
+    (it.hint && !ui.checked ? (ui.tip ? '<div class="dr-hint">💡 ' + esc(it.hint) + '</div>' : '<div class="dr-tipw"><button class="btn sm" id="dr_tip">💡 Tipp anzeigen</button></div>') : '');
   const foot = ui.checked ? '<div class="les-foot ' + (ui.res === "ok" ? "ok" : "bad") + '"><div class="les-fb"><b>' + (ui.res === "ok" ? "Richtig!" : ui.res === "accent" ? "Fast – achte auf den Akzent: " + esc(it.answer) : "Richtig: " + esc(it.answer)) + '</b><span>' + esc(it.why) + '</span></div><button class="btn lg les-next" id="dr_next">Weiter</button></div>'
-    : '<div class="les-foot"><span class="t-sub">' + (it.type === "type" ? "Sitzt schon gut – jetzt selbst schreiben" : "") + '</span><button class="btn primary lg" id="dr_check"' + ((it.type === "pick" ? ui.pick != null : (ui.given || "").trim()) ? "" : " disabled") + '>Prüfen</button></div>';
+    : '<div class="les-foot"><span class="t-sub">' + (ui.tip ? "Mit Tipp zählt es nicht als gelernt" : "") + '</span><button class="btn primary lg" id="dr_check"' + ((ui.given || "").trim() ? "" : " disabled") + '>Prüfen</button></div>';
   return '<div class="les">' + top + '<div class="les-body">' + head + body + '</div>' + foot + '</div>';
 }
 function bindRun() {
   document.body.classList.add("focus");
   const R = DRL; if (R.done) { const a = document.getElementById("dr_again"); if (a) a.onclick = () => drillStart(R.topic); return; }
   const it = R.items[R.i], ui = R.ui; const q = id => document.getElementById(id);
-  document.querySelectorAll("[data-dro]").forEach(b => b.onclick = () => { ui.pick = +b.dataset.dro; route(); });
+  const tip = q("dr_tip"); if (tip) tip.onclick = () => { ui.tip = true; route(); };
   const inp = q("dr_in");
   if (inp) {
     inp.oninput = () => { ui.given = inp.value; const c = q("dr_check"); if (c) c.disabled = !inp.value.trim(); };
     inp.onkeydown = e => { if (e.key === "Enter" && inp.value.trim()) { e.preventDefault(); drillCheck(); } };
     if (!ui.checked) setTimeout(() => inp.focus(), 30);
+    document.querySelectorAll("[data-dracc]").forEach(b => b.onmousedown = e => e.preventDefault());
     document.querySelectorAll("[data-dracc]").forEach(b => b.onclick = () => { const s = inp.selectionStart ?? inp.value.length; inp.value = inp.value.slice(0, s) + b.dataset.dracc + inp.value.slice(inp.selectionEnd ?? s); inp.focus(); inp.setSelectionRange(s + 1, s + 1); inp.oninput(); });
   }
   const c = q("dr_check"); if (c) c.onclick = drillCheck;
@@ -124,12 +137,12 @@ function bindRun() {
 }
 function drillCheck() {
   const R = DRL, it = R.items[R.i], ui = R.ui; if (ui.checked) return;
-  ui.given = it.type === "pick" ? ui.opts[ui.pick] : (ui.given || "").trim();
+  ui.given = (ui.given || "").trim();
   ui.res = DRILL.check(ui.given, it.answer, it); ui.checked = true;
   const ok = ui.res === "ok";
-  if (ok && !it.retry) R.right++;
-  if (!ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 2) { R.retries[it.key] = n + 1; R.items.splice(Math.min(R.items.length, R.i + 4), 0, Object.assign({}, it, { retry: true, type: "pick" })); } }
-  if (!it.retry) drillSave(R.topic, DRILL.learn(drillStats(R.topic), it.key, ok));
+  if (ok && !it.retry && !ui.tip) R.right++;
+  if (!ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 2) { R.retries[it.key] = n + 1; R.items.splice(Math.min(R.items.length, R.i + 4), 0, Object.assign({}, DRILL.variant(it, 0, Math.random), { box: it.box, retry: true })); } }
+  if (!it.retry && !(ok && ui.tip)) drillSave(R.topic, DRILL.learn(drillStats(R.topic), it.key, ok));
   route();
 }
 async function drillNext() {
@@ -177,4 +190,63 @@ function bindChallenge(t) {
     route();
   };
   const ag = document.getElementById("drc_again"); if (ag) ag.onclick = () => { DRC = null; route(); };
+}
+
+/* ---------- Probe-Arbeit: 20 Aufgaben, ohne Hilfe, Note am Ende ---------- */
+const DRT_POINTS = { ok: 1, accent: 0.5, wrong: 0 };
+function drillTest() {
+  if (!DRT) {
+    const hist = (setting("drill_tests", []) || []).slice(-5).reverse();
+    return '<a class="backlink" href="#/drill">' + ICO.back + 'Grammatik-Drill</a><div class="dr-head"><h1 class="t-large">📝 Probe-Arbeit</h1><div class="t-sub">So wie in der Klassenarbeit: 20 Aufgaben aus allen Themen, alles selbst schreiben, keine Tipps, keine Auswahl. Erst am Ende siehst du, was richtig war – und deine Note.</div></div>' +
+      '<div class="card dr-rules"><div>✍️ Formen, Sätze, Umformen, Fehler finden</div><div>🎯 Akzentfehler = halber Punkt</div><div>⏱ ca. 8–10 Minuten</div></div>' +
+      '<button class="btn primary lg wide dr-go" id="drt_start">' + ICO.play + 'Probe-Arbeit starten</button>' +
+      (hist.length ? '<div class="card dr-heatc"><h2>Deine letzten Ergebnisse</h2>' + hist.map(h => '<div class="dr-hist"><span class="dr-note n' + h.note + '">' + h.note + '</span><span>' + h.pts + ' / ' + h.n + ' Punkte</span><span class="t-sub">' + fmtDL(h.d) + '</span></div>').join("") + '</div>' : '');
+  }
+  if (DRT.done) return drillTestEnd();
+  const it = DRT.items[DRT.i]; const pct = Math.round(DRT.i / DRT.items.length * 100);
+  return '<div class="les"><div class="les-top"><a class="closebtn" href="#/drill/test" id="drt_quit" aria-label="Abbrechen">' + ICO.x + '</a><div class="les-prog"><i style="width:' + pct + '%"></i></div><span class="les-combo dim">' + (DRT.i + 1) + '/' + DRT.items.length + '</span></div>' +
+    '<div class="les-body"><h2 class="les-h">' + DRILL.FMT[it.fmt || "form"] + '</h2>' + drillQ(it) + '<div class="t-sub dr-sub">' + esc(it.sub) + '</div>' +
+    '<input id="drt_in" class="answer-input dr-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Antwort …" value="' + esc(DRT.given[DRT.i] || "") + '">' +
+    '<div class="dr-acc">' + ACCENTS.map(a => '<button data-dracc="' + esc(a) + '">' + esc(a) + '</button>').join("") + '</div></div>' +
+    '<div class="les-foot">' + (DRT.i ? '<button class="btn lg" id="drt_back">Zurück</button>' : '<span></span>') + '<button class="btn primary lg" id="drt_next">' + (DRT.i === DRT.items.length - 1 ? "Abgeben" : "Weiter") + '</button></div></div>';
+}
+function drillTestEnd() {
+  const R = DRT.result;
+  return '<div class="les les-done"><div class="les-trophy">' + (R.note <= 2 ? "🏆" : R.note <= 3 ? "🎉" : "💪") + '</div><h1 class="fx-title">Note ' + R.note + '</h1>' +
+    '<div class="les-stats"><div><b>' + R.pts + '/' + R.n + '</b><span>Punkte</span></div><div><b>' + R.pct + ' %</b><span>richtig</span></div><div><b>+' + R.xp + '</b><span>XP</span></div></div>' +
+    '<div class="card tight dr-res">' + DRT.items.map((it, k) => { const r = R.res[k];
+      return '<div class="dr-ri ' + r + '"><span class="dr-rk">' + (r === "ok" ? "✓" : r === "accent" ? "½" : "✗") + '</span><div><div>' + esc(it.prompt).replace("___", '<b>' + esc(it.answer) + '</b>') + '</div>' + (r !== "ok" ? '<div class="t-sub">Du: <s>' + esc(DRT.given[k] || "–") + '</s>' + (it.why ? ' · ' + esc(it.why) : '') + '</div>' : '') + '</div></div>'; }).join("") + '</div>' +
+    '<div class="les-endbtn"><button class="btn primary lg" id="drt_again">Neue Probe-Arbeit</button><a class="btn lg" href="#/drill">Fertig</a></div></div>';
+}
+function bindTest() {
+  const q = id => document.getElementById(id);
+  const st = q("drt_start"); if (st) st.onclick = () => { DRT = { items: DRILL.testRound(setting("drill", {}) || {}), i: 0, given: [], done: false }; route(); };
+  const ag = q("drt_again"); if (ag) ag.onclick = () => { DRT = { items: DRILL.testRound(setting("drill", {}) || {}), i: 0, given: [], done: false }; route(); };
+  const quit = q("drt_quit"); if (quit) quit.onclick = e => { e.preventDefault(); if (!DRT.given.some(Boolean) || confirm("Probe-Arbeit abbrechen?")) { DRT = null; route(); } };
+  if (!DRT || DRT.done) return;
+  document.body.classList.add("focus");
+  const inp = q("drt_in"); if (!inp) return;
+  const save = () => { DRT.given[DRT.i] = inp.value; };
+  inp.oninput = save; setTimeout(() => inp.focus(), 30);
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); q("drt_next").click(); } };
+  document.querySelectorAll("[data-dracc]").forEach(b => b.onmousedown = e => e.preventDefault());
+  document.querySelectorAll("[data-dracc]").forEach(b => b.onclick = () => { const s = inp.selectionStart ?? inp.value.length; inp.value = inp.value.slice(0, s) + b.dataset.dracc + inp.value.slice(inp.selectionEnd ?? s); inp.focus(); inp.setSelectionRange(s + 1, s + 1); save(); });
+  const bk = q("drt_back"); if (bk) bk.onclick = () => { save(); DRT.i--; route(); };
+  q("drt_next").onclick = async () => {
+    save(); if (DRT.i < DRT.items.length - 1) { DRT.i++; return route(); }
+    if (DRT.given.filter(x => (x || "").trim()).length < DRT.items.length && !confirm("Noch nicht alles ausgefüllt – trotzdem abgeben?")) return;
+    await drillGrade();
+  };
+}
+async function drillGrade() {
+  const res = DRT.items.map((it, k) => DRILL.check(DRT.given[k], it.answer, it));
+  const pts = res.reduce((a, r) => a + DRT_POINTS[r], 0), n = DRT.items.length, pct = Math.round(pts / n * 100);
+  const all = Object.assign({}, setting("drill", {}) || {});
+  DRT.items.forEach((it, k) => { all[it.topic] = DRILL.learn(all[it.topic] || {}, it.key, res[k] === "ok"); });
+  STATE.settings.drill = all; await setSetting("drill", all);
+  const note = DRILL.grade(pct); const xp = 10 + Math.round(pts);
+  const hist = (setting("drill_tests", []) || []).concat([{ d: todayISO(), note, pts, n }]).slice(-20);
+  await setSetting("drill_tests", hist);
+  DRT.result = { res, pts, n, pct, note, xp }; DRT.done = true;
+  addXP(xp); route();
 }
