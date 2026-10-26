@@ -531,7 +531,9 @@ test("Drill: Runde startet mit den schwächsten, alles wird geschrieben; Fehler 
   const r = DR.round("stiefel", st, 30, () => 0.5);
   assert.equal(r.length, 30); assert.ok(r.slice(0, 28).every(i => i.box === 0), "ungeübte zuerst");
   assert.ok(r.every(i => i.type === "type"), "keine Auswahl mehr");
-  assert.equal(r.find(i => i.key === "acheter:5").fmt, "form", "neu → Form bilden"); assert.ok(["um", "satz"].includes(r.find(i => i.key === "acheter:0").fmt));
+  assert.equal(r.find(i => i.key === "acheter:5").fmt, "ending", "neu → erst nur die Endung"); assert.equal(r.find(i => i.key === "acheter:5").answer, "ent");
+  assert.equal(r.find(i => i.key === "acheter:0").fmt, "form", "Box 2 → selbst schreiben mit Spickzettel"); assert.ok(r.find(i => i.key === "acheter:0").lenient);
+  const vs = DR.round("stiefel", {}, 12).map(i => i.verb); assert.deepEqual([...new Set(vs)].sort(), ["acheter", "essayer"], "ein Verb nach dem anderen");
   st = DR.learn(st, "acheter:0", false); assert.equal(st["acheter:0"].b, 0);
   const bp = DR.byPerson("stiefel", st); assert.equal(bp.length, 6); assert.equal(bp[0].pct, 67);
 });
@@ -547,7 +549,10 @@ test("Drill: Formate – Satz, Umformen, Fehler finden, Passé composé – pass
     if (v.fmt === "um") assert.ok(v.from && !v.from.endsWith(" " + v.answer), v.from);
     if (/J'___|j'___/.test(v.prompt)) assert.ok(/^[aeiouéèh]/.test(v.answer), v.prompt + " " + v.answer);
     if (/\b[Jj]e ___/.test(v.prompt)) assert.ok(!/^[aeiouéè]/.test(v.answer), v.prompt + " " + v.answer);
-    if (it.verb && lv === 0) assert.ok(v.hint && !v.hint.includes(v.answer), "Tipp verrät nicht die Lösung: " + v.hint);
+    if (it.verb && v.fmt === "form") assert.ok(v.hint && !v.hint.includes(v.answer), "Tipp verrät nicht die Lösung: " + v.hint);
+    if (v.fmt === "ending") { assert.equal(v.stem + v.answer, v.full); assert.ok(/^[a-z]+$/.test(v.answer), "Endung ohne Akzent"); }
+    if (v.fmt === "build") assert.ok(v.blocks.stems.some(st => v.blocks.ends.some(e => st + e === v.answer)), "Lösung aus Bausteinen baubar");
+    assert.equal(!!v.lenient, lv <= 2, "Akzent nur am Anfang großzügig");
   }
   const pc = DR.variant(DR.items("pc").find(i => i.key === "pc:mettre:3"), 3, rng); assert.equal(pc.answer, "avons mis"); assert.ok(pc.prompt.startsWith("Hier, "));
 });
@@ -555,6 +560,8 @@ test("Drill: Probe-Arbeit mischt alle Themen, 20 Aufgaben, Note nach Prozent", (
   const t = DR.testRound({}, () => 0.3);
   assert.equal(t.length, 20); assert.equal(new Set(t.map(x => x.topic + x.key)).size, 20);
   assert.deepEqual([...new Set(t.map(x => x.topic))].sort(), ["beau", "ce", "mettre", "pc", "quel", "stiefel"]);
-  assert.ok(t.every(x => x.type === "type" && !x.hint));
+  assert.ok(t.every(x => x.type === "type" && !x.hint && !x.lenient && !x.spick && !["ending", "build"].includes(x.fmt)));
   assert.deepEqual([100, 92, 85, 70, 55, 40, 10].map(DR.grade), [1, 1, 2, 3, 4, 5, 6]);
+  const it = k => DR.items("stiefel").find(i => i.key === k);
+  assert.deepEqual(DR.accentsFor(it("acheter:0")), ["è"]); assert.deepEqual(DR.accentsFor(it("payer:0")), []); assert.deepEqual(DR.accentsFor(DR.items("ce")[0]), []);
 });

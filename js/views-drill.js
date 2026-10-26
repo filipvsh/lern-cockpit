@@ -17,7 +17,6 @@ function drillSave(t, stats) {
   clearTimeout(DRL_SAVE); DRL_SAVE = setTimeout(() => setSetting("drill", all), 1200);
 }
 const drillTopic = () => DRILL.TOPICS.find(t => t.id === decodeURIComponent(ROUTE.sub || ""));
-const ACCENTS = ["é", "è", "ê", "à", "ç", "ï", "ô", "'"];
 
 V.drill = () => {
   if (!engineReady()) return pageHead("Grammatik-Drill") + setupCard();
@@ -26,6 +25,7 @@ V.drill = () => {
   if (!t) return drillHome();
   if (ROUTE.query.challenge && t.kind === "conj") return drillChallenge(t, ROUTE.query.challenge);
   if (ROUTE.query.run && DRL && DRL.topic === t.id) return drillRun();
+  if (ROUTE.query.intro) return drillIntro(t, +ROUTE.query.intro || 1);
   return drillTopicPage(t);
 };
 function bindDrill() {
@@ -35,6 +35,7 @@ function bindDrill() {
   if (!t) return;
   if (ROUTE.query.challenge) return bindChallenge(t);
   if (ROUTE.query.run && DRL) return bindRun();
+  if (ROUTE.query.intro) document.body.classList.add("focus");
   document.querySelectorAll("[data-drverb]").forEach(b => b.onclick = () => { const d = b.closest("details"); if (d) d.open = !d.open; });
 }
 function drillStart(topicId) {
@@ -71,18 +72,42 @@ function formHTML(verb, p) {
   const x = DRILL.parts(verb, p);
   return esc(x.pre) + (x.ch ? (x.inBoot ? '<mark>' + esc(x.ch) + '</mark>' : esc(x.ch)) : '') + esc(x.post) + '<em>' + esc(x.end) + '</em>';
 }
-function stiefelCheat() {
-  const P = ["je", "tu", "il/elle/on", "nous", "vous", "ils/elles"];
-  const cell = (p, c) => '<div class="' + (DRILL.VERBS.acheter.boot.includes(p) ? "in" : "out") + ' ' + c + '"><span class="p">' + P[p] + '</span><b>' + formHTML("acheter", p) + '</b></div>';
+const ENDS_ER = ["-e", "-es", "-e", "-ons", "-ez", "-ent"];
+function endsStrip(ends) {
+  return '<div class="dr-ends">' + ["je", "tu", "il", "nous", "vous", "ils"].map((x, p) => '<div><span>' + x + '</span><b>' + (ends || ENDS_ER)[p] + '</b></div>').join("") + '</div>';
+}
+function bootGrid(verb) {
+  const P = ["je", "tu", "il/elle/on", "nous", "vous", "ils/elles"]; const v = DRILL.VERBS[verb || "acheter"];
+  const cell = (p, c) => '<div class="' + (v.boot.includes(p) ? "in" : "out") + ' ' + c + '"><span class="p">' + P[p] + '</span><b>' + formHTML(verb || "acheter", p) + '</b></div>';
+  return '<div class="dr-bg">' + cell(0, "c1") + cell(3, "c4") + cell(1, "c2") + cell(4, "c5") + cell(2, "c3") + cell(5, "c6") + '</div>' +
+    '<div class="dr-legend"><span class="l-in">im Stiefel: je, tu, il, ils → Stamm ändert sich</span><span>draußen: nous, vous → wie im Infinitiv</span></div>';
+}
+function changeTable() {
   const rows = [["acheter", "kaufen", "e → è"], ["préférer", "lieber mögen", "é → è"], ["répéter", "wiederholen", "é → è"], ["payer", "bezahlen", "y → i"], ["essayer", "anprobieren", "y → i"]];
+  return '<table class="dr-chg"><thead><tr><th>Verb</th><th>im Stiefel</th><th>draußen</th></tr></thead><tbody>' +
+    rows.map(([v, de, r]) => '<tr><td><b>' + v + '</b><span class="t-sub">' + de + '</span></td><td><span class="rule">' + r + '</span><br>' + (x => x.endsWith("'") ? x : x + " ")(DRILL.pron(0, DRILL.VERBS[v].forms[0])) + formHTML(v, 0) + '</td><td>nous ' + formHTML(v, 3) + '</td></tr>').join("") + '</tbody></table>';
+}
+const ACC_HELP = 'Akzente wie <b>è</b>: am Handy die Taste <b>e</b> gedrückt halten – oder den Knopf unter dem Eingabefeld antippen.';
+function stiefelCheat() {
   return '<div class="card dr-cheat"><h2>👢 Spickzettel</h2><div class="t-sub">In 3 Schritten zur richtigen Form</div>' +
-    '<div class="dr-step"><i>1</i>Endung – ist immer gleich</div><div class="dr-ends">' + ["je", "tu", "il", "nous", "vous", "ils"].map((x, p) => '<div><span>' + x + '</span><b>' + ["-e", "-es", "-e", "-ons", "-ez", "-ent"][p] + '</b></div>').join("") + '</div>' +
-    '<div class="dr-step"><i>2</i>Im Stiefel? Dann ändert sich der Stamm</div>' +
-    '<div class="dr-bg">' + cell(0, "c1") + cell(3, "c4") + cell(1, "c2") + cell(4, "c5") + cell(2, "c3") + cell(5, "c6") + '</div>' +
-    '<div class="dr-legend"><span class="l-in">im Stiefel: je, tu, il, ils → Stamm ändert sich</span><span>draußen: nous, vous → wie im Infinitiv</span></div>' +
-    '<div class="dr-step"><i>3</i>Was ändert sich?</div><table class="dr-chg"><thead><tr><th>Verb</th><th>im Stiefel</th><th>draußen</th></tr></thead><tbody>' +
-    rows.map(([v, de, r]) => '<tr><td><b>' + v + '</b><span class="t-sub">' + de + '</span></td><td><span class="rule">' + r + '</span><br>' + (x => x.endsWith("'") ? x : x + " ")(DRILL.pron(0, DRILL.VERBS[v].forms[0])) + formHTML(v, 0) + '</td><td>nous ' + formHTML(v, 3) + '</td></tr>').join("") + '</tbody></table>' +
+    '<div class="dr-step"><i>1</i>Endung – ist immer gleich</div>' + endsStrip() +
+    '<div class="dr-step"><i>2</i>Im Stiefel? Dann ändert sich der Stamm</div>' + bootGrid("acheter") +
+    '<div class="dr-step"><i>3</i>Was ändert sich?</div>' + changeTable() +
     '<div class="dr-tip">🧠 <b>Merksatz:</b> Im Stiefel wird\'s schwer – der Akzent kippt nach unten (<b>è</b>), das y wird zum schlanken <b>i</b>. Passé composé immer mit <b>-é</b>: j\'ai acheté, préféré, payé.</div></div>';
+}
+const MINI = {
+  ce: '<table class="dr-mini"><tr><td>männlich</td><td><b>ce</b> pull</td></tr><tr><td>männlich + Vokal/h</td><td><b>cet</b> anorak</td></tr><tr><td>weiblich</td><td><b>cette</b> robe</td></tr><tr><td>Plural</td><td><b>ces</b> films</td></tr></table>',
+  quel: '<table class="dr-mini"><tr><td></td><td>Singular</td><td>Plural</td></tr><tr><td>männlich</td><td><b>quel</b></td><td><b>quels</b></td></tr><tr><td>weiblich</td><td><b>quelle</b></td><td><b>quelles</b></td></tr></table>',
+  beau: '<table class="dr-mini dr-adj"><tr><td>m.</td><td>beau</td><td>nouveau</td><td>vieux</td></tr><tr><td>m. + Vokal</td><td><b>bel</b></td><td><b>nouvel</b></td><td><b>vieil</b></td></tr><tr><td>f.</td><td>belle</td><td>nouvelle</td><td>vieille</td></tr><tr><td>m. Pl.</td><td>beaux</td><td>nouveaux</td><td>vieux</td></tr><tr><td>f. Pl.</td><td>belles</td><td>nouvelles</td><td>vieilles</td></tr></table>',
+  pc: '<div class="dr-pcs">avoir + Partizip · <b>-er → -é</b> (acheter → acheté) · <b>mettre → mis</b><br><span class="t-sub">j\'ai · tu as · il a · nous avons · vous avez · ils ont</span></div>'
+};
+/** Spickzettel, der in den ersten Stufen während der Aufgabe sichtbar ist */
+function drillSpick(it) {
+  if (!it.spick) return "";
+  let inner;
+  if (it.spick === "ends") { const v = DRILL.VERBS[it.verb]; inner = endsStrip(v.end.map(e => e ? "-" + e : "–")) + '<div class="dr-spn">' + (it.verb === "mettre" ? "Singular: <b>met-</b> · Plural: <b>mett-</b>" : "👢 je, tu, il, ils: " + esc(v.note.replace(" im Stiefel", "")) + " · nous, vous: wie im Infinitiv") + '</div>'; }
+  else inner = MINI[it.spick] || "";
+  return '<details class="dr-spick"' + (it.fmt === "ending" || it.fmt === "build" || it.box === 0 ? " open" : "") + '><summary>📋 Spickzettel</summary>' + inner + '</details>';
 }
 function drillTopicPage(t) {
   const st = drillStats(t.id); const p = DRILL.progress(t.id, st);
@@ -97,7 +122,8 @@ function drillTopicPage(t) {
   const bp = t.kind === "conj" ? DRILL.byPerson(t.id, st) : [];
   const heat = bp.some(x => x.n) ? '<div class="card dr-heatc"><h2>Wo hakt\'s?</h2><div class="dr-heat">' + bp.map(x => '<div class="dr-h ' + (x.pct == null ? "" : x.pct >= 85 ? "g" : x.pct >= 60 ? "o" : "r") + '"><b>' + esc(x.label) + '</b><span>' + (x.pct == null ? "–" : x.pct + " %") + '</span></div>').join("") + '</div><p class="t-sub" style="margin-bottom:0">Rot/orange kommt in den nächsten Runden öfter dran.</p></div>' : '';
   return '<a class="backlink" href="#/drill">' + ICO.back + 'Grammatik-Drill</a><div class="dr-head"><h1 class="t-large">' + esc(t.title) + '</h1><div class="t-sub">' + p.ok + ' von ' + p.n + ' sitzen</div>' + progBar(p.pct, p.pct >= 80 ? "g" : "") + '</div>' +
-    '<button class="btn primary lg wide dr-go" data-drstart="' + t.id + '">' + ICO.play + 'Runde starten (12 Aufgaben)</button>' + (t.id === "stiefel" ? card + heat : heat + card);
+    (Object.keys(st).length ? '<button class="btn primary lg wide dr-go" data-drstart="' + t.id + '">' + ICO.play + 'Runde starten (12 Aufgaben)</button><a class="dr-introl" href="#/drill/' + t.id + '?intro=1">Einführung nochmal ansehen</a>'
+      : '<a class="btn primary lg wide dr-go" href="#/drill/' + t.id + '?intro=1">' + ICO.play + 'Los geht\'s – Schritt für Schritt</a>') + (t.id === "stiefel" ? card + heat : heat + card);
 }
 
 /* ---------- Runde ---------- */
@@ -106,16 +132,50 @@ function drillQ(it, given) {
   const gap = given != null ? '<span class="dr-gap">' + esc(given) + '</span>' : it.wrong ? '<span class="dr-gap"><s>' + esc(it.wrong) + '</s></span>' : '<span class="dr-gap">___</span>';
   return (it.from && it.fmt === "um" ? '<div class="dr-from">' + esc(it.from) + ' <span>→</span></div>' : '') + '<div class="dr-q"><span>' + esc(it.prompt).replace("___", gap) + '</span></div>';
 }
+/* ---------- Einführung vor der ersten Runde ---------- */
+const HOW = '<div class="dr-how"><b>So übst du – in kleinen Schritten:</b><ol><li><b>Endung einsetzen</b> – der Stamm steht schon da</li><li><b>Bausteine</b> – Stamm + Endung antippen</li><li><b>Selbst schreiben</b> – mit Spickzettel</li><li>Später: Sätze, Umformen, Fehler finden – ohne Hilfe</li></ol><p class="t-sub">' + ACC_HELP + ' Am Anfang zählt ein fehlender Akzent noch als richtig.</p></div>';
+function introSteps(t) {
+  if (t.id === "stiefel") return [
+    ["1 · Die Endungen", '<p>Bei acheter, essayer, payer, préférer und répéter sind die Endungen <b>immer gleich</b>:</p>' + endsStrip() + '<div class="dr-tip">🧠 Merk dir: <span class="nw"><b>tu</b> → -es</span> · <span class="nw"><b>nous</b> → -ons</span> · <span class="nw"><b>vous</b> → -ez</span> · <span class="nw"><b>ils</b> → -ent</span> (spricht man nicht mit)</div>'],
+    ["2 · Der Stiefel 👢", '<p>Schreib die 6 Formen als Tabelle. <b>je, tu, il, ils</b> bilden einen Stiefel. Nur dort ändert sich ein Buchstabe im Stamm:</p>' + bootGrid("acheter") + '<p class="t-sub">nous und vous stehen außerhalb – da bleibt alles wie im Infinitiv (acheter → nous achetons).</p>'],
+    ["3 · Was ändert sich?", changeTable() + HOW]
+  ];
+  if (t.id === "mettre") return [
+    ["1 · mettre", '<p>mettre = (hin)legen, stellen, anziehen. Die Endungen sind anders als bei acheter:</p>' + endsStrip(["-s", "-s", "–", "-ons", "-ez", "-ent"]) + '<div class="dr-tip">🧠 <b>Singular</b> (je, tu, il): <b>ein t</b> → mets, mets, met<br><b>Plural</b> (nous, vous, ils): <b>doppel-t</b> → mettons, mettez, mettent</div>'],
+    ["2 · So übst du", HOW]
+  ];
+  const card = { pc: '<p><b>Passé composé = avoir + Partizip</b></p>' + MINI.pc, ce: '<p><b>ce, cet, cette, ces = dieser, diese, dieses</b></p>' + MINI.ce, quel: '<p><b>quel …? = welcher, welche, welches?</b> Wie ein Adjektiv: weiblich + e, Plural + s.</p>' + MINI.quel, beau: '<p><b>beau, nouveau, vieux</b> stehen vor dem Nomen. Vor Vokal (avion, anorak, hôtel) gibt es eine Sonderform.</p>' + MINI.beau }[t.id];
+  return [["Kurz erklärt", card + '<div class="dr-how"><b>So übst du:</b> Erst mit Merk-Tabelle auf dem Bildschirm, später ohne. ' + ACC_HELP + '</div>']];
+}
+function drillIntro(t, n) {
+  const steps = introSteps(t); n = Math.min(Math.max(1, n), steps.length); const [title, html] = steps[n - 1]; const last = n === steps.length;
+  return '<div class="les dr-intro"><div class="les-top"><a class="closebtn" href="#/drill/' + t.id + '" aria-label="Schließen">' + ICO.x + '</a><div class="les-prog"><i style="width:' + Math.round(n / steps.length * 100) + '%"></i></div><span class="les-combo dim">' + n + '/' + steps.length + '</span></div>' +
+    '<div class="les-body"><h2 class="les-h">' + title + '</h2>' + html + '</div>' +
+    '<div class="les-foot">' + (n > 1 ? '<a class="btn lg" href="#/drill/' + t.id + '?intro=' + (n - 1) + '">Zurück</a>' : '<span></span>') +
+    (last ? '<button class="btn primary lg" data-drstart="' + t.id + '">Erste Übung starten</button>' : '<a class="btn primary lg" id="dri_next" href="#/drill/' + t.id + '?intro=' + (n + 1) + '">Verstanden – weiter</a>') + '</div></div>';
+}
+
 function drillRun() {
   const R = DRL;
   if (R.done) return drillEnd();
   const it = R.items[R.i], ui = R.ui;
   const pct = Math.round(R.i / R.items.length * 100);
   const top = '<div class="les-top"><a class="closebtn" href="#/drill/' + R.topic + '" aria-label="Runde beenden">' + ICO.x + '</a><div class="les-prog"><i style="width:' + pct + '%"></i></div><span class="les-combo dim">' + R.right + '</span></div>';
-  const head = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<h2 class="les-h">' + DRILL.FMT[it.fmt || "form"] + '</h2>' + drillQ(it, ui.checked ? ui.given : null) + '<div class="t-sub dr-sub">' + esc(it.sub) + '</div>';
-  const body = '<input id="dr_in" class="answer-input dr-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Form eintippen …" value="' + esc(ui.given || "") + '"' + (ui.checked ? " readonly" : "") + '><div class="dr-acc">' + ACCENTS.map(a => '<button data-dracc="' + esc(a) + '"' + (ui.checked ? " disabled" : "") + '>' + esc(a) + '</button>').join("") + '</div>' +
-    (it.hint && !ui.checked ? (ui.tip ? '<div class="dr-hint">💡 ' + esc(it.hint) + '</div>' : '<div class="dr-tipw"><button class="btn sm" id="dr_tip">💡 Tipp anzeigen</button></div>') : '');
-  const foot = ui.checked ? '<div class="les-foot ' + (ui.res === "ok" ? "ok" : "bad") + '"><div class="les-fb"><b>' + (ui.res === "ok" ? "Richtig!" : ui.res === "accent" ? "Fast – achte auf den Akzent: " + esc(it.answer) : "Richtig: " + esc(it.answer)) + '</b><span>' + esc(it.why) + '</span></div><button class="btn lg les-next" id="dr_next">Weiter</button></div>'
+  const build = it.fmt === "build";
+  const shown = ui.checked ? ui.given : build && (ui.bs != null || ui.be != null) ? (ui.bs != null ? it.blocks.stems[ui.bs] : "…") + (ui.be != null ? it.blocks.ends[ui.be] : "…") : null;
+  const head = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<h2 class="les-h">' + DRILL.FMT[it.fmt || "form"] + '</h2>' + drillQ(it, shown) + '<div class="t-sub dr-sub">' + esc(it.sub) + '</div>';
+  let body;
+  if (build) body = '<div class="dr-blocks"><div class="dr-bl"><span>Stamm</span>' + it.blocks.stems.map((x, k) => '<button class="dr-blk' + (ui.bs === k ? " on" : "") + '" data-drs="' + k + '"' + (ui.checked ? " disabled" : "") + '>' + esc(x) + '</button>').join("") + '</div>' +
+    '<div class="dr-bl"><span>Endung</span>' + it.blocks.ends.map((x, k) => '<button class="dr-blk e' + (ui.be === k ? " on" : "") + '" data-dre="' + k + '"' + (ui.checked ? " disabled" : "") + '>' + (x ? esc(x) : "– keine") + '</button>').join("") + '</div></div>';
+  else {
+    const acc = it.fmt === "ending" ? [] : DRILL.accentsFor(it);
+    body = '<input id="dr_in" class="answer-input dr-in' + (it.fmt === "ending" ? " short" : "") + '" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (it.fmt === "ending" ? "Endung, z. B. ons" : "Form eintippen …") + '" value="' + esc(ui.given || "") + '"' + (ui.checked ? " readonly" : "") + '>' +
+      (acc.length && !ui.checked ? '<div class="dr-accw"><span>Fehlt dir ein Buchstabe?</span>' + acc.map(a => '<button data-dracc="' + esc(a) + '">' + esc(a) + '</button>').join("") + '</div>' : '');
+  }
+  body += ui.checked ? '' : drillSpick(it) + (it.hint && it.fmt !== "ending" && it.fmt !== "build" ? (ui.tip ? '<div class="dr-hint">💡 ' + esc(it.hint) + '</div>' : '<div class="dr-tipw"><button class="btn sm" id="dr_tip">💡 Tipp anzeigen</button></div>') : '');
+  const full = it.full ? DRILL.pron(it.person, it.full).replace(/([^'])$/, "$1 ") + it.full : it.answer;
+  const okMsg = ui.res === "accent" && it.lenient ? "Richtig! Nur noch der Akzent: " + esc(full) : "Richtig!" + (it.full ? " → " + esc(full) : "");
+  const foot = ui.checked ? '<div class="les-foot ' + (ui.ok ? "ok" : "bad") + '"><div class="les-fb"><b>' + (ui.ok ? okMsg : ui.res === "accent" ? "Fast – achte auf den Akzent: " + esc(full) : "Richtig wäre: " + esc(full)) + '</b><span>' + esc(it.why) + '</span></div><button class="btn lg les-next" id="dr_next">Weiter</button></div>'
     : '<div class="les-foot"><span class="t-sub">' + (ui.tip ? "Mit Tipp zählt es nicht als gelernt" : "") + '</span><button class="btn primary lg" id="dr_check"' + ((ui.given || "").trim() ? "" : " disabled") + '>Prüfen</button></div>';
   return '<div class="les">' + top + '<div class="les-body">' + head + body + '</div>' + foot + '</div>';
 }
@@ -124,6 +184,9 @@ function bindRun() {
   const R = DRL; if (R.done) { const a = document.getElementById("dr_again"); if (a) a.onclick = () => drillStart(R.topic); return; }
   const it = R.items[R.i], ui = R.ui; const q = id => document.getElementById(id);
   const tip = q("dr_tip"); if (tip) tip.onclick = () => { ui.tip = true; route(); };
+  const setBlock = () => { ui.given = ui.bs != null && ui.be != null ? it.blocks.stems[ui.bs] + it.blocks.ends[ui.be] : ""; route(); };
+  document.querySelectorAll("[data-drs]").forEach(b => b.onclick = () => { ui.bs = +b.dataset.drs; setBlock(); });
+  document.querySelectorAll("[data-dre]").forEach(b => b.onclick = () => { ui.be = +b.dataset.dre; setBlock(); });
   const inp = q("dr_in");
   if (inp) {
     inp.oninput = () => { ui.given = inp.value; const c = q("dr_check"); if (c) c.disabled = !inp.value.trim(); };
@@ -137,11 +200,11 @@ function bindRun() {
 }
 function drillCheck() {
   const R = DRL, it = R.items[R.i], ui = R.ui; if (ui.checked) return;
-  ui.given = (ui.given || "").trim();
+  ui.given = (ui.given || "").trim(); if (it.fmt === "ending") ui.given = ui.given.replace(/^-/, "");
   ui.res = DRILL.check(ui.given, it.answer, it); ui.checked = true;
-  const ok = ui.res === "ok";
+  const ok = ui.ok = ui.res === "ok" || (ui.res === "accent" && !!it.lenient);
   if (ok && !it.retry && !ui.tip) R.right++;
-  if (!ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 2) { R.retries[it.key] = n + 1; R.items.splice(Math.min(R.items.length, R.i + 4), 0, Object.assign({}, DRILL.variant(it, 0, Math.random), { box: it.box, retry: true })); } }
+  if (!ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 2) { R.retries[it.key] = n + 1; const base = DRILL.items(R.topic).find(x => x.key === it.key); R.items.splice(Math.min(R.items.length, R.i + 4), 0, Object.assign(DRILL.variant(base, Math.max(0, (it.level || 0) - 1), Math.random), { box: it.box, retry: true })); } }
   if (!it.retry && !(ok && ui.tip)) drillSave(R.topic, DRILL.learn(drillStats(R.topic), it.key, ok));
   route();
 }
@@ -157,7 +220,7 @@ function drillEnd() {
   return '<div class="les les-done"><div class="les-trophy">' + (acc === 100 ? "🏆" : acc >= 70 ? "🎉" : "💪") + '</div><h1 class="fx-title">' + (acc === 100 ? "Alles richtig!" : "Runde geschafft!") + '</h1>' +
     '<div class="les-stats"><div><b>+' + R.xp + '</b><span>XP</span></div><div><b>' + R.right + '/' + R.total + '</b><span>beim 1. Versuch</span></div></div>' +
     (bp.some(x => x.n) ? '<div class="dr-heat" style="width:min(420px,100%)">' + bp.map(x => '<div class="dr-h ' + (x.pct == null ? "" : x.pct >= 85 ? "g" : x.pct >= 60 ? "o" : "r") + '"><b>' + esc(x.label) + '</b><span>' + (x.pct == null ? "–" : x.pct + " %") + '</span></div>').join("") + '</div>' : '') +
-    (wrong.length ? '<div class="card tight dr-wrong"><b>Noch üben</b>' + wrong.slice(0, 8).map(w => '<div><span class="t-sub">' + esc(w.prompt.replace("___", "…")) + '</span> <b>' + esc(w.answer) + '</b></div>').join("") + '</div>' : '') +
+    (wrong.length ? '<div class="card tight dr-wrong"><b>Noch üben</b>' + wrong.slice(0, 8).map(w => '<div><span class="t-sub">' + esc(w.prompt.replace("___", "…")) + '</span> <b>' + esc(w.full || w.answer) + '</b></div>').join("") + '</div>' : '') +
     '<div class="les-endbtn"><button class="btn primary lg" id="dr_again">Noch eine Runde</button><a class="btn lg" href="#/drill/' + R.topic + '">Fertig</a></div></div>';
 }
 
@@ -168,7 +231,7 @@ function drillChallenge(t, verb) {
   const best = lsGet("lc_drill_best_" + verb, null);
   return '<a class="backlink" href="#/drill/' + t.id + '">' + ICO.back + esc(t.title) + '</a><div class="dr-head"><h1 class="t-large">⏱ ' + esc(v.inf) + '</h1><div class="t-sub">' + esc(v.de) + ' – alle Formen so schnell wie möglich' + (best ? ' · Bestzeit ' + (best / 1000).toFixed(1) + ' s' : '') + '</div></div>' +
     '<div class="card"><table class="dr-tab dr-ch"><tbody>' + v.forms.map((f, p) => '<tr class="' + (v.boot.includes(p) ? "boot" : "") + '"><td class="dr-p">' + DRILL.pron(p, f) + '</td><td><input data-drc="' + p + '" class="' + (DRC.res ? (DRC.res[p] ? "ok" : "bad") : "") + '" value="' + esc(DRC.vals[p]) + '" autocomplete="off" autocapitalize="off" spellcheck="false"' + (DRC.res && DRC.res.every(Boolean) ? " readonly" : "") + '></td><td class="dr-sol">' + (DRC.res && !DRC.res[p] ? esc(f) : "") + '</td></tr>').join("") + '</tbody></table>' +
-    '<div class="dr-acc">' + ACCENTS.map(a => '<button data-dracc="' + esc(a) + '">' + esc(a) + '</button>').join("") + '</div>' +
+    (DRILL.accentsFor({ verb, key: verb }).length ? '<div class="dr-accw"><span>Fehlt dir ein Buchstabe?</span>' + DRILL.accentsFor({ verb, key: verb }).map(a => '<button data-dracc="' + esc(a) + '">' + esc(a) + '</button>').join("") + '</div>' : '') +
     (DRC.res && DRC.res.every(Boolean) ? '<div class="fb ok"><div class="fb-t"><b>Alle richtig in ' + (DRC.time / 1000).toFixed(1) + ' s' + (DRC.best ? " – neue Bestzeit! 🏆" : "") + '</b></div></div><div class="les-endbtn"><button class="btn primary" id="drc_again">Nochmal</button><a class="btn" href="#/drill/' + t.id + '">Fertig</a></div>'
       : '<div class="les-endbtn"><button class="btn primary lg" id="drc_check">Prüfen</button></div>') + '</div>';
 }
@@ -207,7 +270,7 @@ function drillTest() {
   return '<div class="les"><div class="les-top"><a class="closebtn" href="#/drill/test" id="drt_quit" aria-label="Abbrechen">' + ICO.x + '</a><div class="les-prog"><i style="width:' + pct + '%"></i></div><span class="les-combo dim">' + (DRT.i + 1) + '/' + DRT.items.length + '</span></div>' +
     '<div class="les-body"><h2 class="les-h">' + DRILL.FMT[it.fmt || "form"] + '</h2>' + drillQ(it) + '<div class="t-sub dr-sub">' + esc(it.sub) + '</div>' +
     '<input id="drt_in" class="answer-input dr-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Antwort …" value="' + esc(DRT.given[DRT.i] || "") + '">' +
-    '<div class="dr-acc">' + ACCENTS.map(a => '<button data-dracc="' + esc(a) + '">' + esc(a) + '</button>').join("") + '</div></div>' +
+    '<div class="dr-accw"><span>Fehlt dir ein Buchstabe?</span>' + ["é", "è"].map(a => '<button data-dracc="' + esc(a) + '">' + esc(a) + '</button>').join("") + '</div><p class="t-sub dr-acch">' + ACC_HELP + '</p></div>' +
     '<div class="les-foot">' + (DRT.i ? '<button class="btn lg" id="drt_back">Zurück</button>' : '<span></span>') + '<button class="btn primary lg" id="drt_next">' + (DRT.i === DRT.items.length - 1 ? "Abgeben" : "Weiter") + '</button></div></div>';
 }
 function drillTestEnd() {

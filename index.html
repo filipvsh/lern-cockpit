@@ -714,6 +714,13 @@ body.focus{background:var(--surface)}
 .dr-testc{border:2px solid var(--accent)}.dr-testc .dr-ic{font-size:28px}.dr-rules{display:grid;gap:8px;max-width:760px;font-size:15px;margin-bottom:var(--s4)}
 .dr-hist{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--sep)}.dr-hist:first-of-type{border-top:0}.dr-note{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;font-weight:800;font-size:18px;background:var(--fill)}.dr-note.n1,.dr-note.n2{background:#d7ffb8}.dr-note.n3{background:#fff1d6}.dr-note.n4,.dr-note.n5,.dr-note.n6{background:#ffdfe0}
 .dr-res{width:min(560px,100%);text-align:left;display:grid;gap:0;padding:4px 14px}.dr-ri{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--sep);font-size:15px;line-height:1.4}.dr-ri:first-child{border-top:0}.dr-rk{flex:none;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;background:var(--green)}.dr-ri.wrong .dr-rk{background:var(--red)}.dr-ri.accent .dr-rk{background:#ff9600}.dr-ri b{color:var(--accent)}
+.dr-blocks{display:grid;gap:14px;margin-top:6px}.dr-bl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.dr-bl>span{width:100%;font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em}
+.dr-blk{min-width:56px;height:48px;padding:0 14px;border-radius:12px;border:2px solid var(--line);border-bottom-width:4px;background:var(--surface);font:inherit;font-size:19px;font-weight:600;color:var(--text);cursor:pointer}.dr-blk.e{color:var(--accent)}.dr-blk.on{border-color:var(--accent);background:#e8f0ff}.dr-blk:disabled{opacity:.6}
+.dr-accw{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:14px;color:var(--text-2)}.dr-accw button{min-width:44px;height:44px;border-radius:12px;border:2px solid var(--line);border-bottom-width:4px;background:var(--surface);font:inherit;font-size:20px;color:var(--text);cursor:pointer}.dr-acch{text-align:center;margin-top:8px}
+.dr-in.short{max-width:220px;margin:0 auto;display:block}
+.dr-spick{margin-top:16px;border:1px solid #ffe08a;background:#fffbea;border-radius:14px;padding:10px 12px}.dr-spick summary{cursor:pointer;font-weight:700;font-size:14px}.dr-spick .dr-ends{margin-top:10px}.dr-spick .dr-ends div{background:#fff}.dr-spn{font-size:13px;color:var(--text-2);margin-top:8px}.dr-spick .dr-mini{background:#fff;border-radius:8px}.dr-pcs{font-size:15px;line-height:1.5;margin-top:8px}
+.dr-intro .les-body p{line-height:1.5}.dr-intro .dr-ends,.dr-intro .dr-bg{margin:12px 0}.dr-how{margin-top:16px;padding:12px 14px;border-radius:14px;background:var(--fill);font-size:15px;line-height:1.45}.dr-how ol{margin:6px 0 6px 20px;padding:0}.dr-how li{margin:3px 0}
+.nw{white-space:nowrap}.dr-introl{display:block;max-width:760px;text-align:center;margin:-10px 0 var(--s4);font-size:14px}
 .dr-more{max-width:760px;margin:var(--s4) 0 var(--s2);font-size:15px;color:var(--text-2)}.dr-heatc{max-width:760px}
 .dx-hero{margin:var(--s2) 0 var(--s4)}.dx-hero .t-large{margin:2px 0}
 .dx-tabs{display:flex;max-width:100%;overflow-x:auto;margin-bottom:var(--s4);-webkit-overflow-scrolling:touch}.dx-tabs a{flex:0 0 auto;padding:7px 12px;border-radius:calc(var(--r-sm) - 2px);font-size:14px;color:var(--text);text-decoration:none;white-space:nowrap}.dx-tabs a.on{background:var(--surface);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.1)}
@@ -1080,7 +1087,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="17";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="18";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";

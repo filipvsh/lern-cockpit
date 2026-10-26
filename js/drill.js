@@ -3,9 +3,10 @@
    Themen aus dem Buch (Lektion 7): acheter/essayer/payer/préférer/répéter
    (Stiefel-Regel), mettre, Passé composé, ce/cet/cette/ces,
    quel/quelle/quels/quelles, beau/nouveau/vieux.
-   Alles wird selbst geschrieben – wie in der Arbeit. Je besser eine Form
-   sitzt (Box), desto schwerer das Format: Form bilden → Satz ergänzen →
-   Umformen → Fehler finden. Dazu eine Probe-Arbeit mit Note.
+   Lernweg in kleinen Schritten (Box = Level): Endung einsetzen → Form aus
+   Bausteinen bauen → Form schreiben (mit Spickzettel) → Satz ergänzen /
+   Umformen → Fehler finden. Am Anfang zählt ein fehlender Akzent noch als
+   richtig. Dazu eine Probe-Arbeit mit Note (streng, ohne Hilfe).
    Getestet in tests/engine.test.js.
    ===================================================================== */
 (function (root, factory) {
@@ -97,7 +98,7 @@
     /** Subjekt vor Verbform – mit j' bei Vokal */
   const subj = (p, form, r) => { const x = pick(SUBJ[p], r); return x === "Je" && vowel(form) ? "J'" : x; };
   const joinGap = (sj, gap) => sj.endsWith("'") ? sj + gap : sj + " " + gap;
-  const FMT = { form: "Schreib die Form", satz: "Ergänze den Satz", um: "Forme um", fix: "Finde den Fehler – schreib es richtig" };
+  const FMT = { ending: "Setz die Endung ein", build: "Bau die Form aus Bausteinen", form: "Schreib die Form", satz: "Ergänze den Satz", um: "Forme um", fix: "Finde den Fehler – schreib es richtig" };
   /** Tipp ohne Lösung */
   function hint(it) {
     if (it.verb && !String(it.key).startsWith("pc:")) {
@@ -110,13 +111,16 @@
   }
   /** Aufgabe in ein Format bringen. level 0..3 (aus der Box), r: Zufall */
   function variant(it, level, r) {
-    const o = Object.assign({}, it, { type: "type", fmt: "form" });
+    const o = Object.assign({}, it, { type: "type", fmt: "form", level });
     o.hint = hint(it);
     if (it.verb && !String(it.key).startsWith("pc:")) {
       const v = VERBS[it.verb], p = it.person, f = it.answer;
-      const fmt = level <= 0 ? "form" : level === 1 ? "satz" : level === 2 ? pick(["um", "satz"], r) : pick(["fix", "um", "satz"], r);
-      o.fmt = fmt;
-      if (fmt === "form") { o.prompt = it.prompt; o.sub = v.inf + " (" + v.de + ") · " + PERSONS[p][0] + " = " + PERSONS[p][1]; }
+      let fmt = level <= 0 ? "ending" : level === 1 ? "build" : level === 2 ? "form" : level === 3 ? pick(["um", "satz"], r) : pick(["fix", "um", "satz"], r);
+      if (fmt === "ending" && !v.end[p]) fmt = "build";      // il met: keine Endung
+      o.fmt = fmt; o.lenient = level <= 2; o.spick = level <= 2 ? "ends" : null;
+      if (fmt === "ending") { const stem = v.stems[v.boot.includes(p) ? 0 : 1]; o.full = f; o.answer = v.end[p]; o.stem = stem; o.prompt = pron(p, f) + (pron(p, f).endsWith("'") ? "" : " ") + stem + "___"; o.sub = v.inf + " (" + v.de + ") · Stamm steht schon da – nur die Endung"; }
+      else if (fmt === "build") { o.prompt = pron(p, f) + (pron(p, f).endsWith("'") ? "" : " ") + "___"; o.sub = v.inf + " (" + v.de + ") · Stamm + Endung antippen"; o.blocks = { stems: v.stems.slice().sort(() => r() - 0.5), ends: [...new Set(v.end)].sort((a, b) => v.end.indexOf(a) - v.end.indexOf(b)) }; }
+      else if (fmt === "form") { o.prompt = it.prompt; o.sub = v.inf + " (" + v.de + ") · " + PERSONS[p][0] + " = " + PERSONS[p][1]; }
       else if (fmt === "satz") { o.prompt = joinGap(subj(p, f, r), "___") + " " + pick(TAILS[it.verb], r); o.sub = "(" + v.inf + ")"; }
       else if (fmt === "um") {
         const q = pick([0, 1, 2, 3, 4, 5].filter(x => x !== p && (v.boot.includes(x) !== v.boot.includes(p) || r() < 0.3)), r);
@@ -131,19 +135,22 @@
     }
     if (String(it.key).startsWith("pc:")) {
       const v = VERBS[it.verb], p = it.person;
-      if (level >= 2) { const aux = ["ai", "as", "a", "avons", "avez", "ont"][p]; o.fmt = "satz"; const sj = subj(p, aux, r); o.prompt = "Hier, " + joinGap(/^(Marie|Léa)/.test(sj) ? sj : sj.charAt(0).toLowerCase() + sj.slice(1), "___") + " " + pick(TAILS[it.verb], r); o.answer = aux + " " + v.pc; o.sub = "(" + v.inf + ") – Passé composé: Hilfsverb + Partizip"; }
+      o.lenient = level <= 2; if (level <= 1) o.spick = "pc";
+      if (level >= 3) { const aux = ["ai", "as", "a", "avons", "avez", "ont"][p]; o.fmt = "satz"; const sj = subj(p, aux, r); o.prompt = "Hier, " + joinGap(/^(Marie|Léa)/.test(sj) ? sj : sj.charAt(0).toLowerCase() + sj.slice(1), "___") + " " + pick(TAILS[it.verb], r); o.answer = aux + " " + v.pc; o.sub = "(" + v.inf + ") – Passé composé: Hilfsverb + Partizip"; }
       return o;
     }
-    // ce/quel/beau: ab Level 2 ohne Geschlechts-Hinweis
-    if (level >= 2) { o.sub = String(it.sub).split(" · ")[0]; o.fmt = "satz"; }
+    // ce/quel/beau: erst mit Merk-Tabelle, ab Level 3 ohne Geschlechts-Hinweis
+    o.lenient = level <= 2; if (level <= 1) o.spick = it.key.split(":")[0] in ADJ ? "beau" : it.key.split(":")[0];
+    if (level >= 3) { o.sub = String(it.sub).split(" · ")[0]; o.fmt = "satz"; }
     return o;
   }
   /** Runde bauen: schwächste zuerst (Box), alles selbst schreiben; n Aufgaben */
   function round(topicId, stats, n, rng) {
     const r = rng || Math.random; const st = stats || {};
+    const t = TOPICS.find(x => x.id === topicId) || {}; const vi = it => (t.verbs || []).indexOf(it.verb);
     const list = items(topicId).map(it => ({ it, b: (st[it.key] || {}).b || 0, r: r() }));
-    list.sort((a, b) => a.b - b.b || a.r - b.r);
-    return list.slice(0, n || 12).map(x => Object.assign(variant(x.it, Math.min(3, x.b), r), { box: x.b }));
+    list.sort((a, b) => a.b - b.b || vi(a.it) - vi(b.it) || a.r - b.r);      // ein Verb nach dem anderen
+    return list.slice(0, n || 12).map(x => [r(), x]).sort((a, b) => a[0] - b[0]).map(([, x]) => Object.assign(variant(x.it, Math.min(4, x.b), r), { box: x.b }));
   }
   /** Probe-Arbeit: gemischt aus allen Themen, schwere Formate, ohne Tipps */
   const TEST_MIX = [["stiefel", 8], ["mettre", 3], ["pc", 3], ["ce", 2], ["quel", 2], ["beau", 2]];
@@ -152,9 +159,14 @@
     TEST_MIX.forEach(([t, n]) => {
       const st = (allStats || {})[t] || {};
       const list = items(t).map(it => ({ it, s: ((st[it.key] || {}).b || 0) + r() * 2 })).sort((a, b) => a.s - b.s).slice(0, n);
-      list.forEach(x => out.push(Object.assign(variant(x.it, 2 + (r() < 0.5 ? 1 : 0), r), { topic: t, hint: null })));
+      list.forEach(x => out.push(Object.assign(variant(x.it, 3 + (r() < 0.5 ? 1 : 0), r), { topic: t, hint: null, lenient: false, spick: null })));
     });
     return out.map(x => [r(), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  }
+  /** Sonderzeichen, die bei dieser Aufgabe vorkommen können (nur die des Verbs/Themas) */
+  function accentsFor(it) {
+    const src = !it.verb ? [it.answer] : String(it.key).startsWith("pc:") ? [VERBS[it.verb].pc] : VERBS[it.verb].forms;
+    return [...new Set(src.join("").split("").filter(c => /[^\x00-\x7f]/.test(c)))];
   }
   /** Note aus Prozent (Schulnoten-Schlüssel) */
   const grade = pct => pct >= 92 ? 1 : pct >= 81 ? 2 : pct >= 67 ? 3 : pct >= 50 ? 4 : pct >= 30 ? 5 : 6;
@@ -177,8 +189,8 @@
     const its = items(topicId).filter(i => i.person != null);
     return PERSONS.map(([fr], p) => { const ks = its.filter(i => i.person === p).map(i => (stats || {})[i.key]).filter(Boolean); const r = ks.reduce((a, x) => a + x.r, 0), w = ks.reduce((a, x) => a + x.w, 0); return { person: p, label: fr, n: r + w, pct: r + w ? Math.round(r / (r + w) * 100) : null }; }).filter(x => its.some(i => i.person === x.person));
   }
-  /** Fortschritt eines Themas: Anteil Aufgaben mit Box ≥ 2 */
-  const progress = (topicId, stats) => { const its = items(topicId); const ok = its.filter(i => ((stats || {})[i.key] || {}).b >= 2).length; return { ok, n: its.length, pct: its.length ? Math.round(ok / its.length * 100) : 0 }; };
+  /** Fortschritt eines Themas: Anteil Aufgaben mit Box ≥ 3 (kann die Form selbst schreiben) */
+  const progress = (topicId, stats) => { const its = items(topicId); const ok = its.filter(i => ((stats || {})[i.key] || {}).b >= 3).length; return { ok, n: its.length, pct: its.length ? Math.round(ok / its.length * 100) : 0 }; };
   /** Stamm/Endung zum Einfärben + geänderter Buchstabe im Stiefel */
   function parts(verb, p) {
     const v = VERBS[verb], f = v.forms[p], inBoot = v.boot.includes(p);
@@ -187,5 +199,5 @@
     const changed = stem !== other && i < stem.length;
     return { pre: stem.slice(0, i), ch: changed ? stem[i] : "", post: changed ? stem.slice(i + 1) : stem.slice(i), end: f.slice(stem.length), inBoot };
   }
-  return { FMT, hint, variant, testRound, grade, TEST_MIX, ALT, altOf, PERSONS, BOOT, VERBS, NOUNS, ADJ, TOPICS, AUX, pron, items, distractors, round, check, learn, byPerson, progress, parts, demo, quel };
+  return { FMT, accentsFor, hint, variant, testRound, grade, TEST_MIX, ALT, altOf, PERSONS, BOOT, VERBS, NOUNS, ADJ, TOPICS, AUX, pron, items, distractors, round, check, learn, byPerson, progress, parts, demo, quel };
 });

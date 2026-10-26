@@ -1122,30 +1122,57 @@ await scenario("Grammatik-Drill: Stiefel-Regel, Runde mit Fehler + Wiederholung,
     const bg = await d.page.$eval(".dr-bg .c1", e => getComputedStyle(e).backgroundColor); assert.equal(bg, "rgb(255, 241, 214)", "Stiefel-Feld bleibt hell");
     await shot(d.page, "dr-01b-desktop-dunkel"); await d.ctx.close();
   }
-  // Runde: erste Aufgabe absichtlich falsch, Rest richtig
-  await page.click("[data-drstart]"); await page.waitForSelector(".dr-q");
-  let k = 0, guard = 0;
+  // Neu: erst Einführung (3 Schritte), dann erste Übung
+  await page.click('a.dr-go[href="#/drill/stiefel?intro=1"]'); await page.waitForSelector(".dr-intro"); await shot(page, "dr-01c-intro1");
+  await page.click("#dri_next"); await page.waitForSelector(".dr-intro .dr-bg"); await page.click("#dri_next"); await page.waitForSelector(".dr-how");
+  assert.ok(await noScroll(), "Einführung ohne Querscrollen"); await shot(page, "dr-01d-intro3");
+  await page.click(".dr-intro [data-drstart]"); await page.waitForSelector(".dr-q");
+  // Runde: erste Aufgabe absichtlich falsch, Rest richtig; Anfänger-Stufen: Endung einsetzen / Bausteine
+  let k = 0, guard = 0; const fmts = new Set();
   while (guard++ < 40) {
-    const st = await page.evaluate(() => DRL.done ? null : { type: DRL.items[DRL.i].type, answer: DRL.items[DRL.i].answer });
-    if (!st) break;
-    assert.equal(st.type, "type"); assert.equal(await page.$("[data-dro]"), null, "keine Auswahl-Knöpfe");
-    if (k === 1) { await page.click("#dr_tip"); await page.waitForSelector(".dr-hint"); assert.ok(!(await page.textContent(".dr-hint")).includes(st.answer), "Tipp verrät nichts"); await shot(page, "dr-02b-tipp"); }
-    await page.fill("#dr_in", k === 0 ? "falsch" : st.answer);
+    const st = await page.evaluate(() => DRL.done ? null : { fmt: DRL.items[DRL.i].fmt, answer: DRL.items[DRL.i].answer, blocks: DRL.items[DRL.i].blocks, retry: !!DRL.items[DRL.i].retry });
+    if (!st) break; fmts.add(st.fmt);
+    if (!st.retry) assert.ok(["ending", "build"].includes(st.fmt), "neu → Endung oder Bausteine, nicht gleich alles: " + st.fmt);
+    assert.ok(await page.$(".dr-spick[open]"), "Spickzettel offen");
+    assert.equal(await page.$("[data-dracc]"), null, "keine Akzent-Knöpfe bei Endung/Bausteinen");
+    if (st.fmt === "build") {
+      if (k === 0) { await page.click('[data-drs="0"]'); await page.click(`[data-dre="${st.blocks.ends.findIndex(e => st.blocks.stems[0] + e !== st.answer)}"]`); }
+      else { const si = st.blocks.stems.findIndex(s => st.blocks.ends.some(e => s + e === st.answer)); await page.click(`[data-drs="${si}"]`); await page.click(`[data-dre="${st.blocks.ends.findIndex(e => st.blocks.stems[si] + e === st.answer)}"]`); }
+    } else { await page.fill("#dr_in", k === 0 ? "xyz" : st.answer); if (k === 1) await shot(page, "dr-02a-endung"); }
     await page.click("#dr_check"); await page.waitForSelector(k === 0 ? ".les-foot.bad" : ".les-foot.ok");
     if (k === 0) await shot(page, "dr-02-fehler");
     k++; await page.click("#dr_next");
   }
-  await page.waitForSelector(".les-done");
+  await page.waitForSelector(".les-done"); assert.ok(fmts.has("ending"));
   const r = await page.evaluate(() => ({ n: DRL.items.length, total: DRL.total, right: DRL.right }));
-  assert.equal(r.n, r.total + 1, "Fehler kam in der Runde noch einmal"); assert.equal(r.right, r.total - 2, "Fehler und Tipp zählen nicht");
+  assert.equal(r.n, r.total + 1, "Fehler kam in der Runde noch einmal"); assert.equal(r.right, r.total - 1);
   assert.ok(await page.$(".les-done .dr-heat"), "Wo hakt's? am Ende");
   await page.evaluate(() => Api.idle()); await page.waitForTimeout(1500); await page.evaluate(() => Api.idle());
-  const saved = b.db.einstellungen.find(x => x.key === "drill"); assert.ok(saved && Object.keys(saved.value.stiefel).length === 11, "Lernstand gespeichert (ohne die Tipp-Aufgabe)");
-  // gut gelernt → schweres Format (Satz / Umformen / Fehler finden), Akzent-Taste
-  await page.evaluate(() => { const all = Object.assign({}, setting("drill", {})); all.stiefel = {}; for (const it of DRILL.items("stiefel")) all.stiefel[it.key] = { b: it.key === "acheter:0" ? 3 : 5, r: 3, w: 0 }; STATE.settings.drill = all; });
+  const saved = b.db.einstellungen.find(x => x.key === "drill"); assert.ok(saved && Object.keys(saved.value.stiefel).length === 12, "Lernstand gespeichert");
+  // Stufe 2: Bausteine antippen (Stamm + Endung)
+  await page.evaluate(() => { const all = Object.assign({}, setting("drill", {})); all.stiefel = {}; for (const it of DRILL.items("stiefel")) all.stiefel[it.key] = { b: 1, r: 1, w: 0 }; STATE.settings.drill = all; });
+  await page.click("#dr_again"); await page.waitForSelector(".dr-blocks");
+  const bl = await page.evaluate(() => DRL.items[0]); assert.equal(bl.fmt, "build"); assert.equal(bl.blocks.stems.length, 2);
+  { const si = bl.blocks.stems.findIndex(s => bl.blocks.ends.some(e => s + e === bl.answer)); await page.click(`[data-drs="${si}"]`); await page.click(`[data-dre="${bl.blocks.ends.findIndex(e => bl.blocks.stems[si] + e === bl.answer)}"]`); }
+  assert.equal(await page.textContent(".dr-gap"), bl.answer, "Lücke zeigt zusammengebaute Form"); assert.ok(await noScroll()); await shot(page, "dr-02c-bausteine");
+  await page.click("#dr_check"); await page.waitForSelector(".les-foot.ok");
+  await page.evaluate(() => { DRL.done = true; route(); }); await page.waitForSelector("#dr_again");
+  // Stufe 3: selbst schreiben mit Spickzettel – fehlender Akzent zählt noch, nur der passende Akzent-Knopf, Tipp
+  await page.evaluate(() => { const all = Object.assign({}, setting("drill", {})); all.stiefel = {}; for (const it of DRILL.items("stiefel")) all.stiefel[it.key] = { b: it.key === "acheter:0" ? 2 : 5, r: 3, w: 0 }; STATE.settings.drill = all; });
   await page.click("#dr_again"); await page.waitForSelector(".dr-q");
-  const typ = await page.evaluate(() => DRL.items[0]); assert.equal(typ.key, "acheter:0"); assert.ok(["satz", "um", "fix"].includes(typ.fmt), typ.fmt);
-  if (typ.fmt === "fix") assert.ok(await page.$(".dr-gap s"), "falsche Form durchgestrichen");
+  let typ = await page.evaluate(() => DRL.items.find(i => i.key === "acheter:0")); assert.equal(typ.fmt, "form");
+  while ((await page.evaluate(() => DRL.items[DRL.i].key)) !== "acheter:0") { await page.fill("#dr_in", await page.evaluate(() => DRL.items[DRL.i].answer)); await page.click("#dr_check"); await page.click("#dr_next"); }
+  assert.deepEqual(await page.$$eval("[data-dracc]", x => x.map(b => b.textContent)), ["è"], "nur der Buchstabe, den man braucht");
+  await page.click("#dr_tip"); await page.waitForSelector(".dr-hint"); assert.ok(!(await page.textContent(".dr-hint")).includes("achète"));
+  await page.fill("#dr_in", "achete"); await page.click("#dr_check"); await page.waitForSelector(".les-foot.ok");
+  assert.ok((await page.textContent(".les-foot")).includes("Akzent"), "Hinweis auf Akzent"); await shot(page, "dr-02b-akzent");
+  await page.click("#dr_next");
+  // gut gelernt → schweres Format, Akzent-Knopf
+  await page.evaluate(() => { const all = Object.assign({}, setting("drill", {})); all.stiefel = {}; for (const it of DRILL.items("stiefel")) all.stiefel[it.key] = { b: it.key === "acheter:0" ? 3 : 5, r: 3, w: 0 }; STATE.settings.drill = all; DRL.done = true; route(); });
+  await page.click("#dr_again"); await page.waitForSelector(".dr-q");
+  typ = await page.evaluate(() => DRL.items.find(i => i.key === "acheter:0")); assert.ok(["satz", "um"].includes(typ.fmt), typ.fmt);
+  while ((await page.evaluate(() => DRL.items[DRL.i].key)) !== "acheter:0") { await page.fill("#dr_in", await page.evaluate(() => DRL.items[DRL.i].answer)); await page.click("#dr_check"); await page.click("#dr_next"); }
+  assert.equal(await page.$(".dr-spick"), null, "ab hier ohne Spickzettel");
   await page.fill("#dr_in", "ach"); await page.click('[data-dracc="è"]'); await page.type("#dr_in", "te");
   assert.equal(await page.inputValue("#dr_in"), "achète"); await page.click("#dr_check"); await page.waitForSelector(".les-foot.ok");
   await shot(page, "dr-03-schreiben");
