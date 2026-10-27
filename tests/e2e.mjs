@@ -1217,6 +1217,82 @@ await scenario("Probe-Arbeit: 20 Aufgaben ohne Hilfe, Zurück, Abgeben, Note und
   await ctx.close();
 });
 
+await scenario("Mathe-Kurs: Kurs-Schritte, Merkzettel, Runde mit allen Antwortarten, Modi Leicht/Schwer, Probe-Klausur mit Note, Potenz-Blitz", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  // eine Aufgabe über die Oberfläche beantworten (richtig oder absichtlich falsch)
+  const answer = async (it, right) => {
+    if (it.kind === "chip" || it.kind === "graph") return page.click(`[data-mkc="${right ? it.answer : (it.answer + 1) % it.opts.length}"]`);
+    const f = v => String(v).replace(".", ",");
+    if (it.kind === "num") return page.fill('[data-mkin="0"]', right ? f(it.answer) : "12345");
+    if (it.kind === "pair") { await page.fill('[data-mkin="0"]', right ? f(it.answer[0]) : "99"); return page.fill('[data-mkin="1"]', f(it.answer[1])); }
+    if (it.kind === "nums") { if (right && !it.answer.length) return page.click("[data-mknone]"); const v = right ? it.answer : [777]; for (let k = 0; k < v.length; k++) await page.fill(`[data-mkin="${k}"]`, f(v[k])); }
+  };
+  const waitOk = async (sel) => { await page.waitForSelector(".les-foot.ok, .les-foot.bad"); if (await page.$(".les-foot.bad")) throw new Error("richtig gewertet als falsch: " + JSON.stringify(await page.evaluate(s => { const R = s === "R" ? MKR : null; const it = R.items[R.i]; return { key: it.key, kind: it.kind, prompt: it.prompt, ans: it.answer, given: R.ui.given }; }, "R"))); };
+  await go(page, "#/mathe"); await page.waitForSelector(".mk-course");
+  assert.equal(await page.$$eval(".mk-step", x => x.length), 8, "7 Schritte + Probe-Klausur"); assert.ok(await page.$(".mk-step.next"), "nächster Schritt markiert");
+  assert.ok(await noScroll()); await shot(page, "mk-01-kurs");
+  await page.click('.mk-step[href="#/mathe/gesetze"]'); await page.waitForSelector(".mk-rules");
+  assert.ok((await page.textContent(".mk-sheet")).includes("Exponenten addieren")); assert.ok(await page.$(".mk-steps li"), "Beispiel mit Lösungsweg"); await shot(page, "mk-02-thema");
+  // Normal: Runde, erste falsch, Tipp vorhanden
+  await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q"); assert.ok(await page.$("#mk_tip")); assert.equal(await page.$(".mk-help"), null);
+  let k = 0, guard = 0; const kinds = new Set();
+  while (guard++ < 30) {
+    const it = await page.evaluate(() => MKR.done ? null : MKR.items[MKR.i]); if (!it) break; kinds.add(it.kind);
+    await answer(it, k > 0); if (k === 1) await shot(page, "mk-03-aufgabe");
+    if (await page.$("#mk_check[disabled]")) throw new Error("Prüfen gesperrt: " + JSON.stringify(it) + " given=" + JSON.stringify(await page.evaluate(() => MKR.ui.given)));
+    await page.click("#mk_check"); if (k === 0) await page.waitForSelector(".les-foot.bad"); else await waitOk();
+    if (k === 0) { assert.ok(await page.$(".les-foot .mk-steps li"), "Lösungsweg nach Fehler"); await shot(page, "mk-04-fehler"); }
+    k++; await page.click("#mk_next");
+  }
+  await page.waitForSelector(".les-done"); assert.ok(kinds.has("num") && kinds.has("pair"), [...kinds].join());
+  const R = await page.evaluate(() => ({ right: MKR.right, total: MKR.total, n: MKR.items.length })); assert.equal(R.right, R.total - 1); assert.equal(R.n, R.total + 1, "Fehler kam nochmal");
+  await page.evaluate(() => Api.idle()); await page.waitForTimeout(1500); await page.evaluate(() => Api.idle());
+  assert.ok(b.db.einstellungen.find(x => x.key === "mathe_kurs"), "Lernstand gespeichert");
+  // Lösungsmengen (nums) und Graph auch prüfen
+  for (const topic of ["gleich", "graph", "trafo"]) {
+    await go(page, "#/mathe/" + topic); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
+    for (let i = 0; i < 3; i++) { const it = await page.evaluate(() => MKR.items[MKR.i]); await answer(it, true); await page.click("#mk_check"); await waitOk(); if (topic === "graph" && i === 0) await shot(page, "mk-05-graph"); if (topic === "gleich" && i === 0) await shot(page, "mk-05-gleichung"); await page.click("#mk_next"); }
+  }
+  // Leicht: Merkzettel + Lösungsweg; Schwer: keine Hilfen
+  await go(page, "#/mathe/negativ"); await page.waitForSelector(".mode-card"); await page.click('[data-lmode="ma:leicht"]'); await page.waitForSelector('[data-lmode="ma:leicht"].on');
+  await page.click("[data-mkstart]"); await page.waitForSelector(".mk-help[open]"); await page.click("#mk_steps"); await page.waitForSelector(".mk-steps.box"); await shot(page, "mk-06-leicht");
+  let it = await page.evaluate(() => MKR.items[MKR.i]); await answer(it, true); await page.click("#mk_check"); await waitOk();
+  assert.equal(await page.evaluate(() => MKR.right), 0, "mit Lösungsweg zählt nicht");
+  await go(page, "#/mathe/negativ"); await page.waitForSelector(".mode-card"); await page.click('[data-lmode="ma:schwer"]'); await page.waitForSelector('[data-lmode="ma:schwer"].on');
+  await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q"); assert.equal(await page.$("#mk_tip"), null); assert.equal(await page.$(".mk-help"), null); assert.equal(await page.$("#mk_steps"), null);
+  // Probe-Klausur: eine falsch
+  await go(page, "#/mathe/test"); await page.waitForSelector("#mkt_start"); await page.click("#mkt_start"); await page.waitForSelector(".mk-q");
+  const n = await page.evaluate(() => MKT.items.length);
+  for (let i = 0; i < n; i++) { it = await page.evaluate(() => MKT.items[MKT.i]); await answer(it, i !== 0); assert.equal(await page.$(".les-foot.ok, .les-foot.bad"), null, "keine Rückmeldung"); await page.click("#mkt_next"); }
+  await page.waitForSelector(".dr-res"); const ex = await page.evaluate(() => MKT.result);
+  if (ex.pts !== n - 1) throw new Error("Probe-Klausur falsch gewertet: " + JSON.stringify(await page.evaluate(() => MKT.items.map((x, k) => ({ key: x.key, kind: x.kind, ans: x.answer, given: (MKT.ui[k] || {}).given, ok: MKT.result.res[k] })).filter((x, k) => k > 0 && !x.ok)))); assert.equal(ex.note, await page.evaluate(n => MK.grade(Math.round((n - 1) / n * 100)), n));
+  assert.ok(await noScroll()); await shot(page, "mk-07-note");
+  await page.evaluate(() => Api.idle()); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());
+  assert.equal(b.db.einstellungen.find(x => x.key === "mathe_tests").value.length, 1);
+  // Potenz-Blitz
+  await go(page, "#/mathe/blitz"); await page.waitForSelector("#mkb_start"); await page.click("#mkb_start"); await page.waitForSelector(".mk-q");
+  for (let i = 0; i < 3; i++) { it = await page.evaluate(() => MKB.it); await answer(it, true); if (it.kind !== "chip") await page.click("#mkb_ok"); await page.waitForTimeout(80); }
+  assert.equal(await page.evaluate(() => MKB.score), 3); await shot(page, "mk-08-blitz");
+  await page.evaluate(() => { MKB.end = Date.now(); }); await page.waitForSelector(".mk-blres"); assert.equal((await page.textContent(".mk-big")).trim(), "3");
+  await ctx.close();
+});
+
+await scenario("Französisch-Kurs: Modus Schwer – nur aus dem Kopf, keine Hilfen, Akzent zählt; Kurs-Schritte", async () => {
+  const b = new MockBackend(); const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  await go(page, "#/drill"); await page.waitForSelector(".mode-card"); assert.equal(await page.$$eval(".mk-step", x => x.length), 7, "6 Themen + Probe-Arbeit");
+  await page.click('[data-lmode="fr:schwer"]'); await page.waitForSelector('[data-lmode="fr:schwer"].on'); await shot(page, "fr-01-kurs-schwer");
+  await go(page, "#/drill/stiefel"); await page.evaluate(() => { STATE.settings.drill = { stiefel: { "acheter:0": { b: 0, r: 0, w: 0 } } }; route(); });
+  await page.waitForSelector("[data-drstart]"); await page.click("[data-drstart]"); await page.waitForSelector(".dr-q");
+  const it = await page.evaluate(() => DRL.items[0]); assert.ok(["satz", "um"].includes(it.fmt), it.fmt);
+  assert.equal(await page.$(".dr-spick"), null); assert.equal(await page.$("#dr_tip"), null); assert.ok(await page.$(".mode-b"));
+  const acc = await page.evaluate(() => DRL.items.find(i => /[éè]/.test(i.answer)));
+  while ((await page.evaluate(() => DRL.items[DRL.i].key)) !== acc.key) { await page.fill("#dr_in", await page.evaluate(() => DRL.items[DRL.i].answer)); await page.click("#dr_check"); await page.click("#dr_next"); }
+  await page.fill("#dr_in", acc.answer.normalize("NFD").replace(/[̀-ͯ]/g, "")); await page.click("#dr_check"); await page.waitForSelector(".les-foot.bad");
+  assert.ok((await page.textContent(".les-foot")).includes("Akzent"), "Akzent zählt im Schweren Modus"); await shot(page, "fr-02-schwer");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

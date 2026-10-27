@@ -54,6 +54,7 @@ function kmAction(k, what) {
   else if (kind === "lesson") startLesson("exam:" + k.id);
   else if (kind === "game") startGame(arg, "exam:" + k.id);
   else if (kind === "drill") location.hash = "#/drill";
+  else if (kind === "mathe") location.hash = "#/mathe";
   else if (kind === "tab") location.hash = "#/klausur/" + k.id + "?tab=" + arg;
 }
 
@@ -72,7 +73,7 @@ function kmSteps(k) {
   else weakestSubs(k, 2).forEach(st => { const m = masteryOf(st.id).score; out.push({ go: "topic:" + st.id, title: st.title, sub: m == null ? "Noch nicht geübt" : m + " % sicher", main: false }); });
   const today = roadmapOf(k).find(s => s.day === 0);
   if (today && today.kind === "mock") out.push({ go: "mock", title: "Probeklausur schreiben", sub: today.sub, main: true });
-  if (/Mathe/.test(k.fach)) out.push({ go: "game:graph", title: "Graphen-Quiz", sub: "Graph ansehen, Funktion antippen – ohne Tippen", main: false });
+  if (/Mathe/.test(k.fach)) { const st = mkStats(); const nx = MK.TOPICS.find(t => MK.progress(t.id, st) < MK_DONE); out.push({ go: "mathe", title: "Mathe-Kurs 📐", sub: nx ? "Als Nächstes: " + nx.title : "Alle Schritte geschafft – jetzt Probe-Klausur", main: !out.some(x => x.main) }); }
   if (k.fach === "Französisch") out.push({ go: "drill", title: "Grammatik-Drill 👢", sub: "acheter/préférer/mettre, ce/cet, quel, beau – selbst schreiben, dann Probe-Arbeit mit Note", main: false });
   if (kmHasVocab(k) && hasFrench("exam:" + k.id)) out.push({ go: "tab:spiele", title: "Spiele", sub: "Artikel, Pronomen, Verb-Puzzle, Hören …", main: false });
   return out;
@@ -135,7 +136,7 @@ function kmGrammatik(k) {
 /* ---------- Themen, Probeklausur, Material ---------- */
 function kmThemen(k) {
   const tps = topicsOfExam(k.id).filter(t => t.status !== "paused");
-  const mathe = /Mathe/.test(k.fach) ? '<div class="game-grid" style="margin-bottom:var(--s5)">' + gameTile("graph", "exam:" + k.id) + '</div><p class="hint">Rechenaufgaben löst du auf Papier – dann Lösung zeigen und selbst bewerten.</p>' : '';
+  const mathe = /Mathe/.test(k.fach) ? matheCard() + '<div class="game-grid" style="margin-bottom:var(--s5)">' + gameTile("graph", "exam:" + k.id) + '</div><p class="hint">Rechenaufgaben löst du auf Papier – dann Lösung zeigen und selbst bewerten.</p>' : '';
   const head = '<div class="km-actions">' + (subsOfExam(k.id).length ? '<button class="btn primary" data-kmgo="mixed">' + ICO.play + 'Gemischt üben</button><button class="btn" data-kmgo="mock">Probeklausur</button>' : '<button class="btn primary" data-kmgo="setup">Themen festlegen</button>') + '<a class="btn" href="#/lernplan/' + esc(k.id) + '">Bearbeiten</a></div>';
   const body = tps.map(t => { const subs = subsOfTopic(t.id); return '<div class="card"><h2>' + esc(t.title) + '</h2>' + (subs.length ? subs.map(st => { const m = masteryOf(st.id).score; const n = exercisesOf(st.id).length;
     return '<div class="km-th"><div class="km-tt"><b>' + esc(st.title) + '</b><span class="t-sub">' + (m == null ? "noch nicht geübt" : m + " % sicher") + (n ? " · " + plural(n, "Aufgabe", "Aufgaben") : "") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div><button class="btn sm" data-kmgo="topic:' + esc(st.id) + '">Üben</button></div>'; }).join("") : '<div class="hint">Noch keine Unterthemen.</div>') + '</div>'; }).join("");

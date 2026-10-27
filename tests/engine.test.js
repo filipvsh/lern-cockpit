@@ -565,3 +565,41 @@ test("Drill: Probe-Arbeit mischt alle Themen, 20 Aufgaben, Note nach Prozent", (
   const it = k => DR.items("stiefel").find(i => i.key === k);
   assert.deepEqual(DR.accentsFor(it("acheter:0")), ["è"]); assert.deepEqual(DR.accentsFor(it("payer:0")), []); assert.deepEqual(DR.accentsFor(DR.items("ce")[0]), []);
 });
+
+/* ---------- Lern-Modus & Mathe-Kurs ---------- */
+test("Drill-Modus: leicht immer mit Hilfen, schwer nur aus dem Kopf", () => {
+  assert.deepEqual([0, 1, 2, 3, 5].map(b => DR.levelFor(b, "leicht")), [0, 1, 2, 2, 2]);
+  assert.deepEqual([0, 1, 2, 3, 5].map(b => DR.levelFor(b, "schwer")), [3, 3, 3, 3, 4]);
+  assert.deepEqual([0, 1, 2, 3, 5].map(b => DR.levelFor(b, "normal")), [0, 1, 2, 3, 4]);
+  const hard = DR.round("stiefel", {}, 12, Math.random, "schwer");
+  assert.ok(hard.every(i => !i.spick && !i.lenient && !i.hint && ["satz", "um"].includes(i.fmt)), "schwer: keine Hilfen");
+  const easy = DR.round("stiefel", { "acheter:0": { b: 5, r: 5, w: 0 } }, 30, Math.random, "leicht");
+  assert.ok(easy.every(i => i.spick && i.lenient), "leicht: immer Spickzettel");
+});
+const MKK = require("../js/mathekurs.js"); const GF = require("../js/mathe.js").GRAPH_FUNCS;
+test("Mathe-Kurs: jede erzeugte Aufgabe ist mit ihrer eigenen Lösung richtig", () => {
+  let seed = 3; const rng = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  for (const t of MKK.TOPICS) for (const k of MKK.types(t.id)) for (const l of [0, 1, 2]) for (let i = 0; i < 40; i++) {
+    const x = MKK.make(k, l, rng, GF);
+    const g = x.kind === "num" ? MKK.fmt(x.answer) : x.kind === "pair" ? x.answer.map(MKK.fmt) : x.kind === "nums" ? (x.answer.length ? x.answer.map(MKK.fmt) : "none") : x.answer;
+    assert.ok(MKK.check(x, g), k + " " + x.prompt); assert.ok(x.prompt && x.rule && x.steps.length, k);
+    if (x.kind === "chip" || x.kind === "graph") assert.ok(x.opts[x.answer], k);
+  }
+});
+test("Mathe-Kurs: Eingaben – Komma, Bruch, Minus, gerundet, keine Lösung", () => {
+  assert.equal(MKK.parseNum("0,5"), 0.5); assert.equal(MKK.parseNum("−3"), -3); assert.equal(MKK.parseNum("1/8"), 0.125); assert.equal(MKK.parseNum("x=4"), 4); assert.ok(isNaN(MKK.parseNum("abc")));
+  assert.ok(MKK.check({ kind: "num", answer: 1 / 3 }, "0,33")); assert.ok(!MKK.check({ kind: "num", answer: 0.125 }, "0,1"));
+  const sq = { kind: "nums", answer: [3, -3] };
+  assert.ok(MKK.check(sq, ["-3", "3"])); assert.ok(!MKK.check(sq, ["3", ""])); assert.ok(!MKK.check(sq, "none"));
+  assert.ok(MKK.check({ kind: "nums", answer: [] }, "none")); assert.ok(MKK.check({ kind: "nums", answer: [-2] }, ["", "−2"]));
+  assert.ok(MKK.check({ kind: "pair", answer: [2, -1] }, ["2", "-1"])); assert.ok(!MKK.check({ kind: "pair", answer: [2, -1] }, ["-2", "-1"]));
+  assert.equal(MKK.answerText({ kind: "nums", answer: [3, -3] }), "L = {−3; 3}");
+});
+test("Mathe-Kurs: Runde enthält jeden Aufgabentyp, Probe-Klausur deckt alle Themen ab, Fortschritt", () => {
+  const r = MKK.round("gesetze", {}, 1, 10, Math.random, GF);
+  assert.equal(r.length, 10); assert.deepEqual([...new Set(r.map(x => x.key))].sort(), MKK.types("gesetze").sort());
+  const e = MKK.exam(Math.random, GF); assert.ok(e.length >= 12 && e.length <= 14);
+  assert.deepEqual([...new Set(e.map(x => x.topic))].sort(), MKK.TOPICS.map(t => t.id).sort());
+  let st = {}; for (const k of MKK.types("werte")) for (let i = 0; i < 3; i++) st = MKK.learn(st, k, true);
+  assert.equal(MKK.progress("werte", st), 100); st = MKK.learn(st, "werte:f", false); assert.equal(st["werte:f"].b, 1); assert.ok(MKK.progress("werte", st) < 100);
+});
