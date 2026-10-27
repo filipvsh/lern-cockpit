@@ -31,6 +31,7 @@ V.drill = () => {
 function bindDrill() {
   const t = drillTopic(); const q = id => document.getElementById(id);
   document.querySelectorAll("[data-drstart]").forEach(b => b.onclick = () => drillStart(b.dataset.drstart));
+  bindModeSeg();
   if (ROUTE.sub === "test") return bindTest();
   if (!t) return;
   if (ROUTE.query.challenge) return bindChallenge(t);
@@ -38,21 +39,33 @@ function bindDrill() {
   if (ROUTE.query.intro) document.body.classList.add("focus");
   document.querySelectorAll("[data-drverb]").forEach(b => b.onclick = () => { const d = b.closest("details"); if (d) d.open = !d.open; });
 }
+/* ---------- Lern-Modus (gilt für Französisch „fr“ und Mathe „ma“) ---------- */
+const MODES = [["leicht", "Leicht", "Mit Spickzettel und Hilfen – zum ersten Lernen"], ["normal", "Normal", "Passt sich an: erst mit Hilfen, dann ohne"], ["schwer", "Schwer", "Klausur-Vorbereitung: alles aus dem Kopf, keine Hilfen"]];
+const lernModus = f => ((setting("lern_modus", {}) || {})[f]) || "normal";
+function modeSeg(f) {
+  const m = lernModus(f);
+  return '<div class="card mode-card"><div class="mode-h"><b>Modus</b><div class="seg">' + MODES.map(([k, l]) => '<button class="' + (m === k ? "on" : "") + '" data-lmode="' + f + ':' + k + '">' + l + '</button>').join("") + '</div></div><div class="t-sub mode-d">' + MODES.find(x => x[0] === m)[2] + '</div></div>';
+}
+function bindModeSeg() {
+  document.querySelectorAll("[data-lmode]").forEach(b => b.onclick = async () => { const [f, k] = b.dataset.lmode.split(":"); const all = Object.assign({}, setting("lern_modus", {}) || {}); all[f] = k; await setSetting("lern_modus", all); route(); });
+}
 function drillStart(topicId) {
-  const items = DRILL.round(topicId, drillStats(topicId), 12);
-  DRL = { topic: topicId, items, i: 0, total: items.length, right: 0, ui: {}, retries: {}, started: Date.now(), done: false, wrong: [] };
+  const mode = lernModus("fr");
+  const items = DRILL.round(topicId, drillStats(topicId), 12, Math.random, mode);
+  DRL = { topic: topicId, mode, items, i: 0, total: items.length, right: 0, ui: {}, retries: {}, started: Date.now(), done: false, wrong: [] };
   const h = "#/drill/" + topicId + "?run=1"; if (location.hash === h) route(); else location.hash = h;
 }
 
 /* ---------- Übersicht ---------- */
 function drillHome() {
-  return pageHead("Grammatik-Drill", { back: ["#/dashboard", "Start"], sub: "Französisch aus Lektion 7 – alles selbst schreiben, wie in der Arbeit." }) +
-    '<div class="dr-topics">' + testCard() + DRILL.TOPICS.map(t => { const p = DRILL.progress(t.id, drillStats(t.id));
-      return '<a class="card dr-topic" href="#/drill/' + t.id + '"><div><b>' + esc(t.title) + '</b><span class="t-sub">' + p.ok + ' von ' + p.n + ' sitzen</span>' + progBar(p.pct, p.pct >= 80 ? "g" : "") + '</div><span class="chev">' + ICO.chev + '</span></a>'; }).join("") + '</div>';
+  const ps = DRILL.TOPICS.map(t => DRILL.progress(t.id, drillStats(t.id))); const next = ps.findIndex(p => p.pct < 80);
+  return pageHead("Französisch-Kurs: Grammatik Lektion 7", { back: ["#/dashboard", "Start"], sub: "Arbeite die Schritte der Reihe nach durch – am Ende die Probe-Arbeit. " + ps.filter(p => p.pct >= 80).length + " von " + ps.length + " geschafft." }) +
+    modeSeg("fr") + '<div class="dr-topics mk-course">' + DRILL.TOPICS.map((t, i) => { const p = ps[i];
+      return '<a class="card dr-topic mk-step' + (p.pct >= 80 ? " done" : "") + (i === next ? " next" : "") + '" href="#/drill/' + t.id + '"><span class="mk-n">' + (p.pct >= 80 ? "✓" : i + 1) + '</span><div><b>' + esc(t.title) + '</b>' + (i === next ? '<span class="mk-tag">Als Nächstes</span>' : '') + '<span class="t-sub">' + p.ok + ' von ' + p.n + ' sitzen</span>' + progBar(p.pct, p.pct >= 80 ? "g" : "") + '</div><span class="chev">' + ICO.chev + '</span></a>'; }).join("") + testCard(DRILL.TOPICS.length + 1) + '</div>';
 }
-function testCard() {
+function testCard(n) {
   const last = (setting("drill_tests", []) || []).slice(-1)[0];
-  return '<a class="card dr-topic dr-testc" href="#/drill/test"><span class="dr-ic">📝</span><div><b>Probe-Arbeit</b><span class="t-sub">20 Aufgaben aus allen Themen · ohne Hilfe · mit Note' + (last ? ' · zuletzt Note ' + last.note : '') + '</span></div><span class="chev">' + ICO.chev + '</span></a>';
+  return '<a class="card dr-topic dr-testc' + (n ? " mk-step mk-exam" : "") + '" href="#/drill/test">' + (n ? '<span class="mk-n">' + n + '</span>' : '<span class="dr-ic">📝</span>') + '<div><b>Probe-Arbeit</b><span class="t-sub">20 Aufgaben aus allen Themen · ohne Hilfe · mit Note' + (last ? ' · zuletzt Note ' + last.note : '') + '</span></div><span class="chev">' + ICO.chev + '</span></a>';
 }
 /** kleine Karte für andere Seiten (Klausur-Modus, Spiele) */
 function drillCard() {
@@ -122,7 +135,7 @@ function drillTopicPage(t) {
   const bp = t.kind === "conj" ? DRILL.byPerson(t.id, st) : [];
   const heat = bp.some(x => x.n) ? '<div class="card dr-heatc"><h2>Wo hakt\'s?</h2><div class="dr-heat">' + bp.map(x => '<div class="dr-h ' + (x.pct == null ? "" : x.pct >= 85 ? "g" : x.pct >= 60 ? "o" : "r") + '"><b>' + esc(x.label) + '</b><span>' + (x.pct == null ? "–" : x.pct + " %") + '</span></div>').join("") + '</div><p class="t-sub" style="margin-bottom:0">Rot/orange kommt in den nächsten Runden öfter dran.</p></div>' : '';
   return '<a class="backlink" href="#/drill">' + ICO.back + 'Grammatik-Drill</a><div class="dr-head"><h1 class="t-large">' + esc(t.title) + '</h1><div class="t-sub">' + p.ok + ' von ' + p.n + ' sitzen</div>' + progBar(p.pct, p.pct >= 80 ? "g" : "") + '</div>' +
-    (Object.keys(st).length ? '<button class="btn primary lg wide dr-go" data-drstart="' + t.id + '">' + ICO.play + 'Runde starten (12 Aufgaben)</button><a class="dr-introl" href="#/drill/' + t.id + '?intro=1">Einführung nochmal ansehen</a>'
+    modeSeg("fr") + (Object.keys(st).length ? '<button class="btn primary lg wide dr-go" data-drstart="' + t.id + '">' + ICO.play + 'Runde starten (12 Aufgaben)</button><a class="dr-introl" href="#/drill/' + t.id + '?intro=1">Einführung nochmal ansehen</a>'
       : '<a class="btn primary lg wide dr-go" href="#/drill/' + t.id + '?intro=1">' + ICO.play + 'Los geht\'s – Schritt für Schritt</a>') + (t.id === "stiefel" ? card + heat : heat + card);
 }
 
@@ -163,7 +176,7 @@ function drillRun() {
   const top = '<div class="les-top"><a class="closebtn" href="#/drill/' + R.topic + '" aria-label="Runde beenden">' + ICO.x + '</a><div class="les-prog"><i style="width:' + pct + '%"></i></div><span class="les-combo dim">' + R.right + '</span></div>';
   const build = it.fmt === "build";
   const shown = ui.checked ? ui.given : build && (ui.bs != null || ui.be != null) ? (ui.bs != null ? it.blocks.stems[ui.bs] : "…") + (ui.be != null ? it.blocks.ends[ui.be] : "…") : null;
-  const head = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<h2 class="les-h">' + DRILL.FMT[it.fmt || "form"] + '</h2>' + drillQ(it, shown) + '<div class="t-sub dr-sub">' + esc(it.sub) + '</div>';
+  const head = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<h2 class="les-h">' + DRILL.FMT[it.fmt || "form"] + (R.mode === "schwer" ? ' <span class="mode-b">Schwer</span>' : '') + '</h2>' + drillQ(it, shown) + '<div class="t-sub dr-sub">' + esc(it.sub) + '</div>';
   let body;
   if (build) body = '<div class="dr-blocks"><div class="dr-bl"><span>Stamm</span>' + it.blocks.stems.map((x, k) => '<button class="dr-blk' + (ui.bs === k ? " on" : "") + '" data-drs="' + k + '"' + (ui.checked ? " disabled" : "") + '>' + esc(x) + '</button>').join("") + '</div>' +
     '<div class="dr-bl"><span>Endung</span>' + it.blocks.ends.map((x, k) => '<button class="dr-blk e' + (ui.be === k ? " on" : "") + '" data-dre="' + k + '"' + (ui.checked ? " disabled" : "") + '>' + (x ? esc(x) : "– keine") + '</button>').join("") + '</div></div>';
@@ -204,7 +217,7 @@ function drillCheck() {
   ui.res = DRILL.check(ui.given, it.answer, it); ui.checked = true;
   const ok = ui.ok = ui.res === "ok" || (ui.res === "accent" && !!it.lenient);
   if (ok && !it.retry && !ui.tip) R.right++;
-  if (!ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 2) { R.retries[it.key] = n + 1; const base = DRILL.items(R.topic).find(x => x.key === it.key); R.items.splice(Math.min(R.items.length, R.i + 4), 0, Object.assign(DRILL.variant(base, Math.max(0, (it.level || 0) - 1), Math.random), { box: it.box, retry: true })); } }
+  if (!ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 2) { R.retries[it.key] = n + 1; const base = DRILL.items(R.topic).find(x => x.key === it.key); R.items.splice(Math.min(R.items.length, R.i + 4), 0, Object.assign(DRILL.variant(base, R.mode === "schwer" ? 3 : Math.max(0, (it.level || 0) - 1), Math.random), { box: it.box, retry: true }, R.mode === "schwer" ? { hint: null } : {})); } }
   if (!it.retry && !(ok && ui.tip)) drillSave(R.topic, DRILL.learn(drillStats(R.topic), it.key, ok));
   route();
 }

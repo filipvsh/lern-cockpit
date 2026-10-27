@@ -145,12 +145,14 @@
     return o;
   }
   /** Runde bauen: schwächste zuerst (Box), alles selbst schreiben; n Aufgaben */
-  function round(topicId, stats, n, rng) {
+  /** Level aus Box und Modus: leicht = immer mit Hilfen, schwer = nur aus dem Kopf */
+  const levelFor = (box, mode) => mode === "leicht" ? Math.min(2, box) : mode === "schwer" ? Math.max(3, Math.min(4, box)) : Math.min(4, box);
+  function round(topicId, stats, n, rng, mode) {
     const r = rng || Math.random; const st = stats || {};
     const t = TOPICS.find(x => x.id === topicId) || {}; const vi = it => (t.verbs || []).indexOf(it.verb);
     const list = items(topicId).map(it => ({ it, b: (st[it.key] || {}).b || 0, r: r() }));
     list.sort((a, b) => a.b - b.b || vi(a.it) - vi(b.it) || a.r - b.r);      // ein Verb nach dem anderen
-    return list.slice(0, n || 12).map(x => [r(), x]).sort((a, b) => a[0] - b[0]).map(([, x]) => Object.assign(variant(x.it, Math.min(4, x.b), r), { box: x.b }));
+    return list.slice(0, n || 12).map(x => [r(), x]).sort((a, b) => a[0] - b[0]).map(([, x]) => Object.assign(variant(x.it, levelFor(x.b, mode), r), { box: x.b }, mode === "schwer" ? { hint: null } : {}));
   }
   /** Probe-Arbeit: gemischt aus allen Themen, schwere Formate, ohne Tipps */
   const TEST_MIX = [["stiefel", 8], ["mettre", 3], ["pc", 3], ["ce", 2], ["quel", 2], ["beau", 2]];
@@ -199,5 +201,5 @@
     const changed = stem !== other && i < stem.length;
     return { pre: stem.slice(0, i), ch: changed ? stem[i] : "", post: changed ? stem.slice(i + 1) : stem.slice(i), end: f.slice(stem.length), inBoot };
   }
-  return { FMT, accentsFor, hint, variant, testRound, grade, TEST_MIX, ALT, altOf, PERSONS, BOOT, VERBS, NOUNS, ADJ, TOPICS, AUX, pron, items, distractors, round, check, learn, byPerson, progress, parts, demo, quel };
+  return { levelFor, FMT, accentsFor, hint, variant, testRound, grade, TEST_MIX, ALT, altOf, PERSONS, BOOT, VERBS, NOUNS, ADJ, TOPICS, AUX, pron, items, distractors, round, check, learn, byPerson, progress, parts, demo, quel };
 });
