@@ -73,7 +73,7 @@ function kmSteps(k) {
   else weakestSubs(k, 2).forEach(st => { const m = masteryOf(st.id).score; out.push({ go: "topic:" + st.id, title: st.title, sub: m == null ? "Noch nicht geübt" : m + " % sicher", main: false }); });
   const today = roadmapOf(k).find(s => s.day === 0);
   if (today && today.kind === "mock") out.push({ go: "mock", title: "Probeklausur schreiben", sub: today.sub, main: true });
-  if (/Mathe/.test(k.fach)) { const st = mkStats(); const nx = MK.TOPICS.find(t => MK.progress(t.id, st) < MK_DONE); out.push({ go: "mathe", title: "Mathe-Kurs 📐", sub: nx ? "Als Nächstes: " + nx.title : "Alle Schritte geschafft – jetzt Probe-Klausur", main: !out.some(x => x.main) }); }
+  if (/Mathe/.test(k.fach)) { const cs = ckStatus(); const nx = MC.ITEMS.find(i => cs[i.nr] !== "ok" && i.keys.length); out.push({ go: "mathe", title: "Checkliste 1. Klausur 📐", sub: nx ? "Als Nächstes: " + nx.nr + " · " + nx.short : "Alles „Kann ich“ – jetzt Probe-Klausur", main: !out.some(x => x.main) }); }
   if (k.fach === "Französisch") out.push({ go: "drill", title: "Grammatik-Drill 👢", sub: "acheter/préférer/mettre, ce/cet, quel, beau – selbst schreiben, dann Probe-Arbeit mit Note", main: false });
   if (kmHasVocab(k) && hasFrench("exam:" + k.id)) out.push({ go: "tab:spiele", title: "Spiele", sub: "Artikel, Pronomen, Verb-Puzzle, Hören …", main: false });
   return out;
