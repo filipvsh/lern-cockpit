@@ -1225,14 +1225,34 @@ await scenario("Mathe-Kurs: Kurs-Schritte, Merkzettel, Runde mit allen Antwortar
     if (it.kind === "chip" || it.kind === "graph") return page.click(`[data-mkc="${right ? it.answer : (it.answer + 1) % it.opts.length}"]`);
     const f = v => String(v).replace(".", ",");
     if (it.kind === "num") return page.fill('[data-mkin="0"]', right ? f(it.answer) : "12345");
-    if (it.kind === "pair") { await page.fill('[data-mkin="0"]', right ? f(it.answer[0]) : "99"); return page.fill('[data-mkin="1"]', f(it.answer[1])); }
+    if (it.kind === "pair") { for (let k = 0; k < it.answer.length; k++) await page.fill(`[data-mkin="${k}"]`, !right && k === 0 ? "99" : f(it.answer[k])); return; }
+    if (it.kind === "text") return page.fill('[data-mkin="0"]', right ? it.answer[0] : "x");
     if (it.kind === "nums") { if (right && !it.answer.length) return page.click("[data-mknone]"); const v = right ? it.answer : [777]; for (let k = 0; k < v.length; k++) await page.fill(`[data-mkin="${k}"]`, f(v[k])); }
   };
   const waitOk = async (sel) => { await page.waitForSelector(".les-foot.ok, .les-foot.bad"); if (await page.$(".les-foot.bad")) throw new Error("richtig gewertet als falsch: " + JSON.stringify(await page.evaluate(s => { const R = s === "R" ? MKR : null; const it = R.items[R.i]; return { key: it.key, kind: it.kind, prompt: it.prompt, ans: it.answer, given: R.ui.given }; }, "R"))); };
-  await go(page, "#/mathe"); await page.waitForSelector(".mk-course");
-  assert.equal(await page.$$eval(".mk-step", x => x.length), 8, "7 Schritte + Probe-Klausur"); assert.ok(await page.$(".mk-step.next"), "nächster Schritt markiert");
-  assert.ok(await noScroll()); await shot(page, "mk-01-kurs");
-  await page.click('.mk-step[href="#/mathe/gesetze"]'); await page.waitForSelector(".mk-rules");
+  const answerSel = async (it, right) => { await answer(it, right); };
+  // Checkliste als Startseite
+  await go(page, "#/mathe"); await page.waitForSelector(".ck-area");
+  assert.equal(await page.$$eval(".ck-row", x => x.length), 15, "14 Punkte + Material"); assert.ok(await noScroll()); await shot(page, "ck-01-liste");
+  await page.click('.ck-row[href="#/mathe/ck-8"]'); await page.waitForSelector(".ck-learn");
+  assert.ok((await page.textContent(".ck-learn")).includes("p-q-Formel")); assert.ok((await page.textContent(".ck-paper")).includes("S. 14, Nr. 9"), "Buchaufgaben stehen da");
+  assert.ok(await noScroll()); await shot(page, "ck-02-punkt8");
+  await page.click('[data-ckst="8:mid"]'); await page.waitForSelector('[data-ckst="8:mid"].on');
+  await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
+  for (let i = 0; i < 10; i++) { const it = await page.evaluate(() => MKR.done ? null : MKR.items[MKR.i]); if (!it) break; assert.equal(it.kind, "nums"); if (i === 0) assert.ok(await page.$(".mk-paper"), "Hinweis: auf Papier rechnen"); await answer(it, true); if (i === 0) await shot(page, "ck-03-nullstelle"); await page.click("#mk_check"); await waitOk(); await page.click("#mk_next"); }
+  await page.waitForSelector(".les-done"); await page.click('.les-endbtn a'); await page.waitForSelector(".ck-learn");
+  await page.click('[data-ckst="8:ok"]'); await page.waitForSelector('[data-ckst="8:ok"].on');
+  await page.evaluate(() => Api.idle()); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());
+  assert.equal(b.db.einstellungen.find(x => x.key === "mathe_check").value["8"], "ok");
+  // GeoGebra-Eingabe (Text), Graph-Aufgaben (Funktion oder nicht), Wertetabelle
+  for (const nr of ["11", "2", "4", "9", "13"]) {
+    await go(page, "#/mathe/ck-" + nr); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
+    for (let i = 0; i < 3; i++) { const it = await page.evaluate(() => MKR.items[MKR.i]); if (it.kind === "text") await page.fill('[data-mkin="0"]', it.answer[0]); else await answer(it, true); if (i === 0) await shot(page, "ck-04-punkt" + nr); await page.click("#mk_check"); await waitOk(); await page.click("#mk_next"); }
+  }
+  await go(page, "#/mathe/ck-X"); await page.waitForSelector(".ck-pack"); await page.check('[data-ckpack="Geodreieck"]'); await page.waitForTimeout(300);
+  assert.equal(await page.$("[data-mkstart]"), null, "Material: keine Übung");
+  // Extra-Kurs Potenzfunktionen bleibt erreichbar
+  await go(page, "#/mathe"); await page.waitForSelector(".ck-extra"); await page.click(".ck-extra summary"); await page.click('.ck-extra .mk-step[href="#/mathe/gesetze"]'); await page.waitForSelector(".mk-rules");
   assert.ok((await page.textContent(".mk-sheet")).includes("Exponenten addieren")); assert.ok(await page.$(".mk-steps li"), "Beispiel mit Lösungsweg"); await shot(page, "mk-02-thema");
   // Normal: Runde, erste falsch, Tipp vorhanden
   await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q"); assert.ok(await page.$("#mk_tip")); assert.equal(await page.$(".mk-help"), null);

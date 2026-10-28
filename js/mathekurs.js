@@ -39,8 +39,11 @@
     return d >= 2 && Math.abs(+v.toFixed(d) - g) < 1e-9;
   }
   /** Antwort prüfen: true/false */
+  /** GeoGebra-Eingabe vergleichbar machen: Leerzeichen, „f(x)=“, Malpunkte, Komma, Hochzahlen */
+  const normIn = s => String(s || "").toLowerCase().replace(/\s+/g, "").replace(/^(f\(x\)|y)=/, "").replace(/[*·]/g, "").replace(/,/g, ".").replace(/[−–]/g, "-").replace(/²/g, "^2").replace(/³/g, "^3").replace(/wurzel\(/g, "sqrt(");
   function check(task, given) {
     if (task.kind === "chip" || task.kind === "graph") return +given === task.answer;
+    if (task.kind === "text") return task.answer.some(a => normIn(a) === normIn(given));
     if (task.kind === "num") return fits(given, task.answer);
     if (task.kind === "pair") return Array.isArray(given) && task.answer.every((v, i) => fits(given[i], v));
     if (task.kind === "nums") {
@@ -55,6 +58,7 @@
   /** Lösung als Text */
   function answerText(t) {
     if (t.kind === "chip" || t.kind === "graph") return t.opts[t.answer];
+    if (t.kind === "text") return t.answer[0];
     if (t.kind === "num") return t.frac && !Number.isInteger(t.answer) ? t.frac + " = " + fmt(t.answer) : fmt(t.answer);
     if (t.kind === "pair") return t.labels ? t.labels.map((l, i) => l + " " + fmt(t.answer[i])).join(", ") : "(" + fmt(t.answer[0]) + " | " + fmt(t.answer[1]) + ")";
     if (t.kind === "nums") return t.answer.length ? "L = {" + t.answer.slice().sort((p, q) => p - q).map(fmt).join("; ") + "}" : "keine Lösung (L = { })";
@@ -156,12 +160,24 @@
     }
     return out.map(t => [rr(), t]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
   }
+  /** Runde aus beliebigen Aufgabentypen (z. B. ein Punkt der Checkliste) */
+  function roundKeys(ks, stats, lvl, n, r, funcs) {
+    const rr = r || Math.random; const st = stats || {}; const out = [];
+    for (let i = 0; i < (n || 10); i++) {
+      const w = ks.map(k => 6 - Math.min(5, (st[k] || {}).b || 0)); let x = rr() * w.reduce((a, b) => a + b, 0), j = 0;
+      while (x >= w[j] && j < ks.length - 1) { x -= w[j]; j++; }
+      if (i < ks.length && ks.length <= (n || 10)) j = i;
+      out.push(make(ks[j], lvl, rr, funcs));
+    }
+    return out.map(t => [rr(), t]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  }
+  const progressKeys = (ks, stats) => ks.length ? Math.round(ks.reduce((a, k) => a + Math.min(3, ((stats || {})[k] || {}).b || 0), 0) / (ks.length * 3) * 100) : 0;
   /** Probe-Klausur: aus jedem Thema, schwer, gemischt */
   const EXAM_MIX = [["gesetze:coef", "gesetze:mul"], ["negativ:val", "negativ:mix"], ["eigen:sym", "eigen:inf", "eigen:w"], ["graph:pick"], ["werte:f", "werte:a"], ["gleich:even", "gleich:odd", "gleich:neg"], ["trafo:point", "trafo:build"]];
-  function exam(r, funcs) {
+  function exam(r, funcs, mix) {
     const rr = r || Math.random; const out = [];
-    EXAM_MIX.forEach(g => { const pool = g.slice().sort(() => rr() - 0.5); pool.slice(0, g.length >= 3 ? 2 : g.length === 2 ? 2 : 1).forEach(k => out.push(make(k, 2, rr, funcs))); });
-    return out.slice(0, 14);
+    (mix || EXAM_MIX).forEach(g => { const pool = g.slice().sort(() => rr() - 0.5); pool.slice(0, g.length >= 3 ? 2 : g.length === 2 ? 2 : 1).forEach(k => out.push(make(k, 2, rr, funcs))); });
+    return out.slice(0, mix ? 16 : 14);
   }
   /** Lernstand wie im Drill */
   function learn(stats, key, ok) {
@@ -172,5 +188,5 @@
   /** Fortschritt eines Themas 0–100 (Box 3 je Typ = sitzt) */
   const progress = (topic, stats) => { const ks = types(topic); const p = ks.reduce((a, k) => a + Math.min(3, ((stats || {})[k] || {}).b || 0), 0) / (ks.length * 3); return Math.round(p * 100); };
   const grade = pct => pct >= 92 ? 1 : pct >= 81 ? 2 : pct >= 67 ? 3 : pct >= 50 ? 4 : pct >= 30 ? 5 : 6;
-  return { TOPICS, GEN, types, make, round, exam, learn, progress, grade, check, parseNum, answerText, fmt, sup, xp };
+  return { TOPICS, GEN, types, make, round, roundKeys, progressKeys, normIn, exam, learn, progress, grade, check, parseNum, answerText, fmt, sup, xp };
 });

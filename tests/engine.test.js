@@ -603,3 +603,29 @@ test("Mathe-Kurs: Runde enthält jeden Aufgabentyp, Probe-Klausur deckt alle The
   let st = {}; for (const k of MKK.types("werte")) for (let i = 0; i < 3; i++) st = MKK.learn(st, k, true);
   assert.equal(MKK.progress("werte", st), 100); st = MKK.learn(st, "werte:f", false); assert.equal(st["werte:f"].b, 1); assert.ok(MKK.progress("werte", st) < 100);
 });
+
+/* ---------- Checkliste 1. Klausur Mathe ---------- */
+const MCK = require("../js/mathe-check.js");
+test("Checkliste: 14 Punkte + Material, jeder Punkt mit Erklärung; alle Übungs-Typen existieren", () => {
+  assert.equal(MCK.ITEMS.length, 15); assert.deepEqual(MCK.ITEMS.map(i => String(i.nr)), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "X"]);
+  for (const it of MCK.ITEMS) { assert.ok(it.title && it.short && it.learn.length, it.nr); it.keys.forEach(k => assert.ok(MKK.GEN[k] || k === "graph:pick", k)); }
+  assert.ok(MCK.ITEMS.filter(i => i.nr !== "X").every(i => i.keys.length), "jeder Punkt hat Übungen");
+  assert.ok(MCK.item(8).learn.some(b => /p-q/.test(b.h)), "p-q-Formel erklärt");
+});
+test("Checkliste: alle neuen Aufgaben sind mit ihrer Lösung richtig, ohne NaN, ohne doppelte Antworten", () => {
+  let seed = 11; const rng = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  for (const k of new Set(MCK.ITEMS.flatMap(i => i.keys))) for (const l of [0, 1, 2]) for (let i = 0; i < 40; i++) {
+    const x = MKK.make(k, l, rng, GF);
+    const g = x.kind === "num" ? MKK.fmt(x.answer) : x.kind === "pair" ? x.answer.map(MKK.fmt) : x.kind === "nums" ? (x.answer.length ? x.answer.map(MKK.fmt) : "none") : x.kind === "text" ? x.answer[0] : x.answer;
+    assert.ok(MKK.check(x, g), k + ": " + x.prompt);
+    assert.ok(!/NaN|undefined/.test(x.prompt + x.steps.join() + (x.opts || []).join()), k + ": " + x.prompt);
+    if (x.opts) assert.equal(new Set(x.opts).size, x.opts.length, k);
+  }
+});
+test("Checkliste: GeoGebra-Eingabe tolerant (Leerzeichen, f(x)=, Komma), aber Klammern zählen", () => {
+  const t = { kind: "text", answer: ["1/(x+1)"] }; assert.ok(MKK.check(t, " f(x) = 1 / (x + 1) ")); assert.ok(!MKK.check(t, "1/x+1"));
+  const w = { kind: "text", answer: ["sqrt(x+3)"] }; assert.ok(MKK.check(w, "Wurzel(x+3)")); assert.ok(!MKK.check(w, "sqrt(x)+3"));
+  assert.ok(MKK.check({ kind: "text", answer: ["0.5x^2-3"] }, "0,5x^2 - 3"));
+  assert.equal(MCK.lin(1, -3), "x − 3"); assert.equal(MCK.quad(2, -1, 0), "2x² − x"); assert.equal(MCK.vertex(-1, -2, 3), "−(x + 2)² + 3");
+  const ex = MKK.exam(Math.random, GF, MCK.EXAM_CK); assert.ok(ex.length >= 12 && ex.length <= 16); assert.ok(ex.every(x => /^ck:|^eigen:/.test(x.key)));
+});

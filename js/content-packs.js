@@ -147,6 +147,13 @@ const PACKS = [
     ]);
     return "14 Klausur-Aufgaben";
   } },
+  { id: "mathe-checkliste", label: "Mathe: Checkliste 1. Klausur", run: async () => {
+    const k = upcomingExam(/^Mathe$/); if (!k) return false;
+    // laut Checkliste kommen auch lineare und quadratische Funktionen dran → pausierte Themen wieder aktiv
+    for (const t of topicsOfExam(k.id)) if (t.status === "paused") await dbPatch("topics", t.id, { status: "active" });
+    if (!/quadrat/i.test(k.thema || "")) await saveKL(k, { thema: "Funktionen: linear, quadratisch, Potenzfunktionen (Checkliste)" });
+    return "Checkliste mit 14 Punkten";
+  } },
   { id: "franz-klausur", label: "Französisch-Klausur vorbereitet", run: async () => {
     const k = upcomingExam(/^Französisch$/); if (!k) return false;
     const col = ES.collections.find(c => c.name.toLowerCase() === VET_NAME.toLowerCase());
