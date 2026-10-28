@@ -776,7 +776,7 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m1", fach: "Mathe", thema: "Graphen, lineare Funktionen", datum: day(9), themen: [{ id: "a", text: "Grafen", done: false }, { id: "b", text: "linear", done: false }], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f1", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 8 && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 9 && !PACKS_RUNNING, null, { timeout: 15000 });
   await page.evaluate(() => Api.idle());
   const vet = b.db.vocab_collections.find(c => c.name === "Les vêtements");
   assert.ok(vet && vet.source_language === "fr", "Sammlung angelegt");
@@ -789,14 +789,14 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   assert.ok(bj.reps >= 3 && +bj.interval_days === 60, "bonjour abgehakt");
   const av = b.db.vokabeln.find(v => v.begriff === "l'avenir");
   assert.ok(!av.reps && +av.interval_days !== 60, "normale Wörter bleiben neu");
-  // Mathe: alte Themen pausiert, Potenzfunktionen aktiv
+  // Mathe: laut Checkliste alle Themen aktiv (linear, quadratisch, Potenz) – nichts gelöscht
   const mk = b.db.klausuren.find(k => k.fach === "Mathe");
-  assert.equal(mk.thema, "Potenzfunktionen");
+  assert.ok(/quadratisch/.test(mk.thema) && /Potenz/.test(mk.thema), mk.thema);
   const mt = b.db.topics.filter(t => t.exam_id === mk.id);
   assert.ok(mt.some(t => t.title === "Potenzfunktionen" && t.status === "active"));
-  assert.ok(mt.filter(t => t.title !== "Potenzfunktionen").every(t => t.status === "paused") && mt.length >= 2, "alte Themen pausiert");
+  assert.ok(mt.length >= 2 && mt.every(t => t.status === "active"), "alte Themen wieder aktiv");
   const msubs = await page.evaluate(id => subsOfExam(id).map(s => s.title), mk.id);
-  assert.equal(msubs.length, 6); assert.ok(msubs.includes("Klausur-Training (gemischt)") && !msubs.includes("Grafen"));
+  assert.ok(msubs.length >= 6 && msubs.includes("Klausur-Training (gemischt)") && msubs.includes("Grafen"));
   // Französisch: Vokabeln verknüpft, Themen für Texte / Listening / Grammatik
   const fk = b.db.klausuren.find(k => k.fach === "Französisch");
   assert.ok(fk.vokabel_lektionen.includes("Les vêtements"));
