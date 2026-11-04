@@ -150,7 +150,7 @@ function dashQuick() {
     tile('data-dq="vok"', "🗂️", "Vokabeln", "Sprache wählen, los") +
     (canLesson ? tile('data-lektion="' + esc(sc) + '"', "🦉", "Lektion", "Wie Duolingo") : tile('href="#/spiele"', "🦉", "Lektion", "Wie Duolingo")) +
     tile('href="#/spiele"', "🎮", "Spiele", "Kurz zwischendurch") +
-    tile('href="#/noten"', "📊", "Noten", "Eintragen & Schnitt") + '</div></section>';
+    (typeof fehlerAll === "function" && fehlerAll().length ? tile('href="#/fehler"', "📕", "Fehlerheft", plural(fehlerAll().length, "Fehler", "Fehler") + " üben") : tile('href="#/faecher"', "📚", "Fächer", "Alles pro Fach")) + '</div></section>';
 }
 /** 4 · Schule heute: Hausaufgaben + Stundenplan (eingeklappt) */
 function dashSchool() {

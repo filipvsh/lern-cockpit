@@ -872,7 +872,7 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   await page.waitForSelector(`.dsh-ex[href="#/klausur/${FK}"]`);
   await page.$eval(`.dsh-ex[href="#/klausur/${FK}"]`, a => a.click()); await page.waitForSelector(".km-steps");
-  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Start", "Videos", "Vokabeln", "Spiele", "Grammatik", "Schreiben", "Aufgaben"]);
+  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Start", "Checkliste", "Videos", "Vokabeln", "Spiele", "Grammatik", "Schreiben", "Aufgaben"]);
   assert.ok(await noScroll(), "Überblick ohne Querscrollen");
   assert.ok((await page.textContent("#km_body")).includes("Dein bisheriger Stand zählt"));
   const sure = await page.evaluate(id => examVocab(klById(id)).filter(v => ["mid", "long"].includes(Engine.stageOf(v).key)).length, FK);

@@ -1119,6 +1119,11 @@ button.vrow:hover{background:var(--surface-2)}
  .plan-foot{flex-direction:column;align-items:stretch}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+@media (max-width:640px){
+ .seg button,.seg a{min-height:40px}.quick button{min-height:38px}.btn.sm,.btn.mini{min-height:40px}
+ .shl,.backlink{display:inline-flex;align-items:center;min-height:40px}.check{position:relative}.check::after{content:"";position:absolute;inset:-9px}
+ input,select,textarea{font-size:16px!important}.iconbtn{min-width:40px;min-height:40px}
+}
 </style>
 </head>
 <body>
@@ -1150,7 +1155,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="23";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="24";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
