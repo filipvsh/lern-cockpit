@@ -154,6 +154,13 @@ const PACKS = [
     if (!/quadrat/i.test(k.thema || "")) await saveKL(k, { thema: "Funktionen: linear, quadratisch, Potenzfunktionen (Checkliste)" });
     return "Checkliste mit 14 Punkten";
   } },
+  { id: "mathe-1-geschrieben", label: "Mathe-Klausur geschrieben", run: async () => {
+    // die 1. Mathe-Klausur (um den 3.–4.11.2026) ist geschrieben → aus „anstehend“ nehmen, nichts löschen
+    const near = STATE.kl.filter(k => /^Mathe$/.test(k.fach) && k.datum && k.punkte == null && Math.abs(daysUntil(k.datum)) <= 21).sort((a, b) => a.datum < b.datum ? -1 : 1)[0];
+    if (!near) return true;
+    await markKlDone(near);
+    return "Mathe-Klausur als geschrieben markiert";
+  } },
   { id: "franz-klausur", label: "Französisch-Klausur vorbereitet", run: async () => {
     const k = upcomingExam(/^Französisch$/); if (!k) return false;
     const col = ES.collections.find(c => c.name.toLowerCase() === VET_NAME.toLowerCase());
