@@ -25,7 +25,7 @@ V.klausur = () => {
   if (!engineReady()) return pageHead("Klausur-Modus") + setupCard();
   const k = klById(decodeURIComponent(ROUTE.sub || ""));
   if (!k) return pageHead("Klausur-Modus", { back: ["#/lernplan", "Lernplan"] }) + '<div class="card">' + emptyState("flag", "Klausur nicht gefunden", "Vielleicht wurde sie gelöscht.") + '</div>';
-  if (!kmActive(k)) return pageHead("Klausur-Modus", { back: ["#/lernplan/" + k.id, "Klausur"] }) + '<div class="card">' + emptyState("check", "Diese Klausur ist geschrieben", "Der Klausur-Modus ist damit beendet. Deine Vokabeln behalten ihren Lernstand und kommen im normalen Plan weiter dran.", '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
+  if (!kmActive(k)) return pageHead("Klausur-Modus", { back: ["#/lernplan/" + k.id, "Klausur"] }) + '<div class="card">' + emptyState("check", "Diese Klausur ist geschrieben", "Der Klausur-Modus ist damit beendet. Deine Vokabeln und dein Übungsstand bleiben erhalten." + (k.punkte == null ? " Sobald du sie zurückbekommst: Note eintragen." : ""), (k.punkte == null ? '<a class="btn primary sm" href="#/noten">Note eintragen</a> ' : '') + '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
   const tab = kmTab(k);
   const nav = '<div class="seg dx-tabs km-tabs">' + kmTabs(k).map(([t, l]) => '<a class="' + (t === tab ? "on" : "") + '" href="#/klausur/' + esc(k.id) + '?tab=' + t + '">' + l + '</a>').join("") + '</div>';
   return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen }[tab])(k) + '</div>';
@@ -41,9 +41,12 @@ function bindKlausur() {
   document.querySelectorAll("[data-kmgo]").forEach(b => b.onclick = () => kmAction(k, b.dataset.kmgo));
   ({ schreiben: () => bindKmSchreiben(k), vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
   const lk = q("km_link"); if (lk) lk.onclick = () => kmLinkModal(k);
+  const wr = q("km_written"); if (wr) wr.onclick = async () => { if (!confirm(k.fach + "-Klausur als geschrieben markieren? Der Klausur-Modus verschwindet, dein Lernstand bleibt.")) return; await markKlDone(k); toast("✓ " + k.fach + "-Klausur geschrieben – gut gemacht!"); location.hash = "#/klausur/" + k.id; route(); };
   bindGrammarGames("exam:" + k.id); bindVideos();
   document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id));
 }
+/** Klausur als geschrieben markieren (Datum muss nicht vorbei sein) */
+async function markKlDone(k) { const all = Object.assign({}, setting("kl_geschrieben", {}) || {}); all[k.id] = todayISO(); await setSetting("kl_geschrieben", all); }
 function kmAction(k, what) {
   const [kind, arg] = what.split(":");
   if (kind === "vocab") startTraining(kmVocabStart(k));
@@ -84,7 +87,8 @@ function kmStart(k) {
   const todo = '<div class="card km-steps"><h2>Heute für diese Klausur</h2>' + steps.map((s, i) => '<button class="km-step' + (i === 0 && s.main ? " km-main" : "") + '" data-kmgo="' + esc(s.go) + '"><span class="km-n">' + (i + 1) + '</span><span class="km-t"><b>' + esc(s.title) + '</b><span class="t-sub">' + esc(s.sub) + '</span></span>' + ICO.play + '</button>').join("") + '</div>';
   const voc = words.length ? '<div class="card"><h2>Vokabeln</h2><p class="hint" style="margin-top:0">Dein bisheriger Stand zählt – hier lernst du mit denselben Karten weiter.</p>' + stageBar(words) + '</div>' : '';
   const th = subs.length ? '<div class="card"><h2>Themen</h2>' + subs.map(st => { const m = masteryOf(st.id).score; return '<div class="km-sub"><span>' + esc(st.title) + '</span><span class="t-sub">' + (m == null ? "neu" : m + " %") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div>'; }).join("") + '</div>' : '';
-  return extrem + todo + '<div class="km-grid">' + voc + th + '</div>';
+  const done = daysUntil(k.datum) <= 2 ? '<div class="km-written"><button class="btn" id="km_written">✓ Klausur ist geschrieben</button><span class="t-sub">Beendet den Klausur-Modus – dein Lernstand bleibt.</span></div>' : '';
+  return extrem + todo + '<div class="km-grid">' + voc + th + '</div>' + done;
 }
 
 /* ---------- Vokabeln: nur die Sammlungen dieser Klausur ---------- */

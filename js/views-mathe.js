@@ -70,9 +70,11 @@ function mkHome() {
   const areas = [...new Set(MC.ITEMS.map(i => i.area))];
   const next = MC.ITEMS.find(i => st[i.nr] !== "ok" && i.keys.length);
   const ps = MK.TOPICS.map(t => MK.progress(t.id, mkStats()));
-  return pageHead("Mathe: Checkliste 1. Klausur EF", { back: ["#/dashboard", "Start"], sub: "Tippe auf einen Punkt: Erklärung, Aufgaben fürs Heft/iPad und Übungen. Markiere, was du schon kannst." }) +
+  const over = !upcomingKL().some(k => /Mathe/.test(k.fach));
+  return pageHead("Mathe: Checkliste 1. Klausur EF", { back: ["#/dashboard", "Start"], sub: over ? "Diese Klausur ist geschrieben – alles bleibt hier zum Wiederholen." : "Tippe auf einen Punkt: Erklärung, Aufgaben fürs Heft/iPad und Übungen. Markiere, was du schon kannst." }) +
+    (over ? '<div class="card ck-done">✅ <b>Klausur geschrieben!</b> Sobald du sie zurückbekommst, <a href="#/noten">trag deine Note ein</a>. Die Erklärungen und Übungen bleiben zum Wiederholen – die Themen kommen in der Oberstufe wieder.</div>' : '') +
     '<div class="card ck-sum"><div><b>' + ok + ' von ' + MC.ITEMS.length + '</b> Punkten: „Kann ich“</div>' + progBar(Math.round(ok / MC.ITEMS.length * 100), ok === MC.ITEMS.length ? "g" : "") +
-    (next ? '<a class="btn primary ck-next" href="#/mathe/ck-' + next.nr + '">' + ICO.play + 'Weiter mit ' + next.nr + ' · ' + esc(next.short) + '</a>' : '') + '</div>' +
+    (next && !over ? '<a class="btn primary ck-next" href="#/mathe/ck-' + next.nr + '">' + ICO.play + 'Weiter mit ' + next.nr + ' · ' + esc(next.short) + '</a>' : '') + '</div>' +
     modeSeg("ma") + areas.map(a => '<div class="card ck-area"><h2>' + esc(a) + '</h2>' + MC.ITEMS.filter(i => i.area === a).map(ckRow).join("") + '</div>').join("") +
     '<div class="mk-course"><a class="card mk-step mk-exam" href="#/mathe/test"><span class="mk-n">📝</span><div><b>Probe-Klausur (App)</b><span class="t-sub">16 Aufgaben aus der Checkliste · ohne Hilfe · mit Note' + (last ? ' · zuletzt Note ' + last.note : '') + '</span></div><span class="chev">' + ICO.chev + '</span></a></div>' +
     '<div class="card ck-book"><b>📚 Außerdem aus dem Buch</b><ul><li>Probeklausur <b>S. 37</b> (ohne Nr. 2d und Nr. 5) – Lösungen <b>S. 231 f.</b></li><li>Alle Lösungen zu den Übungen ab <b>S. 223</b> · Rückblick <b>S. 36</b></li><li>Trainingsblätter auf <b>Logineo</b></li></ul></div>' +

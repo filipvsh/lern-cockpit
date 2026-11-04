@@ -738,6 +738,7 @@ body.focus{background:var(--surface)}
 .mk-card{border-color:var(--accent)}
 a.mk-step,a.dr-topic,a.mk-x,a.dr-card,a.mk-video{display:flex}
 .mk-step .chev,.dr-topic .chev,.dr-card .chev{flex:none;display:inline-flex;width:18px;height:18px}.mk-step .chev svg,.dr-topic .chev svg,.dr-card .chev svg{width:18px;height:18px}.mk-b{white-space:nowrap}
+.ck-done{max-width:760px;margin-bottom:var(--s4);background:#eafbe0;border-color:#b8e6a0;line-height:1.5}.km-written{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:var(--s5)}
 .ck-sum{max-width:760px;margin-bottom:var(--s4);display:grid;gap:8px}.ck-next{justify-self:start;margin-top:4px}
 .ck-area{max-width:760px;margin-bottom:var(--s4);padding:8px 8px 4px}.ck-area h2{padding:8px 10px 2px;margin:0}
 a.ck-row{display:flex;align-items:center;gap:10px;padding:12px 10px;border-top:1px solid var(--sep);text-decoration:none;color:var(--text)}.ck-area h2+a.ck-row{border-top:0}
@@ -1125,7 +1126,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="20";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="21";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
@@ -1269,8 +1270,10 @@ function bestStreak(){const target=Math.min(+setting("vokabel_tagesziel",15)||15
 /* ---------- SELEKTOREN ---------- */
 function openHW(typ){return STATE.hw.filter(h=>!h.done&&(!typ||h.typ===typ)).sort(sortHW)}
 function sortHW(a,b){const da=a.faellig||"9999",db=b.faellig||"9999";if(da!==db)return da<db?-1:1;const r={Hoch:0,Mittel:1,Niedrig:2};const pa=(r[a.prio]??1)-(r[b.prio]??1);if(pa)return pa;return (a.dauer||30)-(b.dauer||30)}
-function upcomingKL(){return STATE.kl.filter(k=>k.datum&&daysUntil(k.datum)>=0&&k.punkte==null).sort((a,b)=>a.datum<b.datum?-1:1)}
-function pastKL(){return STATE.kl.filter(k=>k.datum&&(daysUntil(k.datum)<0||k.punkte!=null)).sort((a,b)=>a.datum<b.datum?1:-1)}
+/** als „geschrieben“ markiert (einstellungen.kl_geschrieben = { Klausur-ID: Datum }) – vor dem Datum möglich */
+function klDone(id){return !!((typeof setting==="function"&&setting("kl_geschrieben",{}))||{})[id]}
+function upcomingKL(){return STATE.kl.filter(k=>k.datum&&daysUntil(k.datum)>=0&&k.punkte==null&&!klDone(k.id)).sort((a,b)=>a.datum<b.datum?-1:1)}
+function pastKL(){return STATE.kl.filter(k=>k.datum&&(daysUntil(k.datum)<0||k.punkte!=null||klDone(k.id))).sort((a,b)=>a.datum<b.datum?1:-1)}
 function dueVok(){const t=todayISO();return STATE.vo.filter(v=>!v.next||v.next<=t)}
 function klById(id){return STATE.kl.find(k=>k.id===id)}
 function klProgress(k){const n=k.themen.length;if(!n)return 0;return Math.round(k.themen.filter(t=>t.done).length/n*100)}
@@ -1353,7 +1356,7 @@ function renderNav(active){
  const mb=n=>{const b=navBadge(n);return b&&n!=="lernplan"?b:""};
  document.getElementById("mnav").innerHTML=m.map(n=>'<a href="#/'+n+'" class="'+(n===active||(n==="lernplan"&&active==="klausur")?"on":"")+'"><span class="navico">'+ICO[n]+'</span>'+(ML[n]||TITLES[n])+mb(n)+'</a>').join("")+'<button id="moreBtn" class="'+(inMore?"on":"")+'"><span class="navico">'+ICO.mehr+'</span>Mehr</button>';
  document.getElementById("moreBtn").onclick=()=>{const it=n=>'<a href="#/'+n+'"><span class="navico">'+ICO[n]+'</span>'+TITLES[n]+navBadge(n)+'</a>';
-  openSheet('<div class="sl">'+["mathe","drill","trainer","spiele","material","fortschritt","ki"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.filter(n=>n!=="noten").map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
+  openSheet('<div class="sl">'+[...(upcomingKL().some(k=>/Mathe/.test(k.fach))?["mathe"]:[]),"drill","trainer","spiele","material","fortschritt","ki"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.filter(n=>n!=="noten").map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
  const sn=document.getElementById("syncNote");if(sn)sn.innerHTML=STATE.dbReady?'Synchronisiert'+(STATE.syncedAt?' · '+new Date(STATE.syncedAt).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):''):(STATE.loaded?'<span style="color:var(--orange)">Datenbank-Update ausstehend</span>':'');}
 /* ---------- MODAL / SHEET / TOAST ---------- */
 function openModal(title,body,foot,onMount){closeModal();const o=document.getElementById("overlay");o.innerHTML='<div class="mbg" id="mbg"><div class="modal" role="dialog"><div class="mh"><h3>'+title+'</h3><button class="xbtn" id="mclose">✕</button></div><div class="mb">'+body+'</div>'+(foot?'<div class="mf">'+foot+'</div>':'')+'</div></div>';
