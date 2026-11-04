@@ -143,6 +143,11 @@ export class MockBackend {
     this.lastAi = b;
     switch (b.mode) {
       case "ping": return { ok: true };
+      case "checklist": return { fach: b.fach, title: "Checkliste Klausur", items: [
+        { nr: "1", area: "Grammatik", short: "passé composé mit être", title: "Ich kann das passé composé mit être bilden.", book: ["S. 40, Nr. 2"], learn: [{ h: "Welche Verben?", t: "Verben der **Bewegung** (aller, venir …) bilden mit être.", f: "je suis allé(e)", ex: ["aller → je suis allé", "Angleichung: elle est allée"] }], paper: ["Schreib die 14 être-Verben auf."] },
+        { nr: "2", area: "Grammatik", short: "Adjektive angleichen", title: "Ich kann Adjektive angleichen.", book: [], learn: [{ h: "Regel", t: "weiblich + e, Plural + s", f: "", ex: [] }], paper: [] },
+        { nr: "3", area: "Wortschatz", short: "Kleidung", title: "Ich kenne die Wörter zu Kleidung.", book: ["Unité 3"], learn: [], paper: [] }] };
+      case "workcheck": return { verdict: "partial", summary: "Ansatz stimmt, beim Wurzelziehen fehlt die negative Lösung.", steps: [{ line: "x² − 9 = 0", ok: true, comment: "" }, { line: "x² = 9", ok: true, comment: "" }, { line: "x = 3", ok: false, comment: "± vergessen: auch x = −3" }], first_error: "Zeile 3: Beim Wurzelziehen gibt es zwei Lösungen.", tip: "Bei geraden Hochzahlen immer ± schreiben." };
       case "explain": return { title: "Narrative Perspective", explanation: "Die Erzählperspektive legt fest, **wer** erzählt.\n\nIch-Erzähler vs. personaler Erzähler.", key_points: ["Ich-Erzähler: subjektiv", "Auktorial: allwissend"], check_question: "Woran erkennst du einen personalen Erzähler?" };
       case "practice": return { exercise: { type: "multiple_choice", question: "Welche Perspektive liegt vor: „I walked home, wondering why she had lied.“", options: ["Ich-Erzähler", "Auktorialer Erzähler", "Personaler Erzähler"], correct_index: 0, solution: "„I“ + Innensicht → Ich-Erzähler.", difficulty: 2 } };
       case "quiz": return (b.history || []).length ? { verdict: "wrong", feedback: "Nicht ganz: Der Erzähler kennt nur die Gedanken einer Figur.", mistake: "Personal vs. auktorial verwechselt", next_question: "Nenne ein Signalwort für auktoriales Erzählen." } : { verdict: "none", feedback: "", mistake: "", next_question: "Was unterscheidet personales von auktorialem Erzählen?" };

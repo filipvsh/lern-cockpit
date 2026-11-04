@@ -57,12 +57,12 @@ Deno.test("Kontext wird mit dem Token des Nutzers geladen und mitgeschickt", asy
 Deno.test("Hinweisstufe landet im Auftrag, Musterlösung nur als Grundlage", () => {
   const r = buildRequest("hint", { level: 2, exercise: { question: "Q", solution: "S" }, answer: "A" }, { text: "", found: false });
   assertStringIncludes(r.system, "Hilfe der Stufe 2");
-  assertStringIncludes(r.messages[0].content, "Musterlösung (nur als Grundlage, Stufe beachten): S");
+  assertStringIncludes(String(r.messages[0].content), "Musterlösung (nur als Grundlage, Stufe beachten): S");
 });
 Deno.test("Verlauf: abwechselnde Rollen, aktuelle Anfrage zuletzt", () => {
   const r = buildRequest("quiz", { input: "Meine Antwort", history: [{ role: "assistant", content: "{\"next_question\":\"F1\"}" }, { role: "user", content: "Meine Antwort" }] }, { text: "ctx", found: true });
   assertEquals(r.messages.map(m => m.role), ["user", "assistant", "user"]);
-  assertStringIncludes(r.messages[2].content, "Meine Antwort");
+  assertStringIncludes(String(r.messages[2].content), "Meine Antwort");
 });
 Deno.test("Ablehnung und unlesbare Antworten werden sauber gemeldet", async () => {
   const t = deps({ stop: "refusal" }); const res = await createHandler(t.deps)(post({ mode: "hint", level: 1 }));
@@ -78,4 +78,39 @@ Deno.test("Schemas: alle Felder Pflicht, keine Zusatzfelder", () => {
     assertEquals(sc.additionalProperties, false, mode);
     assertEquals(sc.required.sort(), Object.keys(sc.properties).sort(), mode);
   }
+});
+
+/* ---------- Checkliste aus Foto/PDF · Rechenweg-Check ---------- */
+const IMG = { media_type: "image/jpeg", data: "QUJD" };
+Deno.test("Checkliste: Foto wird als Bild-Block vor dem Text geschickt, Schema checklist", async () => {
+  const t = deps({ reply: { fach: "Mathe", title: "Checkliste", items: [] } });
+  const res = await createHandler(t.deps)(post({ mode: "checklist", fach: "Mathe", thema: "1. Klausur", files: [IMG, { media_type: "application/pdf", data: "UERG" }] }));
+  assertEquals(res.status, 200);
+  const p = t.created[0] as { max_tokens: number; messages: { content: { type: string; text?: string }[] }[]; output_config: { format: { schema: unknown } } };
+  const c = p.messages[p.messages.length - 1].content;
+  assertEquals(c.map(b => b.type), ["image", "document", "text"]);
+  assertStringIncludes(c[2].text ?? "", "KLAUSUR\nMathe – 1. Klausur");
+  assertEquals(p.output_config.format.schema, SCHEMAS.checklist); assert(p.max_tokens >= 12000);
+});
+Deno.test("Checkliste/Rechenweg: ohne Inhalt oder mit falschen Dateien → 400, keine KI-Anfrage", async () => {
+  const t = deps(); const h = createHandler(t.deps);
+  assertEquals((await h(post({ mode: "workcheck", exercise: { question: "Q" } }))).status, 400);
+  assertEquals((await h(post({ mode: "checklist" }))).status, 400);
+  assertEquals((await h(post({ mode: "checklist", files: [{ media_type: "text/html", data: "x" }] }))).status, 400);
+  assertEquals((await h(post({ mode: "checklist", files: [IMG, IMG, IMG, IMG, IMG] }))).status, 400);
+  assertEquals(t.created.length, 0);
+});
+Deno.test("Rechenweg-Check: Aufgabe + erwartete Lösung + Foto", async () => {
+  const t = deps({ reply: { verdict: "partial", summary: "s", steps: [], first_error: "", tip: "" } });
+  const res = await createHandler(t.deps)(post({ mode: "workcheck", exercise: { question: "Löse x² − 9 = 0", expected_answer: "L = {−3; 3}" }, files: [IMG] }));
+  assertEquals(res.status, 200); assertEquals((await res.json()).verdict, "partial");
+  const p = t.created[0] as { messages: { content: { type: string; text?: string }[] }[] };
+  const c = p.messages[p.messages.length - 1].content; assertEquals(c[0].type, "image"); assertStringIncludes(c[1].text ?? "", "Erwartete Lösung (nur für dich): L = {−3; 3}");
+});
+Deno.test("CORS: alte Netlify-Adresse gesetzt – GitHub Pages wird trotzdem erlaubt", async () => {
+  const t = deps(); const d = { ...t.deps, env: (k: string) => k === "ALLOWED_ORIGIN" ? "https://precious-tarsier-d3ff5d.netlify.app" : t.deps.env(k) };
+  const pre = new Request("https://f/ai-tutor", { method: "OPTIONS", headers: { Origin: "https://filipvsh.github.io" } });
+  assertEquals((await createHandler(d)(pre)).headers.get("Access-Control-Allow-Origin"), "https://filipvsh.github.io");
+  const other = new Request("https://f/ai-tutor", { method: "OPTIONS", headers: { Origin: "https://boese.example" } });
+  assertEquals((await createHandler(d)(other)).headers.get("Access-Control-Allow-Origin"), "https://precious-tarsier-d3ff5d.netlify.app");
 });

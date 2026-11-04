@@ -11,7 +11,7 @@ const kmActive = k => !!k && !isVocabTest(k) && upcomingKL().some(x => x.id === 
 const kmExams = () => upcomingKL().filter(k => !isVocabTest(k));
 const kmHasVocab = k => KM_LANG.test(k.fach) || linkedCollections(k).length > 0;
 function kmTabs(k) {
-  const t = [["start", "Start"]];
+  const t = [["start", "Start"], ["checkliste", "Checkliste"]];
   if (videosFor(k).length) t.push(["videos", "Videos"]);
   if (kmHasVocab(k)) t.push(["vokabeln", "Vokabeln"], ["spiele", "Spiele"]);
   if (k.fach === "Französisch") t.push(["grammatik", "Grammatik"], ["schreiben", "Schreiben"]);
@@ -28,7 +28,7 @@ V.klausur = () => {
   if (!kmActive(k)) return pageHead("Klausur-Modus", { back: ["#/lernplan/" + k.id, "Klausur"] }) + '<div class="card">' + emptyState("check", "Diese Klausur ist geschrieben", "Der Klausur-Modus ist damit beendet. Deine Vokabeln und dein Übungsstand bleiben erhalten." + (k.punkte == null ? " Sobald du sie zurückbekommst: Note eintragen." : ""), (k.punkte == null ? '<a class="btn primary sm" href="#/noten?neu=1">Note eintragen</a> ' : '') + '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
   const tab = kmTab(k);
   const nav = '<div class="seg dx-tabs km-tabs">' + kmTabs(k).map(([t, l]) => '<a class="' + (t === tab ? "on" : "") + '" href="#/klausur/' + esc(k.id) + '?tab=' + t + '">' + l + '</a>').join("") + '</div>';
-  return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen }[tab])(k) + '</div>';
+  return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen, checkliste: kmCheckliste }[tab])(k) + '</div>';
 };
 function kmHead(k) {
   const d = daysUntil(k.datum); const r = readinessOf(k);
@@ -39,7 +39,7 @@ function bindKlausur() {
   const k = klById(decodeURIComponent(ROUTE.sub || "")); if (!kmActive(k)) return;
   const q = id => document.getElementById(id);
   document.querySelectorAll("[data-kmgo]").forEach(b => b.onclick = () => kmAction(k, b.dataset.kmgo));
-  ({ schreiben: () => bindKmSchreiben(k), vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
+  ({ checkliste: () => bindKmCheckliste(k), schreiben: () => bindKmSchreiben(k), vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
   const lk = q("km_link"); if (lk) lk.onclick = () => kmLinkModal(k);
   const wr = q("km_written"); if (wr) wr.onclick = async () => { if (!confirm(k.fach + "-Klausur als geschrieben markieren? Der Klausur-Modus verschwindet, dein Lernstand bleibt.")) return; await markKlDone(k); toast("✓ " + k.fach + "-Klausur geschrieben – gut gemacht!"); location.hash = "#/klausur/" + k.id; route(); };
   bindGrammarGames("exam:" + k.id); bindVideos();
@@ -67,6 +67,9 @@ function kmSteps(k) {
   // 1. Video, das noch fehlt (erst verstehen, dann üben)
   const vids = videosFor(k).flatMap(s => s.videos); const seen = videoSeen(); const nextVid = vids.find(v => !seen[v.id]);
   if (nextVid) out.push({ go: "tab:videos", title: "Video: " + nextVid.t, sub: vids.filter(v => seen[v.id]).length + " von " + vids.length + " Videos gesehen", main: true });
+  { const c = klCheck(k.id); const nx = c && c.items.find(i => (c.st || {})[i.nr] !== "ok");
+    if (!c) out.push({ go: "tab:checkliste", title: "Checkliste anlegen 📷", sub: "Themenzettel fotografieren – die App baut Erklärungen und Heft-Aufgaben", main: !out.length });
+    else if (nx) out.push({ go: "tab:checkliste", title: "Checkliste: " + nx.short, sub: c.items.filter(i => (c.st || {})[i.nr] === "ok").length + " von " + c.items.length + " Punkten „Kann ich“", main: !out.some(x => x.main) }); }
   if (words.length) {
     const d = dayStatus(words); const fresh = words.filter(Engine.isNew).length;
     out.push({ go: "vocab", title: "Vokabeln lernen", sub: d.due || fresh ? [d.due ? plural(d.due, "Wiederholung", "Wiederholungen") : "", fresh ? fresh + " noch neu" : ""].filter(Boolean).join(" · ") : "Alles wiederholt – freiwillig festigen", main: !!(d.due || fresh) });

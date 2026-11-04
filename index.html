@@ -755,6 +755,13 @@ a.fa-grade{display:flex;align-items:center;justify-content:space-between;gap:12p
 .fe-sum{max-width:760px;margin-bottom:var(--s4)}.fe-group{max-width:760px;margin-bottom:var(--s4)}.fe-sub{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-2);margin:14px 0 4px}
 .fe-row{display:grid;grid-template-columns:1fr 44px;gap:2px 10px;padding:10px 0;border-top:1px solid var(--sep);align-items:center}.fe-q{font-weight:600;font-size:15px;overflow-wrap:anywhere}.fe-a{grid-column:1;font-size:13px;color:var(--text-2)}.fe-a b{color:var(--green)}.fe-n{color:var(--red);font-weight:600}
 .fe-ok{grid-row:1/3;grid-column:2;width:44px;height:44px;border-radius:12px;border:2px solid var(--line);background:var(--surface);font-size:18px;color:var(--green);cursor:pointer}
+.kc-new{max-width:760px}.kc-opt{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--fill)}.kc-opt>b{font-size:16px}.kc-opt textarea{width:100%;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--text);resize:vertical}
+.kc-file{justify-content:center;min-height:48px}.kc-file svg{width:18px;height:18px}.kc-or{text-align:center;font-size:13px;color:var(--text-2);margin:12px 0}.kc-wait{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-2);padding:6px 0}
+.kc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;max-width:760px;margin-bottom:var(--s5)}.kc-card{border-color:var(--green)}
+.rw-box{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:14px;padding:12px;border-radius:14px;background:#eef4ff}.rw-btn{min-height:44px}.rw-task{display:flex;flex-direction:column;gap:2px;margin-bottom:12px;font-size:16px}.rw-pick{position:relative;justify-content:center}
+.rw-res{border-radius:12px;padding:10px 12px;margin-top:12px}.rw-res p{margin:4px 0 0;font-size:14px}.rw-res.ok{background:#eafbe0}.rw-res.mid{background:#fff8e1}.rw-res.bad{background:#ffe9ea}
+.rw-steps{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}.rw-steps li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--fill)}.rw-steps li>span{font-weight:800}.rw-steps li.ok>span{color:var(--green)}.rw-steps li.bad{background:#ffe9ea}.rw-steps li.bad>span{color:var(--red)}.rw-steps code{font-family:ui-monospace,Menlo,monospace;font-size:14px;overflow-wrap:anywhere}.rw-steps em{display:block;font-style:normal;font-size:13px;color:var(--red);margin-top:2px}
+.rw-err{margin-top:10px;font-size:14px;line-height:1.45}
 .ck-done{max-width:760px;margin-bottom:var(--s4);background:#eafbe0;border-color:#b8e6a0;line-height:1.5}.km-written{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:var(--s5)}
 .ck-sum{max-width:760px;margin-bottom:var(--s4);display:grid;gap:8px}.ck-next{justify-self:start;margin-top:4px}
 .ck-area{max-width:760px;margin-bottom:var(--s4);padding:8px 8px 4px}.ck-area h2{padding:8px 10px 2px;margin:0}
@@ -1143,7 +1150,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="22";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="23";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
@@ -1665,6 +1672,7 @@ if(!location.hash)location.hash="#/dashboard";
 <script src="js/views-mathe.js"></script>
 <script src="js/views-faecher.js"></script>
 <script src="js/fehler.js"></script>
+<script src="js/views-checkliste.js"></script>
 <script src="js/motivation.js"></script>
 <script src="js/push.js"></script>
 <script src="js/content-packs.js"></script>

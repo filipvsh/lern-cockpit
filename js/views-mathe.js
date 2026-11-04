@@ -50,6 +50,7 @@ function bindMathe() {
   if (ROUTE.sub === "blitz") return bindMkBlitz();
   if (ROUTE.query.run && MKR) return bindMkRun();
   document.querySelectorAll("[data-ckst]").forEach(b => b.onclick = async () => { const [nr, v] = b.dataset.ckst.split(":"); const all = Object.assign({}, ckStatus()); if (all[nr] === v) delete all[nr]; else all[nr] = v; await setSetting("mathe_check", all); route(); });
+  bindRechenweg();
   document.querySelectorAll("[data-ckpack]").forEach(b => b.onchange = async () => { const all = Object.assign({}, setting("mathe_pack", {}) || {}); all[b.dataset.ckpack] = b.checked; await setSetting("mathe_pack", all); });
 }
 function mkStart(topic) {
@@ -96,7 +97,7 @@ function ckPage(it) {
     '<div class="card ck-self"><b>Wie sicher bist du?</b><div class="seg">' + CK_ST.map(([k, ic, l]) => '<button class="' + (st === k ? "on" : "") + '" data-ckst="' + it.nr + ':' + k + '">' + ic + ' ' + l + '</button>').join("") + '</div></div>' +
     (it.keys.length ? modeSeg("ma") + '<button class="btn primary lg wide dr-go" data-mkstart="' + id + '">' + ICO.play + 'Üben (10 Aufgaben)</button>' : '') + pack +
     '<div class="card ck-learn"><h2>📖 Erklärung</h2>' + learn + '</div>' +
-    (paper.length ? '<div class="card ck-paper"><h2>✍️ Auf Papier / iPad</h2><p class="t-sub">Das solltest du wirklich aufschreiben – in der Klausur zählt der Rechenweg.</p><ul>' + paper.map(x => '<li>' + mkMd(x) + '</li>').join("") + '</ul></div>' : '') +
+    (paper.length ? '<div class="card ck-paper"><h2>✍️ Auf Papier / iPad</h2><p class="t-sub">Das solltest du wirklich aufschreiben – in der Klausur zählt der Rechenweg.</p><ul>' + paper.map(x => '<li>' + mkMd(x) + '</li>').join("") + '</ul>' + (it.keys.some(k => MK_PAPER.test(k)) ? rechenwegButton("") : '') + '</div>' : '') +
     (it.gg ? '<a class="card mk-video" href="https://www.geogebra.org/graphing" target="_blank" rel="noopener">📐 <span>GeoGebra öffnen (geogebra.org/graphing)</span></a>' : '') +
     '<div class="ck-nav">' + (prev ? '<a class="btn" href="#/mathe/ck-' + prev.nr + '">← ' + prev.nr + ' · ' + esc(prev.short) + '</a>' : '<span></span>') + (next ? '<a class="btn" href="#/mathe/ck-' + next.nr + '">' + next.nr + ' · ' + esc(next.short) + ' →</a>' : '') + '</div>';
 }
@@ -181,7 +182,8 @@ function mkRun() {
   const help = ui.checked ? '' : R.mode === "leicht" ? '<details class="dr-spick mk-help" open><summary>📋 Merkzettel</summary><div class="mk-rule">' + esc(it.rule) + '</div></details>' + (ui.steps ? '' : '<div class="dr-tipw"><button class="btn sm" id="mk_steps">👣 Lösungsweg zeigen</button></div>')
     : R.mode === "normal" ? (ui.tip ? '<div class="dr-hint">💡 ' + esc(it.rule) + '</div>' : '<div class="dr-tipw"><button class="btn sm" id="mk_tip">💡 Tipp anzeigen</button></div>') : '';
   const stepsBox = ui.steps || ui.checked ? '<ol class="mk-steps box">' + it.steps.map(s => '<li>' + esc(s) + '</li>').join("") + '</ol>' : '';
-  const body = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<div class="mk-topic">' + t.ico + ' ' + esc(t.title) + (R.mode === "schwer" ? ' · <b>Schwer</b>' : '') + '</div>' + mkQ(it) + (ui.checked ? '' : mkPaperHint(it)) + mkInput(it, ui, ui.checked) + help + (ui.checked ? '' : stepsBox);
+  const body = (it.retry ? '<div class="les-again">Noch einmal – vorhin falsch</div>' : '') + '<div class="mk-topic">' + t.ico + ' ' + esc(t.title) + (R.mode === "schwer" ? ' · <b>Schwer</b>' : '') + '</div>' + mkQ(it) + (ui.checked ? '' : mkPaperHint(it)) + mkInput(it, ui, ui.checked) + help + (ui.checked ? '' : stepsBox) +
+    (ui.checked && MK_PAPER.test(it.key) ? rechenwegButton(it.prompt, MK.answerText(it), it.steps.join(" / ")) : '');
   const foot = ui.checked ? '<div class="les-foot ' + (ui.ok ? "ok" : "bad") + '"><div class="les-fb"><b>' + (ui.ok ? "Richtig!" : "Richtig wäre: " + esc(MK.answerText(it))) + '</b>' + stepsBox + '</div><button class="btn lg les-next" id="mk_next">Weiter</button></div>'
     : '<div class="les-foot"><span class="t-sub">' + (ui.tip || ui.steps ? "Mit Hilfe zählt es nicht als gelernt" : "") + '</span><button class="btn primary lg" id="mk_check"' + (mkFilled(it, ui.given) ? "" : " disabled") + '>Prüfen</button></div>';
   return '<div class="les mk-run">' + top + '<div class="les-body">' + body + '</div>' + foot + '</div>';
@@ -195,6 +197,7 @@ function bindMkRun() {
   const sp = q("mk_steps"); if (sp) sp.onclick = () => { ui.steps = true; route(); };
   const c = q("mk_check"); if (c) c.onclick = mkCheck;
   const n = q("mk_next"); if (n) { n.onclick = mkNext; setTimeout(() => n.focus(), 30); }
+  bindRechenweg();
 }
 function mkCheck() {
   const R = MKR, it = R.items[R.i], ui = R.ui; if (ui.checked) return;

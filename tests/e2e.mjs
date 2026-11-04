@@ -1374,6 +1374,43 @@ await scenario("Handy: Fächer-Leiste, Fach-Seite, Fehlerheft aus Mathe und Dril
   await ctx.close();
 });
 
+await scenario("Eigene Checkliste: Foto vom Themenzettel → KI-Checkliste, selbst eintippen, Kann-ich; Rechenweg per Foto prüfen", async () => {
+  const b = new MockBackend(); const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const FK = "11111111-aaaa-4aaa-8aaa-0000000000f4", DK = "11111111-aaaa-4aaa-8aaa-0000000000d4";
+  b.db.klausuren.push({ id: FK, fach: "Französisch", thema: "Klausur Nr. 2", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  b.db.klausuren.push({ id: DK, fach: "Deutsch", thema: "Lyrik", datum: day(20), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==", "base64");
+  // Start-Schritt „Checkliste anlegen“
+  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-steps"); assert.ok((await page.textContent(".km-steps")).includes("Checkliste anlegen"));
+  await go(page, "#/klausur/" + FK + "?tab=checkliste"); await page.waitForSelector(".kc-file"); assert.ok(await noScroll()); await shot(page, "kc-01-anlegen");
+  await page.setInputFiles("#kc_files", { name: "zettel.png", mimeType: "image/png", buffer: png });
+  await page.click("#kc_ai"); await page.waitForSelector(".ck-row");
+  assert.equal(b.lastAi.mode, "checklist"); assert.equal(b.lastAi.files[0].media_type, "image/jpeg", "Foto verkleinert als JPEG"); assert.equal(b.lastAi.fach, "Französisch");
+  assert.equal(await page.$$eval(".ck-row", x => x.length), 3); assert.ok(await noScroll()); await shot(page, "kc-02-liste");
+  await page.click(".ck-row"); await page.waitForSelector(".ck-learn"); assert.ok((await page.textContent(".ck-learn")).includes("je suis allé(e)"));
+  assert.ok((await page.textContent(".ck-paper")).includes("S. 40, Nr. 2")); await shot(page, "kc-03-punkt");
+  await page.click('[data-kcst="1:ok"]'); await page.waitForSelector('[data-kcst="1:ok"].on');
+  // Punkt ohne Erklärung → KI erklärt
+  await go(page, "#/klausur/" + FK + "?tab=checkliste&p=3"); await page.waitForSelector("#kc_explain"); await page.click("#kc_explain"); await page.waitForSelector(".ck-b h3");
+  await page.evaluate(() => Api.idle()); await page.waitForTimeout(400); await page.evaluate(() => Api.idle());
+  const c = b.db.einstellungen.find(x => x.key === "checklisten").value[FK]; assert.equal(c.st["1"], "ok"); assert.ok(c.items[2].learn.length >= 1);
+  // Fach-Seite zeigt die Checkliste
+  await go(page, "#/fach/Franz%C3%B6sisch"); await page.waitForSelector(".kc-card"); assert.ok((await page.textContent(".kc-card")).includes("1 von 3"));
+  // Deutsch: selbst eintippen (ohne KI)
+  await go(page, "#/klausur/" + DK + "?tab=checkliste"); await page.waitForSelector("#kc_text");
+  await page.fill("#kc_text", "Analyse:\n1. Metrum bestimmen\n2. Stilmittel erkennen\nSchreiben:\n3. Gedichtvergleich"); await page.click("#kc_textgo"); await page.waitForSelector(".ck-row");
+  assert.deepEqual(await page.$$eval(".ck-area h2", x => x.map(e => e.textContent)), ["Analyse", "Schreiben"]);
+  // Rechenweg-Check in einer Mathe-Runde
+  await go(page, "#/mathe/ck-8"); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
+  await page.fill('[data-mkin="0"]', "777"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad");
+  await page.click("[data-rw]"); await page.waitForSelector(".rw-pick"); await page.setInputFiles("#rw_file", { name: "heft.png", mimeType: "image/png", buffer: png });
+  await page.waitForSelector(".rw-steps"); assert.equal(b.lastAi.mode, "workcheck"); assert.ok(b.lastAi.exercise.question.includes("Nullstellen"));
+  assert.equal(await page.$$eval(".rw-steps li.bad", x => x.length), 1); assert.ok(await noScroll()); await shot(page, "kc-04-rechenweg");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);
