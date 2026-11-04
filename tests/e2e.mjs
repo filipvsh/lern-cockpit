@@ -795,8 +795,7 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   const mt = b.db.topics.filter(t => t.exam_id === mk.id);
   assert.ok(mt.some(t => t.title === "Potenzfunktionen" && t.status === "active"));
   assert.ok(mt.length >= 2 && mt.every(t => t.status === "active"), "alte Themen wieder aktiv");
-  assert.ok(await page.evaluate(id => klDone(id) && !upcomingKL().some(k => k.id === id), mk.id), "Mathe-Klausur als geschrieben markiert");
-  assert.equal(mk.datum, day(9), "Datum bleibt unverändert");
+  assert.ok(await page.evaluate(id => !klDone(id) && upcomingKL().some(k => k.id === id), mk.id), "spätere Mathe-Klausur (in 9 Tagen) bleibt anstehend");
   const msubs = await page.evaluate(id => subsOfExam(id).map(s => s.title), mk.id);
   assert.ok(msubs.length >= 6 && msubs.includes("Klausur-Training (gemischt)") && msubs.includes("Grafen"));
   // Französisch: Vokabeln verknüpft, Themen für Texte / Listening / Grammatik
@@ -1330,6 +1329,17 @@ await scenario("Klausur geschrieben: Knopf im Klausur-Modus, Note eintragen, ver
   assert.equal(b.db.klausuren.find(k => k.id === MK1).datum, day(0), "Datum unverändert, nichts gelöscht");
   await go(page, "#/dashboard"); await page.waitForSelector(".dsh"); assert.equal(await page.$(`.dsh-ex[href="#/klausur/${MK1}"]`), null, "nicht mehr in der Übersicht");
   await go(page, "#/mathe"); await page.waitForSelector(".ck-done"); assert.ok(await page.$(".ck-row"), "Checkliste bleibt"); await shot(page, "kg-03-checkliste");
+  await ctx.close();
+});
+
+await scenario("Inhalts-Paket „Mathe geschrieben“: heutige Mathe-Klausur wird markiert, spätere bleibt", async () => {
+  const b = new MockBackend({ packs: true }); const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m7", fach: "Mathe", thema: "Funktionen", datum: day(0), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m8", fach: "Mathe", thema: "2. Klausur", datum: day(30), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b); await login(page);
+  await page.waitForFunction(() => (setting("packs_done", {}) || {})["mathe-1-geschrieben"] && !PACKS_RUNNING, null, { timeout: 15000 });
+  const r = await page.evaluate(() => ({ today: klDone("11111111-aaaa-4aaa-8aaa-0000000000m7"), later: klDone("11111111-aaaa-4aaa-8aaa-0000000000m8"), up: upcomingKL().map(k => k.id) }));
+  assert.ok(r.today, "heutige markiert"); assert.ok(!r.later && r.up.includes("11111111-aaaa-4aaa-8aaa-0000000000m8"), "2. Klausur bleibt");
   await ctx.close();
 });
 
