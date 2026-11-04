@@ -1062,7 +1062,7 @@ await scenario("Mathe ohne Tippen: Videos abhaken, Graphen-Quiz, Papier-Modus; N
   await page.waitForFunction(() => (setting("packs_done", {}) || {})["mathe-potenz-2"] && !PACKS_RUNNING, null, { timeout: 15000 });
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   // Handy-Leiste
-  assert.deepEqual(await page.$$eval("#mnav a", a => a.map(x => x.textContent.replace(/\d+$/, "").trim())), ["Start", "Klausuren", "Vokabeln", "Noten"]);
+  assert.deepEqual(await page.$$eval("#mnav a", a => a.map(x => { const c = x.cloneNode(true); c.querySelectorAll(".nbadge").forEach(n => n.remove()); return c.textContent.trim(); })), ["Start", "Fächer", "Vokabeln", "Noten"]);
   // Klausur-Modus Mathe: Start → Video zuerst
   await go(page, "#/klausur/" + MK); await page.waitForSelector(".km-steps"); assert.ok(await noScroll());
   assert.ok((await page.textContent(".km-step")).includes("Video: Potenzen"), "erst das Video");
@@ -1098,7 +1098,7 @@ await scenario("Mathe ohne Tippen: Videos abhaken, Graphen-Quiz, Papier-Modus; N
   assert.ok(b.db.learning_events.some(e => e.type === "self_assessment" && e.subtopic_id === sub && +e.result === 1), "Selbstbewertung gespeichert");
   await page.evaluate(async () => { await tsFinish("abandoned", true); TS = null; tsSave(); await Api.idle(); });
   // Noten: Punkte antippen
-  await go(page, "#/noten"); await page.waitForSelector("[data-npt]"); assert.ok(await noScroll(), "Noten ohne Querscrollen");
+  await go(page, "#/noten"); await page.waitForSelector(".add-box summary"); assert.ok(!(await page.$eval(".add-box", d => d.open)), "Formular erst auf Tippen"); await page.click(".add-box summary"); await page.waitForSelector("[data-npt]"); assert.ok(await noScroll(), "Noten ohne Querscrollen");
   await page.click('[data-npt="13"]'); assert.equal(await page.inputValue("#n_pt"), "13");
   await page.click("#n_add"); await page.waitForTimeout(400);
   assert.ok(b.db.noten.some(n => +n.punkte === 13), "Note gespeichert");
@@ -1340,6 +1340,37 @@ await scenario("Inhalts-Paket „Mathe geschrieben“: heutige Mathe-Klausur wir
   await page.waitForFunction(() => (setting("packs_done", {}) || {})["mathe-1-geschrieben"] && !PACKS_RUNNING, null, { timeout: 15000 });
   const r = await page.evaluate(() => ({ today: klDone("11111111-aaaa-4aaa-8aaa-0000000000m7"), later: klDone("11111111-aaaa-4aaa-8aaa-0000000000m8"), up: upcomingKL().map(k => k.id) }));
   assert.ok(r.today, "heutige markiert"); assert.ok(!r.later && r.up.includes("11111111-aaaa-4aaa-8aaa-0000000000m8"), "2. Klausur bleibt");
+  await ctx.close();
+});
+
+await scenario("Handy: Fächer-Leiste, Fach-Seite, Fehlerheft aus Mathe und Drill – üben, bis die Fehler weg sind", async () => {
+  const b = new MockBackend(); const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f3", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(5), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  assert.deepEqual(await page.$$eval("#mnav a", a => a.map(x => { const c = x.cloneNode(true); c.querySelectorAll(".nbadge").forEach(n => n.remove()); return c.textContent.trim(); })), ["Start", "Fächer", "Vokabeln", "Noten"]);
+  await page.click('#mnav a[href="#/faecher"]'); await page.waitForSelector(".fa-list");
+  assert.equal(await page.$eval(".fa-row b", e => e.textContent), "Französisch", "Fach mit nächster Klausur zuerst (in 5 Tagen)");
+  assert.ok(await noScroll()); await shot(page, "fa-01-faecher");
+  await page.click('.fa-row[href="#/fach/Franz%C3%B6sisch"]'); await page.waitForSelector(".fa-exam-card");
+  assert.ok(await page.$('a.dr-card[href="#/drill"]'), "Grammatik-Drill auf der Fach-Seite"); assert.ok(await noScroll()); await shot(page, "fa-02-fach");
+  // Mathe: eine Aufgabe falsch → Fehlerheft
+  await go(page, "#/mathe/ck-8"); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
+  const it = await page.evaluate(() => MKR.items[MKR.i]); await page.fill('[data-mkin="0"]', "777"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad");
+  // Drill: eine Aufgabe falsch
+  await go(page, "#/drill/ce"); await page.evaluate(() => { STATE.settings.drill = { ce: { "ce:CD": { b: 0, r: 1, w: 0 } } }; route(); });
+  await page.waitForSelector("[data-drstart]"); await page.click("[data-drstart]"); await page.waitForSelector("#dr_in");
+  const dk = await page.evaluate(() => DRL.items[0].key); await page.fill("#dr_in", "falsch"); await page.click("#dr_check"); await page.waitForSelector(".les-foot.bad");
+  await page.evaluate(() => fehlerFlush()); await page.evaluate(() => Api.idle());
+  const fh = b.db.einstellungen.find(x => x.key === "fehlerheft").value; assert.deepEqual(fh.map(e => e.id).sort(), ["drill:" + dk, "mathe:" + it.key].sort());
+  // Fehlerheft ansehen und Mathe-Fehler üben
+  await go(page, "#/fehler"); await page.waitForSelector(".fe-group"); assert.equal(await page.$$eval(".fe-row", x => x.length), 2); assert.ok(await noScroll()); await shot(page, "fa-03-fehlerheft");
+  await page.click('[data-fepractice="mathe"]'); await page.waitForSelector(".mk-q");
+  const n = await page.evaluate(() => MKR.items.length); assert.ok(n >= 5);
+  for (let i = 0; i < n; i++) { const x = await page.evaluate(() => MKR.done ? null : MKR.items[MKR.i]); if (!x) break; const f = v => String(v).replace(".", ","); if (x.kind === "nums") { if (!x.answer.length) await page.click("[data-mknone]"); else for (let k = 0; k < x.answer.length; k++) await page.fill(`[data-mkin="${k}"]`, f(x.answer[k])); } await page.click("#mk_check"); await page.waitForSelector(".les-foot.ok"); await page.click("#mk_next"); }
+  assert.ok(!(await page.evaluate(() => fehlerAll().some(e => e.src === "mathe"))), "Mathe-Fehler nach richtigem Lösen weg");
+  // Drill-Fehler über ✓ „Kann ich jetzt“ erledigen
+  await go(page, "#/fehler"); await page.waitForSelector(".fe-ok"); await page.click(".fe-ok"); await page.waitForSelector("text=Keine offenen Fehler");
   await ctx.close();
 });
 

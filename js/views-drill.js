@@ -49,10 +49,11 @@ function modeSeg(f) {
 function bindModeSeg() {
   document.querySelectorAll("[data-lmode]").forEach(b => b.onclick = async () => { const [f, k] = b.dataset.lmode.split(":"); const all = Object.assign({}, setting("lern_modus", {}) || {}); all[f] = k; await setSetting("lern_modus", all); route(); });
 }
-function drillStart(topicId) {
-  const mode = lernModus("fr");
-  const items = DRILL.round(topicId, drillStats(topicId), 12, Math.random, mode);
-  DRL = { topic: topicId, mode, items, i: 0, total: items.length, right: 0, ui: {}, retries: {}, started: Date.now(), done: false, wrong: [] };
+function drillStart(topicId, onlyKeys) {
+  const mode = lernModus("fr"); const st = drillStats(topicId);
+  const items = onlyKeys ? onlyKeys.map(k => DRILL.items(topicId).find(x => x.key === k)).filter(Boolean).map(b => { const box = (st[b.key] || {}).b || 0; return Object.assign(DRILL.variant(b, DRILL.levelFor(box, mode), Math.random), { box }, mode === "schwer" ? { hint: null } : {}); }).sort(() => Math.random() - 0.5)
+    : DRILL.round(topicId, st, 12, Math.random, mode);
+  DRL = { topic: topicId, mode, fehler: !!onlyKeys, items, i: 0, total: items.length, right: 0, ui: {}, retries: {}, started: Date.now(), done: false, wrong: [] };
   const h = "#/drill/" + topicId + "?run=1"; if (location.hash === h) route(); else location.hash = h;
 }
 
@@ -219,6 +220,8 @@ function drillCheck() {
   if (ok && !it.retry && !ui.tip) R.right++;
   if (!ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 2) { R.retries[it.key] = n + 1; const base = DRILL.items(R.topic).find(x => x.key === it.key); R.items.splice(Math.min(R.items.length, R.i + 4), 0, Object.assign(DRILL.variant(base, R.mode === "schwer" ? 3 : Math.max(0, (it.level || 0) - 1), Math.random), { box: it.box, retry: true }, R.mode === "schwer" ? { hint: null } : {})); } }
   if (!it.retry && !(ok && ui.tip)) drillSave(R.topic, DRILL.learn(drillStats(R.topic), it.key, ok));
+  if (!ok) fehlerAdd({ src: "drill", key: it.key, topic: R.topic, fach: "Französisch", prompt: it.prompt, answer: it.full ? (x => x.endsWith("'") ? x : x + " ")(DRILL.pron(it.person, it.full)) + it.full : it.answer, given: ui.given });
+  else if (R.fehler && !ui.tip) fehlerResolve("drill", it.key);
   route();
 }
 async function drillNext() {
@@ -318,7 +321,8 @@ async function drillGrade() {
   const res = DRT.items.map((it, k) => DRILL.check(DRT.given[k], it.answer, it));
   const pts = res.reduce((a, r) => a + DRT_POINTS[r], 0), n = DRT.items.length, pct = Math.round(pts / n * 100);
   const all = Object.assign({}, setting("drill", {}) || {});
-  DRT.items.forEach((it, k) => { all[it.topic] = DRILL.learn(all[it.topic] || {}, it.key, res[k] === "ok"); });
+  DRT.items.forEach((it, k) => { all[it.topic] = DRILL.learn(all[it.topic] || {}, it.key, res[k] === "ok"); if (res[k] !== "ok") fehlerAdd({ src: "drill", key: it.key, topic: it.topic, fach: "Französisch", prompt: it.prompt, answer: it.answer, given: DRT.given[k] }); });
+  await fehlerFlush();
   STATE.settings.drill = all; await setSetting("drill", all);
   const note = DRILL.grade(pct); const xp = 10 + Math.round(pts);
   const hist = (setting("drill_tests", []) || []).concat([{ d: todayISO(), note, pts, n }]).slice(-20);

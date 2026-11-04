@@ -23,6 +23,7 @@ const MK_DONE = 80;
 const ckStatus = () => setting("mathe_check", {}) || {};
 /** Lern-Einheit: Thema des Extra-Kurses oder Punkt der Checkliste */
 function mkUnit(id) {
+  if (id === "fehler") return { id, keys: [...new Set(fehlerAll().filter(e => e.src === "mathe").map(e => e.key))].filter(k => MK.GEN[k] || k === "graph:pick"), title: "Fehlerheft", ico: "📕", back: "#/fehler" };
   if (String(id).startsWith("ck-")) { const it = MC.item(id.slice(3)); return it && { id, keys: it.keys, title: it.nr + " · " + it.short, ico: "✅", back: "#/mathe/" + id, item: it }; }
   const t = MK.TOPICS.find(x => x.id === id); return t && { id, keys: MK.types(id), title: t.title, ico: t.ico, back: "#/mathe/" + id, topic: t };
 }
@@ -53,7 +54,7 @@ function bindMathe() {
 }
 function mkStart(topic) {
   const u = mkUnit(topic); if (!u || !u.keys.length) return;
-  MKR = { topic, items: MK.roundKeys(u.keys, mkStats(), mkLvl(), 10, Math.random, GRAPH_FUNCS), i: 0, right: 0, ui: {}, retries: {}, wrong: [], done: false, mode: lernModus("ma") };
+  MKR = { topic, fehler: topic === "fehler", items: MK.roundKeys(u.keys, mkStats(), mkLvl(), topic === "fehler" ? Math.min(10, Math.max(5, u.keys.length * 2)) : 10, Math.random, GRAPH_FUNCS), i: 0, right: 0, ui: {}, retries: {}, wrong: [], done: false, mode: lernModus("ma") };
   MKR.total = MKR.items.length;
   const h = "#/mathe/" + topic + "?run=1"; if (location.hash === h) route(); else location.hash = h;
 }
@@ -202,6 +203,8 @@ function mkCheck() {
   if (ui.ok && !it.retry && !helped) R.right++;
   if (!ui.ok) { R.wrong.push(it); const n = R.retries[it.key] || 0; if (n < 1) { R.retries[it.key] = n + 1; R.items.splice(Math.min(R.items.length, R.i + 3), 0, Object.assign(MK.make(it.key, mkLvl(), Math.random, GRAPH_FUNCS), { retry: true })); } }
   if (!it.retry && !(ui.ok && helped)) mkSave(MK.learn(mkStats(), it.key, ui.ok));
+  if (!ui.ok) fehlerAdd({ src: "mathe", key: it.key, fach: "Mathe", prompt: it.prompt, answer: MK.answerText(it), given: it.opts && typeof ui.given === "number" ? it.opts[ui.given] : givenText(ui.given) });
+  else if (R.fehler && !helped) fehlerResolve("mathe", it.key);
   route();
 }
 async function mkNext() {
@@ -211,7 +214,7 @@ async function mkNext() {
 }
 function mkEnd() {
   const R = MKR; const t = mkUnit(R.topic); const acc = Math.round(R.right / R.total * 100); const p = MK.progressKeys(t.keys, mkStats());
-  const nu = t.item ? (n => n && { id: "ck-" + n.nr, ico: "✅", title: n.nr + " · " + n.short })(MC.ITEMS.slice(MC.ITEMS.indexOf(t.item) + 1).find(x => x.keys.length)) : (n => n && { id: n.id, ico: n.ico, title: n.title })(MK.TOPICS[MK.TOPICS.indexOf(t.topic) + 1]);
+  const nu = t.id === "fehler" ? null : t.item ? (n => n && { id: "ck-" + n.nr, ico: "✅", title: n.nr + " · " + n.short })(MC.ITEMS.slice(MC.ITEMS.indexOf(t.item) + 1).find(x => x.keys.length)) : (n => n && { id: n.id, ico: n.ico, title: n.title })(MK.TOPICS[MK.TOPICS.indexOf(t.topic) + 1]);
   const nxt = nu;
   return '<div class="les les-done"><div class="les-trophy">' + (acc === 100 ? "🏆" : acc >= 70 ? "🎉" : "💪") + '</div><h1 class="fx-title">' + (acc === 100 ? "Alles richtig!" : "Runde geschafft!") + '</h1>' +
     '<div class="les-stats"><div><b>+' + R.xp + '</b><span>XP</span></div><div><b>' + R.right + '/' + R.total + '</b><span>ohne Hilfe richtig</span></div><div><b>' + p + ' %</b><span>' + esc(t.title.split(",")[0]) + '</span></div></div>' +
@@ -259,7 +262,7 @@ function bindMkExam() {
     if (open && !confirm(plural(open, "Aufgabe ist", "Aufgaben sind") + " noch leer – trotzdem abgeben?")) return;
     const res = MKT.items.map((x, k) => MK.check(x, (MKT.ui[k] || {}).given));
     const pts = res.filter(Boolean).length, n = res.length, pct = Math.round(pts / n * 100), note = MK.grade(pct), xp = 10 + pts * 2;
-    let s = mkStats(); MKT.items.forEach((x, k) => { s = MK.learn(s, x.key, res[k]); }); STATE.settings.mathe_kurs = s; await setSetting("mathe_kurs", s);
+    let s = mkStats(); MKT.items.forEach((x, k) => { s = MK.learn(s, x.key, res[k]); if (!res[k]) { const g = (MKT.ui[k] || {}).given; fehlerAdd({ src: "mathe", key: x.key, fach: "Mathe", prompt: x.prompt, answer: MK.answerText(x), given: x.opts && typeof g === "number" ? x.opts[g] : givenText(g) }); } }); await fehlerFlush(); STATE.settings.mathe_kurs = s; await setSetting("mathe_kurs", s);
     await setSetting("mathe_tests", (setting("mathe_tests", []) || []).concat([{ d: todayISO(), note, pts, n }]).slice(-20));
     MKT.result = { res, pts, n, pct, note, xp }; MKT.done = true; addXP(xp); route();
   };
