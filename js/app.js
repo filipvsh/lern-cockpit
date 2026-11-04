@@ -150,7 +150,7 @@ function dashQuick() {
     tile('data-dq="vok"', "🗂️", "Vokabeln", "Sprache wählen, los") +
     (canLesson ? tile('data-lektion="' + esc(sc) + '"', "🦉", "Lektion", "Wie Duolingo") : tile('href="#/spiele"', "🦉", "Lektion", "Wie Duolingo")) +
     tile('href="#/spiele"', "🎮", "Spiele", "Kurz zwischendurch") +
-    tile('href="#/noten"', "📊", "Noten", "Eintragen & Schnitt") + '</div></section>';
+    (typeof fehlerAll === "function" && fehlerAll().length ? tile('href="#/fehler"', "📕", "Fehlerheft", plural(fehlerAll().length, "Fehler", "Fehler") + " üben") : tile('href="#/faecher"', "📚", "Fächer", "Alles pro Fach")) + '</div></section>';
 }
 /** 4 · Schule heute: Hausaufgaben + Stundenplan (eingeklappt) */
 function dashSchool() {
@@ -444,7 +444,7 @@ function bindTrainer() {
    ===================================================================== */
 const ROUTE = { name: "dashboard", sub: "", id: "", query: {} };
 const ALIASES = { klausuren: "lernplan", statistik: "fortschritt" };
-const OWN_HEADER = ["dashboard", "vokabeln", "lernplan", "trainer", "material", "spiele", "extrem", "klausur", "lektion", "drill", "mathe", "ki", "fortschritt", "auth"];
+const OWN_HEADER = ["dashboard", "vokabeln", "lernplan", "trainer", "material", "spiele", "extrem", "klausur", "lektion", "drill", "mathe", "faecher", "fach", "fehler", "ki", "fortschritt", "auth"];
 const ENGINE_FREE = ["aufgaben", "stundenplan", "noten", "info", "ernaehrung", "einstellungen"];
 function parseRoute() {
   let h = location.hash.replace(/^#\/?/, ""); const qi = h.indexOf("?"); let q = {};
@@ -482,7 +482,7 @@ function route() {
   if (enter && !ROUTE.query.keep) window.scrollTo({ top: 0 });
 }
 function bindPage(name) {
-  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, klausur: bindKlausur, lektion: bindLektion, drill: bindDrill, mathe: bindMathe, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: bindMotivation }[name];
+  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, klausur: bindKlausur, lektion: bindLektion, drill: bindDrill, mathe: bindMathe, fach: bindFach, fehler: bindFehler, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: bindMotivation }[name];
   if (b) b();
 }
 window.addEventListener("hashchange", () => { closeModal(); const prev = ROUTE.name + "/" + ROUTE.sub; parseRoute(); if (ROUTE.name + "/" + ROUTE.sub !== prev) VOK_FILTER = ""; route(); });

@@ -10,7 +10,12 @@
 import Anthropic from "npm:@anthropic-ai/sdk@^0.131.0";
 
 export const MODEL = "claude-opus-5-5";
-export const MODES = ["ping", "explain", "practice", "quiz", "correct", "hint", "simulate", "socratic"] as const;
+export const MODES = ["ping", "explain", "practice", "quiz", "correct", "hint", "simulate", "socratic", "checklist", "workcheck"] as const;
+/** Erlaubte Herkunft der App – zusätzlich zu ALLOWED_ORIGIN (kommagetrennt möglich) */
+export const DEFAULT_ORIGINS = ["https://filipvsh.github.io"];
+/** Bilder/PDFs: höchstens 4 Dateien, je höchstens ~6 MB (Base64) */
+export const FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+const MAX_FILES = 4, MAX_B64 = 8_000_000;
 type Mode = typeof MODES[number];
 
 export interface Deps {
@@ -32,6 +37,8 @@ export const SCHEMAS: Record<Exclude<Mode, "ping">, Record<string, unknown>> = {
   hint: obj({ hint: str }),
   simulate: obj({ title: str, instructions: str, material: str, time_minutes: { type: "integer" }, expectations: strArr }),
   socratic: obj({ message: str, question: str }),
+  checklist: obj({ fach: str, title: str, items: { type: "array", items: obj({ nr: str, area: str, short: str, title: str, book: strArr, learn: { type: "array", items: obj({ h: str, t: str, f: str, ex: strArr }) }, paper: strArr }) } }),
+  workcheck: obj({ verdict: { type: "string", enum: ["correct", "partial", "wrong", "unreadable"] }, summary: str, steps: { type: "array", items: obj({ line: str, ok: { type: "boolean" }, comment: str }) }, first_error: str, tip: str }),
 };
 
 /* ---------------- Aufträge je Modus ---------------- */
@@ -63,9 +70,34 @@ Schreibe keine vollständige Musterlösung.`,
 4 = vollständige Erklärung: zeige Lösung und Begründung.
 Berücksichtige seine bisherige Antwort, falls vorhanden. 1–4 Sätze (Stufe 4 darf länger sein).`,
   simulate: `MODUS: PRÜFUNGSSIMULATION. Erstelle eine realistische Klausuraufgabe zum Thema (Niveau EF, NRW), wie sie in dieser Prüfung gestellt werden könnte, mit Schwerpunkt auf dem Unterthema. „instructions“: Aufgabenstellung mit Operatoren. „material“: ggf. kurzer Ausgangstext/Material (sonst leer). „time_minutes“: realistische Bearbeitungszeit (10–90). „expectations“: 3–5 Bewertungsschwerpunkte.`,
+  checklist: `MODUS: CHECKLISTE ERSTELLEN. Der Schüler schickt ein Foto oder PDF seines Themenzettels / seiner Checkliste für eine Klausur (oder den Text davon). Übernimm ALLE Punkte des Zettels in der Original-Reihenfolge – erfinde keine neuen, lass keine weg. Je Punkt:
+- „nr“: die Nummer vom Zettel (sonst fortlaufend 1, 2, 3 …), „area“: Abschnitt/Überschrift vom Zettel (sonst leer), „title“: der Wortlaut vom Zettel, „short“: 2–5 Wörter Kurztitel.
+- „book“: Buchseiten/Aufgaben, die auf dem Zettel zu diesem Punkt stehen (z. B. „S. 32, Nr. 1“), sonst leer – nichts erfinden.
+- „learn“: 2–3 Erklär-Blöcke für die EF: „h“ Überschrift, „t“ Erklärung in 1–3 Sätzen (**fett** sparsam), „f“ Merkkasten/Formel (oder leer), „ex“ ein durchgerechnetes Beispiel in 2–5 kurzen Schritten (oder leer). Fachlich korrekt, verständlich.
+- „paper“: 1–2 konkrete Aufträge, was er auf Papier/iPad aufschreiben oder üben soll.
+„fach“: das Fach, „title“: Titel des Zettels. Ist auf dem Bild nichts Lesbares, gib items leer zurück.`,
+  workcheck: `MODUS: RECHENWEG PRÜFEN. Der Schüler schickt ein Foto seines handschriftlichen Rechenwegs zur angegebenen Aufgabe. Lies den Rechenweg Zeile für Zeile.
+„steps“: jede erkennbare Zeile in „line“ (abgeschrieben, kurz), „ok“ ob sie mathematisch stimmt, „comment“ kurz was falsch ist (bei ok leer). „first_error“: die erste falsche Stelle und warum (leer, wenn alles stimmt). „tip“: ein konkreter Hinweis für das nächste Mal. „verdict“: correct (Weg und Ergebnis stimmen), partial (Ansatz richtig, Fehler unterwegs), wrong, unreadable (nicht lesbar – dann steps leer). „summary“: ein Satz. Verrate nicht mehr als nötig; die Musterlösung ist nur für dich.`,
   socratic: `MODUS: SOKRATISCH. Gib NIEMALS die Lösung oder fertige Antworten. Führe den Schüler mit genau EINER gezielten Frage pro Runde zum eigenen Verständnis. „message“: kurze Reaktion auf seine letzte Antwort (bestätigen, was stimmt; ohne die Lösung vorwegzunehmen), „question“: die nächste Denkfrage. Wenn er erkennbar selbst zur richtigen Erkenntnis gekommen ist, sag das in „message“ und stelle eine Transferfrage.`,
 };
-const EFFORT: Record<string, "low" | "medium" | "high"> = { explain: "medium", practice: "medium", quiz: "low", correct: "high", hint: "low", simulate: "medium", socratic: "low" };
+const EFFORT: Record<string, "low" | "medium" | "high"> = { explain: "medium", practice: "medium", quiz: "low", correct: "high", hint: "low", simulate: "medium", socratic: "low", checklist: "medium", workcheck: "medium" };
+const MAX_TOKENS: Record<string, number> = { correct: 8000, simulate: 8000, checklist: 16000, workcheck: 6000 };
+
+/** Bilder/PDFs aus der Anfrage prüfen → Inhaltsblöcke für Claude (oder Fehlertext) */
+export function fileBlocks(files: unknown): { blocks: Record<string, unknown>[]; error?: string } {
+  if (files == null) return { blocks: [] };
+  if (!Array.isArray(files)) return { blocks: [], error: "files muss eine Liste sein" };
+  if (files.length > MAX_FILES) return { blocks: [], error: "Höchstens " + MAX_FILES + " Dateien" };
+  const blocks: Record<string, unknown>[] = [];
+  for (const f of files as { media_type?: string; data?: string }[]) {
+    if (!f || !FILE_TYPES.includes(String(f.media_type)) || typeof f.data !== "string" || !f.data) return { blocks: [], error: "Nur Fotos (JPG/PNG/WebP) oder PDF" };
+    if (f.data.length > MAX_B64) return { blocks: [], error: "Datei zu groß (max. ca. 6 MB)" };
+    blocks.push(f.media_type === "application/pdf"
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data } }
+      : { type: "image", source: { type: "base64", media_type: f.media_type, data: f.data } });
+  }
+  return { blocks };
+}
 
 /* ---------------- Hilfen ---------------- */
 const json = (status: number, body: unknown, cors: Record<string, string>) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -120,26 +152,31 @@ export function buildRequest(mode: Exclude<Mode, "ping">, body: Record<string, u
   if (body.answer) parts.push("ANTWORT DES SCHÜLERS\n" + clip(body.answer, 12000));
   if (body.exam_mode) parts.push("Hinweis: Die Antwort entstand im Prüfungsmodus unter Zeitdruck.");
   if (body.input) parts.push("NACHRICHT DES SCHÜLERS\n" + clip(body.input, 4000));
+  if (mode === "checklist" && (body.fach || body.thema)) parts.push("KLAUSUR\n" + clip(body.fach, 60) + (body.thema ? " – " + clip(body.thema, 200) : ""));
   const history = Array.isArray(body.history) ? body.history.slice(-12) : [];
-  const messages: { role: "user" | "assistant"; content: string }[] = [];
+  const messages: { role: "user" | "assistant"; content: string | Record<string, unknown>[] }[] = [];
   history.forEach((h: { role?: string; content?: string }) => {
     const role = h.role === "assistant" ? "assistant" : "user";
     const content = clip(h.content, 4000); if (!content) return;
-    if (messages.length && messages[messages.length - 1].role === role) messages[messages.length - 1].content += "\n\n" + content;
+    if (messages.length && messages[messages.length - 1].role === role) messages[messages.length - 1].content = String(messages[messages.length - 1].content) + "\n\n" + content;
     else messages.push({ role, content });
   });
   // Die aktuelle Anfrage ist immer die letzte Nutzer-Nachricht
   const current = parts.join("\n\n");
   if (messages.length && messages[messages.length - 1].role === "user") messages.pop();   // letzte Nutzer-Eingabe steckt bereits in „current“
   if (messages.length && messages[0].role === "assistant") messages.unshift({ role: "user", content: "(Beginn der Übung)" });
-  messages.push({ role: "user", content: current });
+  const files = fileBlocks(body.files).blocks;
+  messages.push({ role: "user", content: files.length ? [...files, { type: "text", text: current }] : current });
   const system = BASE + "\n\n" + TASKS[mode].replace("{LEVEL}", String(Math.min(4, Math.max(1, Number(body.level) || 1))));
   return { system, messages };
 }
 
 export function createHandler(d: Deps) {
   return async (req: Request): Promise<Response> => {
-    const origin = d.env("ALLOWED_ORIGIN") || "*";
+    // CORS: ALLOWED_ORIGIN (auch mehrere, kommagetrennt) + GitHub Pages; ohne Einstellung offen
+    const listed = (d.env("ALLOWED_ORIGIN") || "").split(",").map(x => x.trim().replace(/\/$/, "")).filter(Boolean);
+    const reqOrigin = req.headers.get("Origin") || "";
+    const origin = !listed.length ? "*" : [...listed, ...DEFAULT_ORIGINS].includes(reqOrigin) ? reqOrigin : listed[0];
     const cors = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS", "Vary": "Origin" };
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (req.method !== "POST") return json(405, { error: "Nur POST", code: "bad_request" }, cors);
@@ -156,7 +193,10 @@ export function createHandler(d: Deps) {
     const mode = body.mode as Mode;
     if (!MODES.includes(mode)) return json(400, { error: "Unbekannter Modus", code: "bad_request" }, cors);
     if (!d.env("ANTHROPIC_API_KEY")) return json(503, { error: "ANTHROPIC_API_KEY ist nicht gesetzt", code: "not_configured" }, cors);
-    if (mode === "ping") return json(200, { ok: true, model: MODEL }, cors);
+    if (mode === "ping") return json(200, { ok: true, model: MODEL, modes: MODES }, cors);
+    const fb = fileBlocks(body.files); if (fb.error) return json(400, { error: fb.error, code: "bad_request" }, cors);
+    if (mode === "workcheck" && !fb.blocks.length) return json(400, { error: "Foto vom Rechenweg fehlt", code: "bad_request" }, cors);
+    if (mode === "checklist" && !fb.blocks.length && !String(body.input || "").trim()) return json(400, { error: "Foto, PDF oder Text des Themenzettels fehlt", code: "bad_request" }, cors);
 
     // Begrenzung pro Nutzer (pro Funktionsinstanz)
     const now = d.now?.() ?? Date.now();
@@ -172,7 +212,7 @@ export function createHandler(d: Deps) {
     try {
       const params = {
         model: MODEL,
-        max_tokens: mode === "correct" || mode === "simulate" ? 8000 : 4000,
+        max_tokens: MAX_TOKENS[mode] ?? 4000,
         system,
         messages,
         output_config: { effort: EFFORT[mode], format: { type: "json_schema", schema: SCHEMAS[mode] } },

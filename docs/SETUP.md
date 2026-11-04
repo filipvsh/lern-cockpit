@@ -52,7 +52,7 @@ supabase link --project-ref tafksekafwihvrwxxzdh
 
 # Schlüssel nur als Secret auf dem Server – niemals in die App
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-supabase secrets set ALLOWED_ORIGIN=https://precious-tarsier-d3ff5d.netlify.app
+supabase secrets set ALLOWED_ORIGIN=https://filipvsh.github.io
 
 supabase functions deploy ai-tutor
 ```
