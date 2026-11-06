@@ -1359,7 +1359,7 @@ await scenario("Handy: Fächer-Leiste, Fach-Seite, Fehlerheft aus Mathe und Dril
   assert.ok(await noScroll()); await shot(page, "fa-01-faecher");
   await page.click('.fa-row:has-text("Französisch")'); await page.waitForSelector(".km-hero");
   assert.equal(await page.textContent(".km-hero h1"), "Französisch", "Fach mit Klausur → direkt die Klausur-Seite");
-  assert.ok(await page.$('a.dr-card[href="#/drill"]'), "Grammatik-Drill auf der Klausur-/Fach-Seite"); assert.ok(await noScroll()); await shot(page, "fa-02-fach");
+  assert.ok(await page.$('.km-tile[data-kmgo="drill"]'), "Grammatik-Drill als Kachel auf der Fach-Seite"); assert.ok(await noScroll()); await shot(page, "fa-02-fach");
   // Mathe: eine Aufgabe falsch → Fehlerheft
   await go(page, "#/mathe/ck-8"); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
   const it = await page.evaluate(() => MKR.items[MKR.i]); await page.fill('[data-mkin="0"]', "777"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad");
