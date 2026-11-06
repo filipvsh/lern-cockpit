@@ -629,3 +629,18 @@ test("Checkliste: GeoGebra-Eingabe tolerant (Leerzeichen, f(x)=, Komma), aber Kl
   assert.equal(MCK.lin(1, -3), "x − 3"); assert.equal(MCK.quad(2, -1, 0), "2x² − x"); assert.equal(MCK.vertex(-1, -2, 3), "−(x + 2)² + 3");
   const ex = MKK.exam(Math.random, GF, MCK.EXAM_CK); assert.ok(ex.length >= 12 && ex.length <= 16); assert.ok(ex.every(x => /^ck:|^eigen:/.test(x.key)));
 });
+
+test("Vokabeln: alte Wörter (≥ 14 Tage nicht gesehen) werden zum Auffrischen beigemischt, Reihenfolge zufällig", () => {
+  const now = Date.parse("2026-11-06T10:00:00Z"); const iso = d => new Date(now - d * 864e5).toISOString();
+  const due = [1, 2, 3, 4, 5].map(i => ({ id: "d" + i, reps: 2, last_result: "correct", next_review_at: iso(1), last_reviewed_at: iso(3), stability: 2 }));
+  const old = [1, 2, 3, 4].map(i => ({ id: "o" + i, reps: 5, last_result: "correct", next_review_at: new Date(now + 30 * 864e5).toISOString(), last_reviewed_at: iso(20 + i), stability: 40 }));
+  const recent = { id: "r", reps: 5, last_result: "correct", next_review_at: new Date(now + 30 * 864e5).toISOString(), last_reviewed_at: iso(3), stability: 40 };
+  const q = E.buildVocabQueue(due.concat(old, [recent]), { now, limit: 20, refresh: 3 });
+  assert.equal(q.filter(c => c.id.startsWith("o")).length, 3, "3 alte zum Auffrischen"); assert.ok(!q.some(c => c.id === "r"), "kürzlich gesehene nicht");
+  assert.equal(E.buildVocabQueue(due.concat(old), { now, limit: 20 }).filter(c => c.id.startsWith("o")).length, 0, "ohne refresh wie bisher");
+  const wrong = Object.assign({}, due[4], { id: "w", last_result: "wrong" });
+  let seed = 5; const rng = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  const sh = E.buildVocabQueue(due.concat([wrong]), { now, limit: 20, shuffle: true, rng });
+  assert.equal(sh[0].id, "w", "Falsche bleiben vorne"); assert.equal(sh.length, 6);
+  assert.equal(E.buildVocabQueue(due.concat(old), { now, limit: 4, refresh: 3 }).length, 4, "Limit bleibt");
+});

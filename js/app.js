@@ -119,7 +119,7 @@ V.dashboard = () => {
   const chip = '<a class="dsh-streak' + (risk ? " risk" : today >= goal ? " done" : "") + '" href="#/fortschritt" title="Serie · XP heute"><span class="fl' + (today ? " lit" : "") + '">🔥</span><b>' + st + '</b><span class="xp">' + today + '/' + goal + ' XP</span></a>';
   const head = '<header class="dsh-h"><div style="min-width:0"><div class="eyebrow">' + esc(date) + '</div><h1>' + greeting() + ', ' + esc(name) + '</h1></div>' + chip + '</header>';
   const push = typeof pushSupported === "function" && pushSupported() && PUSH.checked && !pushOn() ? '<a class="dsh-hint" href="#/einstellungen">🔔 Erinnerungen einschalten – damit deine Serie nicht reißt</a>' : '';
-  return netNotice() + dbBanner() + head + '<div class="dsh">' + dashNow() + dashExams() + dashQuick() + dashSchool() + push + '<div class="dsh-ver">Version ' + APP_VERSION + '</div></div>';
+  return netNotice() + dbBanner() + head + '<div class="dsh">' + dashGrades() + dashNow() + dashChecks() + dashExams() + dashQuick() + dashSchool() + push + '<div class="dsh-ver">Version ' + APP_VERSION + '</div></div>';
 };
 /** 1 · Jetzt dran: genau ein großer Knopf */
 function dashNow() {
@@ -133,7 +133,19 @@ function dashNow() {
   return '<div class="card dsh-now"><div class="dsh-l">Jetzt dran</div><h2>' + esc(it.title) + '</h2><p class="t-sub">' + esc(it.sub || "") + ' · ca. ' + Math.max(1, it.minutes - (it.doneMin || 0)) + ' Min.</p>' +
     '<button class="btn primary lg wide" data-plan="' + idx + '">' + ICO.play + 'Starten</button>' + (rest ? '<div class="dsh-rest"><div class="dsh-l2">Danach</div>' + rest + '</div>' : '') + steps + '</div>';
 }
-/** 2 · Klausuren: Tippen öffnet den Klausur-Modus */
+/** Abgehakte/vergangene Klausuren ohne Note → bis zur Note hier erinnern */
+const gradeDue = () => STATE.kl.filter(k => k.datum && k.punkte == null && !isVocabTest(k) && (klDone(k.id) || daysUntil(k.datum) < 0) && daysUntil(k.datum) >= -90).sort((a, b) => a.datum < b.datum ? -1 : 1);
+function dashGrades() {
+  const ks = gradeDue(); if (!ks.length) return '';
+  return '<div class="card dsh-grades"><div class="dsh-l">Note eintragen</div>' + ks.map(k => '<div class="dsh-gr"><span class="dot" style="background:' + fcol(k.fach) + '"></span><span class="dsh-et"><b>' + esc(k.fach) + (k.nr ? " · Klausur Nr. " + k.nr : "") + '</b><span class="t-sub">Klausur vom ' + esc(fmtDL(k.datum)) + ' · zurückbekommen?</span></span><button class="btn sm primary" data-klres="' + esc(k.id) + '">Note</button></div>').join("") + '</div>';
+}
+/** Termin steht, aber noch keine Checkliste → Foto oder eintippen */
+function dashChecks() {
+  if (typeof klCheck !== "function") return '';
+  const ks = kmExams().filter(k => !klCheck(k.id) && daysUntil(k.datum) <= 35); if (!ks.length) return '';
+  return '<div class="card dsh-checks"><div class="dsh-l">📋 Checkliste fehlt</div><p class="t-sub" style="margin:2px 0 8px">Foto vom Themenzettel oder Punkte eintippen – Claude baut Erklärungen und Übungen.</p>' + ks.slice(0, 4).map(k => '<a class="dsh-gr" href="#/klausur/' + esc(k.id) + '?tab=checkliste"><span class="dot" style="background:' + fcol(k.fach) + '"></span><span class="dsh-et"><b>' + esc(k.fach) + '</b><span class="t-sub">Klausur in ' + plural(daysUntil(k.datum), "Tag", "Tagen") + '</span></span><span class="chev">' + ICO.chev + '</span></a>').join("") + '</div>';
+}
+/** 2 · Klausuren: Tippen öffnet die Klausur-Seite */
 function dashExams() {
   const ks = upcomingKL(); if (!ks.length) return '';
   return '<section class="dsh-sec"><div class="dsh-sh"><h2>Deine Klausuren</h2><a class="shl" href="#/lernplan">Alle</a></div><div class="card tight dsh-exams">' + ks.slice(0, 5).map(k => {
@@ -166,6 +178,7 @@ function bindDashboard() {
   const plan = todayPlan();
   document.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => startPlanItem(plan.items[+b.dataset.plan]));
   const vq = document.querySelector('[data-dq="vok"]'); if (vq) vq.onclick = vocabPicker;
+  document.querySelectorAll("[data-klres]").forEach(b => b.onclick = () => { const k = klById(b.dataset.klres); if (k) resultModal(k); });
 }
 /** Vokabeln: bei einer Sprache direkt los, sonst kurz wählen */
 function vocabPicker() {

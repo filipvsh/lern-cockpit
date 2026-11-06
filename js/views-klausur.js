@@ -22,17 +22,19 @@ const kmTab = k => { const tabs = kmTabs(k); return tabs.some(t => t[0] === ROUT
 const kmVocabStart = k => ({ mode: "vocab", exam_vocab: k.id, direction: vlDir(), from: "klausur" });
 
 V.klausur = () => {
-  if (!engineReady()) return pageHead("Klausur-Modus") + setupCard();
+  if (!engineReady()) return pageHead("Klausur") + setupCard();
   const k = klById(decodeURIComponent(ROUTE.sub || ""));
-  if (!k) return pageHead("Klausur-Modus", { back: ["#/lernplan", "Lernplan"] }) + '<div class="card">' + emptyState("flag", "Klausur nicht gefunden", "Vielleicht wurde sie gelöscht.") + '</div>';
-  if (!kmActive(k)) return pageHead("Klausur-Modus", { back: ["#/lernplan/" + k.id, "Klausur"] }) + '<div class="card">' + emptyState("check", "Diese Klausur ist geschrieben", "Der Klausur-Modus ist damit beendet. Deine Vokabeln und dein Übungsstand bleiben erhalten." + (k.punkte == null ? " Sobald du sie zurückbekommst: Note eintragen." : ""), (k.punkte == null ? '<a class="btn primary sm" href="#/noten?neu=1">Note eintragen</a> ' : '') + '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
+  if (!k) return pageHead("Klausur", { back: ["#/faecher", "Fächer"] }) + '<div class="card">' + emptyState("flag", "Klausur nicht gefunden", "Vielleicht wurde sie gelöscht.") + '</div>';
+  if (!kmActive(k)) return pageHead(esc(k.fach), { back: ["#/faecher", "Fächer"] }) + '<div class="card">' + emptyState("check", "Klausur abgehakt", "Deine Vokabeln und dein Übungsstand bleiben erhalten." + (k.punkte == null ? " Sobald du sie zurückbekommst: Note eintragen." : ""), (k.punkte == null ? '<a class="btn primary sm" href="#/noten?neu=1">Note eintragen</a> ' : '') + '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
   const tab = kmTab(k);
   const nav = '<div class="seg dx-tabs km-tabs">' + kmTabs(k).map(([t, l]) => '<a class="' + (t === tab ? "on" : "") + '" href="#/klausur/' + esc(k.id) + '?tab=' + t + '">' + l + '</a>').join("") + '</div>';
   return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen, checkliste: kmCheckliste }[tab])(k) + '</div>';
 };
 function kmHead(k) {
   const d = daysUntil(k.datum); const r = readinessOf(k);
-  return '<a class="backlink" href="#/dashboard">' + ICO.back + 'Übersicht</a><div class="km-hero"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:' + fcol(k.fach) + ';margin-right:6px"></span>' + esc(k.fach) + ' · ' + esc(fmtDL(k.datum)) + (k.uhrzeit ? " · " + esc(k.uhrzeit) : "") + '</div><h1 class="t-large">Klausur-Modus</h1><p class="t-callout">' + esc(klTitle(k)) + '</p></div>' +
+  const std = (String(k.description || "").match(/\d\.–\d\. Stunde/) || [""])[0];
+  return '<a class="backlink" href="#/faecher">' + ICO.back + 'Fächer</a><div class="km-hero"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:' + fcol(k.fach) + ';margin-right:6px"></span>Klausur' + (k.nr ? " Nr. " + k.nr : "") + ' · ' + esc(fmtDL(k.datum)) + (k.uhrzeit ? " · " + esc(k.uhrzeit) : std ? " · " + std : "") + (k.raum ? " · " + esc(k.raum) : "") + '</div><h1 class="t-large">' + esc(k.fach) + '</h1><p class="t-callout">' + esc(klTitle(k)) + '</p>' +
+    '<div class="km-acts"><button class="btn sm" id="km_edit">✏️ Bearbeiten</button><button class="btn sm" id="km_written">✓ Geschrieben</button></div></div>' +
     '<div class="km-days"><span class="num">' + d + '</span><small>' + (d === 0 ? "heute" : d === 1 ? "Tag" : "Tage") + '</small>' + (r.score != null ? '<small>' + r.score + ' % bereit</small>' : '') + '</div></div>';
 }
 function bindKlausur() {
@@ -41,7 +43,9 @@ function bindKlausur() {
   document.querySelectorAll("[data-kmgo]").forEach(b => b.onclick = () => kmAction(k, b.dataset.kmgo));
   ({ checkliste: () => bindKmCheckliste(k), schreiben: () => bindKmSchreiben(k), vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
   const lk = q("km_link"); if (lk) lk.onclick = () => kmLinkModal(k);
-  const wr = q("km_written"); if (wr) wr.onclick = async () => { if (!confirm(k.fach + "-Klausur als geschrieben markieren? Der Klausur-Modus verschwindet, dein Lernstand bleibt.")) return; await markKlDone(k); toast("✓ " + k.fach + "-Klausur geschrieben – gut gemacht!"); location.hash = "#/klausur/" + k.id; route(); };
+  const ed = q("km_edit"); if (ed) ed.onclick = () => editKLModal(k);
+  if (kmTab(k) === "start" && !klCheck(k.id)) bindKmCheckliste(k);
+  const wr = q("km_written"); if (wr) wr.onclick = async () => { if (!confirm(k.fach + "-Klausur abhaken? Sie verschwindet aus deinen Klausuren – bis du die Note einträgst, erinnert dich die Startseite daran.")) return; await markKlDone(k); toast("✓ " + k.fach + "-Klausur geschrieben – gut gemacht!"); location.hash = "#/klausur/" + k.id; route(); };
   bindGrammarGames("exam:" + k.id); bindVideos();
   document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id));
 }
@@ -85,13 +89,15 @@ function kmSteps(k) {
   return out;
 }
 function kmStart(k) {
-  const steps = kmSteps(k); const words = examVocab(k); const subs = subsOfExam(k.id);
+  // Checkliste fehlt → steht schon groß oben, nicht noch einmal als Schritt
+  const steps = kmSteps(k).filter(s => !(s.go === "tab:checkliste" && !klCheck(k.id))); const words = examVocab(k); const subs = subsOfExam(k.id);
   const extrem = typeof isExtremExam === "function" && isExtremExam(k) ? extremEntry(k) : "";
-  const todo = '<div class="card km-steps"><h2>Heute für diese Klausur</h2>' + steps.map((s, i) => '<button class="km-step' + (i === 0 && s.main ? " km-main" : "") + '" data-kmgo="' + esc(s.go) + '"><span class="km-n">' + (i + 1) + '</span><span class="km-t"><b>' + esc(s.title) + '</b><span class="t-sub">' + esc(s.sub) + '</span></span>' + ICO.play + '</button>').join("") + '</div>';
+  const todo = !steps.length ? '' : '<div class="card km-steps"><h2>Heute für diese Klausur</h2>' + steps.map((s, i) => '<button class="km-step' + (i === 0 && s.main ? " km-main" : "") + '" data-kmgo="' + esc(s.go) + '"><span class="km-n">' + (i + 1) + '</span><span class="km-t"><b>' + esc(s.title) + '</b><span class="t-sub">' + esc(s.sub) + '</span></span>' + ICO.play + '</button>').join("") + '</div>';
   const voc = words.length ? '<div class="card"><h2>Vokabeln</h2><p class="hint" style="margin-top:0">Dein bisheriger Stand zählt – hier lernst du mit denselben Karten weiter.</p>' + stageBar(words) + '</div>' : '';
   const th = subs.length ? '<div class="card"><h2>Themen</h2>' + subs.map(st => { const m = masteryOf(st.id).score; return '<div class="km-sub"><span>' + esc(st.title) + '</span><span class="t-sub">' + (m == null ? "neu" : m + " %") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div>'; }).join("") + '</div>' : '';
-  const done = daysUntil(k.datum) <= 2 ? '<div class="km-written"><button class="btn" id="km_written">✓ Klausur ist geschrieben</button><span class="t-sub">Beendet den Klausur-Modus – dein Lernstand bleibt.</span></div>' : '';
-  return extrem + todo + '<div class="km-grid">' + voc + th + '</div>' + done;
+  const needCheck = !klCheck(k.id) && !isVocabTest(k);
+  const ask = needCheck ? '<div class="km-ask"><div class="km-ask-h">📋 Der Termin steht – jetzt die Checkliste</div><p class="t-sub">Fotografier den Themenzettel oder tipp die Punkte ein. Claude baut dir daraus Erklärungen, Heft-Aufgaben und Übungsfragen.</p>' + kmCheckliste(k) + '</div>' : '';
+  return ask + extrem + todo + '<div class="km-grid">' + voc + th + '</div>' + (typeof fachExtras === "function" ? fachExtras(k.fach, k) : '');
 }
 
 /* ---------- Vokabeln: nur die Sammlungen dieser Klausur ---------- */
@@ -113,7 +119,7 @@ function kmLinkModal(k) {
   const lang = LANG_CODE[k.fach];
   const cols = ES.collections.filter(c => !lang || c.source_language === lang).sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true }));
   const on = new Set(linkedCollections(k).map(c => c.id));
-  openModal("Vokabeln für die " + esc(k.fach) + "-Klausur", '<p class="hint">Was kommt in der Klausur dran? Nur diese Wörter übst du im Klausur-Modus. Dein Lernstand bleibt erhalten.</p>' +
+  openModal("Vokabeln für die " + esc(k.fach) + "-Klausur", '<p class="hint">Was kommt in der Klausur dran? Nur diese Wörter übst du auf der Klausur-Seite. Dein Lernstand bleibt erhalten.</p>' +
     (cols.length ? '<div class="km-pick">' + cols.map(c => '<label class="km-pk"><input type="checkbox" value="' + esc(c.id) + '"' + (on.has(c.id) ? " checked" : "") + '><span>' + esc(c.name) + '</span><span class="t-sub">' + cardsOf(c.id).length + (isArchived(c.id) ? " · Archiv" : "") + '</span></label>').join("") + '</div>' : emptyState("vokabeln", "Keine passenden Sammlungen", "Leg zuerst eine Sammlung an.")),
     '<button class="btn" id="kl_cancel">Abbrechen</button><button class="btn primary" id="kl_save">Speichern</button>', () => {
       document.getElementById("kl_cancel").onclick = closeModal;
@@ -155,6 +161,6 @@ function kmThemen(k) {
 /** Einstieg im Dashboard: alle anstehenden Klausuren */
 function kmEntries() {
   const ks = kmExams(); if (!ks.length) return "";
-  return '<div class="card km-list"><h2>Klausur-Modus</h2><p class="hint" style="margin-top:0">Nur für eine Klausur üben – übersichtlich an einem Ort.</p>' + ks.map(k => { const d = daysUntil(k.datum);
+  return '<div class="card km-list"><h2>Deine Klausuren</h2><p class="hint" style="margin-top:0">Alles für eine Klausur an einem Ort.</p>' + ks.map(k => { const d = daysUntil(k.datum);
     return '<a class="km-ent" href="#/klausur/' + esc(k.id) + '"><span class="dot" style="background:' + fcol(k.fach) + '"></span><span class="km-t"><b>' + esc(k.fach) + '</b><span class="t-sub">' + esc(klTitle(k)) + '</span></span><span class="km-d">' + (d === 0 ? "heute" : d === 1 ? "morgen" : d + " Tage") + '</span><span class="chev">' + ICO.chev + '</span></a>'; }).join("") + '</div>';
 }

@@ -31,7 +31,7 @@ export function plan({ settings, exams, now }) {
   if (hm >= "21:00" && risk) send("letzte", { title: "Letzte Chance für heute 🔥", body: "Noch bis Mitternacht – sonst ist deine Serie von " + plural(streak, "Tag", "Tagen") + " weg.", url: "#/dashboard" });
   if (hm >= rt) {
     const k = (exams || []).filter(e => e.datum && e.punkte == null).map(e => Object.assign({ d: daysBetween(date, e.datum) }, e)).filter(e => [1, 3, 7].includes(e.d)).sort((a, b) => a.d - b.d)[0];
-    if (k) send("klausur", { title: (k.fach || "Klausur") + (k.description === "Vokabeltest" ? "-Vokabeltest " : "-Klausur ") + (k.d === 1 ? "morgen" : "in " + k.d + " Tagen"), body: k.d === 1 ? "Heute noch einmal alles wiederholen – du schaffst das!" : "Öffne den Klausur-Modus – alles für diese Klausur an einem Ort.", url: "#/klausur/" + k.id });
+    if (k) send("klausur", { title: (k.fach || "Klausur") + (k.description === "Vokabeltest" ? "-Vokabeltest " : "-Klausur ") + (k.d === 1 ? "morgen" : "in " + k.d + " Tagen"), body: k.d === 1 ? "Heute noch einmal alles wiederholen – du schaffst das!" : "Alles für diese Klausur findest du unter Fächer → " + (k.fach || "Klausur") + ".", url: "#/klausur/" + k.id });
   }
   return { messages: out, log: out.length ? log : null };
 }

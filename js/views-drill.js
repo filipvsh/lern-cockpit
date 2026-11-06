@@ -11,6 +11,7 @@ let DRL = null;          // laufende Runde
 let DRC = null;          // laufende Tabellen-Challenge
 let DRT = null;          // laufende Probe-Arbeit
 let DRL_SAVE = null;
+let DRL_AUTO = null;
 const drillStats = t => ((setting("drill", {}) || {})[t]) || {};
 function drillSave(t, stats) {
   const all = Object.assign({}, setting("drill", {}) || {}); all[t] = stats; STATE.settings.drill = all;   // sofort lokal
@@ -203,7 +204,12 @@ function bindRun() {
   document.querySelectorAll("[data-dre]").forEach(b => b.onclick = () => { ui.be = +b.dataset.dre; setBlock(); });
   const inp = q("dr_in");
   if (inp) {
-    inp.oninput = () => { ui.given = inp.value; const c = q("dr_check"); if (c) c.disabled = !inp.value.trim(); };
+    inp.oninput = () => {
+      ui.given = inp.value; const c = q("dr_check"); if (c) c.disabled = !inp.value.trim();
+      // Auto-Erkennung: genau richtig → prüfen und nach kurzem Grün weiter
+      const v = it.fmt === "ending" ? inp.value.trim().replace(/^-/, "") : inp.value;
+      if (setting("auto_weiter", true) !== false && v.trim() && DRILL.check(v, it.answer, it) === "ok") { clearTimeout(DRL_AUTO); DRL_AUTO = setTimeout(() => { if (DRL !== R || R.ui !== ui || ui.checked) return; drillCheck(); if (ui.ok) setTimeout(() => { if (DRL === R && R.ui === ui && ui.checked) drillNext(); }, 650); }, 250); }
+    };
     inp.onkeydown = e => { if (e.key === "Enter" && inp.value.trim()) { e.preventDefault(); drillCheck(); } };
     if (!ui.checked) setTimeout(() => inp.focus(), 30);
     document.querySelectorAll("[data-dracc]").forEach(b => b.onmousedown = e => e.preventDefault());

@@ -279,6 +279,14 @@
     const due = cards.filter(c => isDue(c, o.now)).sort((a, b) => ((b.last_result === "wrong") - (a.last_result === "wrong")) || (toMs(a.next_review_at) || 0) - (toMs(b.next_review_at) || 0));
     const fresh = cards.filter(isNew).slice(0, o.newLimit);
     let q = due.concat(fresh).slice(0, o.limit);
+    // Auffrischen: gelernte, aber länger nicht gesehene Wörter (≥ 14 Tage) kommen ab und zu dazu – die, die du am ehesten vergisst
+    if (o.refresh && q.length) {
+      const old = cards.filter(c => !isNew(c) && !q.includes(c) && c.last_reviewed_at && o.now - toMs(c.last_reviewed_at) >= 14 * DAY)
+        .map(c => [c, recallProbability(c, o.now)]).sort((a, b) => a[1] - b[1]).slice(0, o.refresh).map(x => x[0]);
+      q = q.slice(0, Math.max(0, o.limit - old.length)).concat(old);
+    }
+    // Zufällige Reihenfolge (falsch Beantwortete bleiben vorne)
+    if (o.shuffle) { const bad = q.filter(c => c.last_result === "wrong"); q = bad.concat(shuffle(q.filter(c => c.last_result !== "wrong"), o.rng)); }
     if (!q.length && o.allowAhead) q = cards.filter(c => !isNew(c)).sort((a, b) => (toMs(a.next_review_at) || 0) - (toMs(b.next_review_at) || 0)).slice(0, o.limit);
     return q;
   }

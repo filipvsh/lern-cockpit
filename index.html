@@ -762,6 +762,10 @@ a.fa-grade{display:flex;align-items:center;justify-content:space-between;gap:12p
 .rw-res{border-radius:12px;padding:10px 12px;margin-top:12px}.rw-res p{margin:4px 0 0;font-size:14px}.rw-res.ok{background:#eafbe0}.rw-res.mid{background:#fff8e1}.rw-res.bad{background:#ffe9ea}
 .rw-steps{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}.rw-steps li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--fill)}.rw-steps li>span{font-weight:800}.rw-steps li.ok>span{color:var(--green)}.rw-steps li.bad{background:#ffe9ea}.rw-steps li.bad>span{color:var(--red)}.rw-steps code{font-family:ui-monospace,Menlo,monospace;font-size:14px;overflow-wrap:anywhere}.rw-steps em{display:block;font-style:normal;font-size:13px;color:var(--red);margin-top:2px}
 .rw-err{margin-top:10px;font-size:14px;line-height:1.45}
+.km-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.km-ask{border:2px solid #ffc800;border-radius:var(--r-lg);padding:14px;margin-bottom:var(--s5);background:#fffbea}.km-ask-h{font-size:18px;font-weight:800}.km-ask .kc-new{box-shadow:none;border:0;background:transparent;padding:0}.km-ask .kc-new>h2,.km-ask .kc-new>p{display:none}
+.dsh-grades,.dsh-checks{border:2px solid var(--accent)}.dsh-checks{border-color:#ffc800}.dsh-gr{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--sep);text-decoration:none;color:var(--text)}.dsh-gr:first-of-type{border-top:0}.dsh-gr .chev{flex:none;display:inline-flex;width:18px;height:18px}.dsh-gr .chev svg{width:18px;height:18px}.fa-extras{margin-top:var(--s5)}
+.kc-tools{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 var(--s4)}.kc-q{padding:12px 0;border-top:1px solid var(--sep)}.kc-q:first-of-type{border-top:0}.kc-q b{display:block;margin-bottom:8px;line-height:1.4}.kc-q .les-opt{margin-bottom:8px}.kc-sol{margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--fill);font-size:14px;line-height:1.45}.kc-q textarea{width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--text)}
+.set-tog{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--sep);cursor:pointer}.set-tog:first-of-type{border-top:0}.set-tog>span{display:flex;flex-direction:column;gap:2px}.set-tog input{width:26px;height:26px;flex:none}
 .ck-done{max-width:760px;margin-bottom:var(--s4);background:#eafbe0;border-color:#b8e6a0;line-height:1.5}.km-written{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:var(--s5)}
 .ck-sum{max-width:760px;margin-bottom:var(--s4);display:grid;gap:8px}.ck-next{justify-self:start;margin-top:4px}
 .ck-area{max-width:760px;margin-bottom:var(--s4);padding:8px 8px 4px}.ck-area h2{padding:8px 10px 2px;margin:0}
@@ -1124,6 +1128,7 @@ button.vrow:hover{background:var(--surface-2)}
  .shl,.backlink{display:inline-flex;align-items:center;min-height:40px}.check{position:relative}.check::after{content:"";position:absolute;inset:-9px}
  input,select,textarea{font-size:16px!important}.iconbtn{min-width:40px;min-height:40px}
 }
+html,body,button,a,input,label,summary{touch-action:manipulation}
 </style>
 </head>
 <body>
@@ -1155,7 +1160,7 @@ button.vrow:hover{background:var(--surface-2)}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="26";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="27";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
