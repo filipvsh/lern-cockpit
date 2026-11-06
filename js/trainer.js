@@ -87,7 +87,7 @@ function buildSessionFromConfig(cfg) {
   const pool = col ? cardsOf(col.id) : vk ? examVocab(vk) : cfg.group ? groupPool(cfg.group) : cfg.lang ? langPool(cfg.lang) : focus ? STATE.vo.filter(v => focus.includes(v.collection_id)) : activeCards();
   if (cfg.mode === "vocab") {
     // „Vokabeln lernen“ mit Sprachwahl: bewusst gestartet → neue Wörter auch über das Tageslimit hinaus (pro Runde bleibt es bei maxNew)
-    let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: cfg.lang || cfg.group || vk ? Engine.ROUND.maxNew : Math.min(Engine.ROUND.maxNew, newLeftToday()) });
+    let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: cfg.lang || cfg.group || vk ? Engine.ROUND.maxNew : Math.min(Engine.ROUND.maxNew, newLeftToday()), refresh: setting("vokabel_auffrischen", true) !== false ? 3 : 0, shuffle: setting("zufall", true) !== false });
     if (!q.length || cfg.extra) {
       // Freiwillige Zusatzrunde: die Wörter, die du am ehesten vergisst
       q = pool.filter(v => !Engine.isNew(v)).map(v => [v, Engine.recallProbability(v, now)]).sort((a, b) => a[1] - b[1]).slice(0, 10).map(x => x[0]);
@@ -379,7 +379,14 @@ function renderVocab(item) {
   const inp = document.getElementById("va");
   if (!fb) {
     setTimeout(() => inp.focus(), 30);
-    inp.oninput = () => { UI.given = inp.value; };
+    let auto = null;
+    inp.oninput = () => {
+      UI.given = inp.value;
+      // Auto-Erkennung: sobald das Wort genau stimmt, gleich prüfen und weiter
+      if (setting("auto_weiter", true) !== false && inp.value.trim() && Engine.checkAnswer(inp.value, s.answers, s.lang).verdict === "correct" && !Engine.checkAnswer(inp.value, s.answers, s.lang).note) {
+        clearTimeout(auto); auto = setTimeout(() => { if (UI.phase === "feedback" || document.getElementById("va") !== inp) return; check(inp.value); if (TS && TS.feedback && UI.check.verdict === "correct") setTimeout(() => { if (UI.phase === "feedback" && document.getElementById("va_next")) nextItem(); }, 650); }, 250);
+      }
+    };
     const check = given => {
       UI.given = given; UI.check = Engine.checkAnswer(given, s.answers, s.lang); UI.phase = "feedback";
       const v = UI.check.verdict;

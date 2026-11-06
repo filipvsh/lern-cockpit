@@ -1445,6 +1445,59 @@ await scenario("Klausuren in mündlichen Fächern (Chemie, SoWi) werden ausgeble
   await ctx.close();
 });
 
+await scenario("Immer Klausur-Seite statt Klausur-Modus, Checkliste-Aufforderung, Bearbeiten, Abhaken → Note eintragen, Auto-Weiter, Einstellungen", async () => {
+  const b = new MockBackend({ autoWeiter: true }); const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const PK = "11111111-aaaa-4aaa-8aaa-0000000000p3";
+  b.db.klausuren.push({ id: PK, fach: "Physik", thema: "Klausur Nr. 2 (PH-GK2)", nr: 2, datum: day(10), description: "Klausur Nr. 2 · 3.–4. Stunde · Raum folgt", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  assert.ok(await page.evaluate(() => getComputedStyle(document.querySelector("button")).touchAction === "manipulation"), "kein Doppeltipp-Zoom");
+  // Startseite: Checkliste fehlt
+  await page.waitForSelector(".dsh-checks"); assert.ok((await page.textContent(".dsh-checks")).includes("Physik"));
+  // Fach → direkt die Klausur-Seite (kein eigener Klausur-Modus mehr)
+  await go(page, "#/fach/Physik"); await page.waitForSelector(".km-hero");
+  assert.ok(page.url().includes("#/klausur/" + PK)); assert.equal(await page.textContent(".km-hero h1"), "Physik"); assert.ok((await page.textContent(".km-hero .eyebrow")).includes("3.–4. Stunde"));
+  assert.equal(await page.$("text=Klausur-Modus"), null, "das Wort Klausur-Modus taucht nicht mehr auf");
+  assert.ok(await page.$(".km-ask .kc-file"), "Aufforderung: Checkliste eintippen oder Foto"); assert.ok(await page.$(".fa-extras"), "Hausaufgaben und Noten auf derselben Seite");
+  assert.ok(await noScroll()); await shot(page, "st-01-klausurseite");
+  // Checkliste direkt auf der Startseite der Klausur eintippen
+  await page.fill(".km-ask #kc_text", "Mechanik:\n1. Gleichförmige Bewegung\n2. Beschleunigung"); await page.click(".km-ask #kc_textgo"); await page.waitForSelector(".ck-row");
+  // Punkt bearbeiten, hinzufügen, Übungsfragen, löschen
+  await page.click(".ck-row"); await page.waitForSelector("#kc_edit"); await page.click("#kc_edit"); await page.waitForSelector("#ke_learn");
+  await page.fill("#ke_learn", "# Formel\nStrecke durch Zeit\n= v = s / t\n- s = 100 m, t = 20 s\n- v = 5 m/s"); await page.fill("#ke_paper", "Formel auf den Merkzettel"); await page.click("#ke_save");
+  await page.waitForSelector(".ck-f"); assert.equal(await page.textContent(".ck-f"), "v = s / t"); assert.equal(await page.$$eval(".ck-ex li", x => x.length), 2);
+  await page.click("#kc_quiz"); await page.waitForSelector(".kc-q"); assert.equal(await page.$$eval(".kc-q", x => x.length), 3, "3 Übungsfragen von Claude");
+  await page.click('.kc-q [data-kcq$=":0"]'); await page.waitForSelector(".kc-q .les-opt.right");
+  await shot(page, "st-02-punkt");
+  await go(page, "#/klausur/" + PK + "?tab=checkliste"); await page.waitForSelector("#kc_add"); await page.click("#kc_add"); await page.waitForSelector("#ke_short");
+  await page.fill("#ke_short", "Kräfte"); await page.click("#ke_save"); await page.waitForSelector("#kc_del");
+  await page.click("#kc_del"); await page.waitForSelector("#kc_add"); assert.equal(await page.$$eval(".ck-row", x => x.length), 2);
+  // Bearbeiten: Raum nachtragen
+  await page.click("#km_edit"); await page.waitForSelector("#ek_raum"); await page.fill("#ek_raum", "B12"); await page.click("#ek_save"); await page.waitForSelector(".km-hero"); await page.waitForTimeout(300);
+  assert.ok((await page.textContent(".km-hero .eyebrow")).includes("B12"));
+  // Abhaken → weg → Startseite: Note eintragen
+  await page.click("#km_written"); await page.waitForSelector("text=Klausur abgehakt");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh-grades"); assert.equal(await page.$('.dsh-ex[href="#/klausur/' + PK + '"]'), null);
+  await page.click('[data-klres="' + PK + '"]'); await page.waitForSelector(".modal"); await shot(page, "st-03-note");
+  await page.click('.modal [data-pt="11"]'); await page.click('.modal .mf .btn.primary'); await page.waitForTimeout(500);
+  await page.evaluate(() => Api.idle()); assert.equal(b.db.klausuren.find(k => k.id === PK).punkte, 11, "Note gespeichert");
+  await go(page, "#/dashboard"); await page.waitForSelector(".dsh"); assert.equal(await page.$(".dsh-grades"), null, "Erinnerung weg, sobald die Note da ist");
+  // Auto-Weiter im Grammatik-Drill
+  await go(page, "#/drill/ce"); await page.evaluate(() => { STATE.settings.drill = { ce: { "ce:CD": { b: 2, r: 2, w: 0 } } }; route(); }); await page.waitForSelector("[data-drstart]"); await page.click("[data-drstart]"); await page.waitForSelector("#dr_in");
+  const i0 = await page.evaluate(() => DRL.i); const ans = await page.evaluate(() => DRL.items[DRL.i].answer);
+  await page.type("#dr_in", ans); await page.waitForFunction(i => DRL.i === i + 1, i0, { timeout: 4000 }); assert.equal(await page.evaluate(() => DRL.right), 1, "ohne Prüfen-Knopf weiter");
+  // Auto-Weiter im Vokabeltrainer: richtig getippt → weiter ohne Prüfen
+  await page.evaluate(() => startTraining({ mode: "vocab" })); await page.waitForFunction(() => TS && TS.status === "active");
+  for (let g = 0; g < 20; g++) { const k = await page.evaluate(() => Engine.current(TS).kind); if (k === "vocab") break; const a = await page.evaluate(() => { const it = Engine.current(TS); const c = cardById(it.vocab_id); return Engine.vocabSides(c, it.direction).answers[0]; }); await page.fill("#vc", a); await page.click("#st_next"); }
+  const v0 = await page.evaluate(() => TS.index); const va = await page.evaluate(() => { const it = Engine.current(TS); return Engine.vocabSides(cardById(it.vocab_id), it.direction).answers[0]; });
+  await page.type("#va", va); await page.waitForFunction(i => TS.index > i, v0, { timeout: 4000 });
+  await page.evaluate(async () => { await tsFinish("abandoned", true); TS = null; tsSave(); });
+  // Einstellungen: Schalter
+  await go(page, "#/einstellungen"); await page.waitForSelector('[data-settog="auto_weiter"]'); await page.click('[data-settog="auto_weiter"]'); await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => setting("auto_weiter", true)), false);
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

@@ -40,6 +40,8 @@ export class MockBackend {
     this.users = { "filip@example.org": { id: "aaaaaaaa-0000-4000-8000-000000000001", password: "geheim123", name: "Filip" } };
     this.log = [];
     // Inhalts-Pakete (js/content-packs.js) gelten als erledigt – außer der Test will sie prüfen ({ packs: true })
+    // Auto-Weiter (Wort richtig → sofort weiter) stört Tests, die selbst auf „Prüfen“ tippen – nur mit { autoWeiter: true } an
+    if (!o.autoWeiter && !this.db.einstellungen.some(r => r.key === "auto_weiter")) this.db.einstellungen.push({ key: "auto_weiter", value: false });
     if (!o.packs && !this.db.einstellungen.some(r => r.key === "packs_done")) this.db.einstellungen.push({ key: "packs_done", value: Object.fromEntries(PACK_IDS.map(id => [id, "test"])) });
     // wie Migration 003: alte Level → Intervalle
     if (this.engine) this.db.vokabeln.forEach(v => { if (v.reps == null && v.level > 0) { v.interval_days = [0, 1, 2, 4, 7, 14, 30][v.level]; v.reps = v.level; v.next_review_at = v.next ? v.next + "T00:00:00.000Z" : null; } });
