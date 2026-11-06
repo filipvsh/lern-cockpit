@@ -1430,6 +1430,21 @@ await scenario("Klausurplan Nr. 2: 7 schriftliche Klausuren eingetragen, vorab a
   await ctx.close();
 });
 
+await scenario("Klausuren in mündlichen Fächern (Chemie, SoWi) werden ausgeblendet, nicht gelöscht", async () => {
+  const b = new MockBackend();
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000c2", fach: "Chemie", thema: "Klausur Nr. 2 (CH-GK2)", datum: "2026-11-20", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000s2", fach: "SoWi", thema: "Klausur Nr. 2 (SW-GK1)", datum: "2026-12-02", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000p2", fach: "Physik", thema: "Klausur Nr. 2 (PH-GK2)", datum: "2026-11-23", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  const up = await page.evaluate(() => upcomingKL().map(k => k.fach));
+  assert.ok(up.includes("Physik"), "Physik (schriftlich) bleibt"); assert.ok(!up.includes("Chemie") && !up.includes("SoWi"), "Chemie/SoWi weg: " + up);
+  assert.equal(await page.$('.dsh-ex[href="#/klausur/11111111-aaaa-4aaa-8aaa-0000000000c2"]'), null);
+  await go(page, "#/lernplan"); await page.waitForSelector(".lp-hidden"); assert.ok((await page.textContent(".lp-hidden")).includes("Chemie, SoWi"));
+  await go(page, "#/faecher"); await page.waitForSelector(".fa-list"); assert.ok(!(await page.textContent(".fa-row:has-text('Chemie')")).includes("Klausur"), "Chemie ohne Klausur-Hinweis");
+  assert.equal(b.db.klausuren.filter(k => ["Chemie", "SoWi"].includes(k.fach)).length, 2, "nichts gelöscht");
+  await ctx.close();
+});
+
 await browser.close();
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);
 process.exit(failed ? 1 : 0);

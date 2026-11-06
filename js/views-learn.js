@@ -30,6 +30,8 @@ V.lernplan = () => {
   if (!engineReady()) body = setupCard();
   else body = (up.length ? '<div class="stack">' + up.map(k => planCard(k) + (isExtremExam(k) ? extremEntry(k) : "")).join("") + '</div>' : '<div class="card">' + emptyState("flag", "Keine Prüfung geplant", "Trag die nächste ein, sobald der Klausurplan hängt.", '<button class="btn primary sm" data-lpnew="">Prüfung eintragen</button>') + '</div>') +
     (missing.length ? '<div class="section">' + sectionHead("Noch ohne Termin", '<span class="sub">laut Laufbahn ' + hj + '</span>') + '<div class="list">' + missing.map(f => '<button class="li tap" data-lpnew="' + esc(f) + '" style="width:100%;border:none;background:none;font:inherit;text-align:left"><span class="dot" style="background:' + fcol(f) + '"></span><div class="li-main"><div class="li-title">' + esc(f) + '</div></div><span class="li-trail" style="color:var(--accent)">Termin eintragen</span></button>').join("") + '</div></div>' : '');
+  const hid = (STATE.klHidden || []).filter(k => k.datum && daysUntil(k.datum) >= 0);
+  if (hid.length) body += '<p class="hint lp-hidden">' + plural(hid.length, "Klausur", "Klausuren") + ' in ' + [...new Set(hid.map(k => k.fach))].join(", ") + ' ausgeblendet – da bist du mündlich.</p>';
   return netNotice() + dbBanner() + head + seg + body;
 };
 function bindLernplan() {
