@@ -776,7 +776,7 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m1", fach: "Mathe", thema: "Graphen, lineare Funktionen", datum: day(9), themen: [{ id: "a", text: "Grafen", done: false }, { id: "b", text: "linear", done: false }], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f1", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 10 && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 11 && !PACKS_RUNNING, null, { timeout: 15000 });
   await page.evaluate(() => Api.idle());
   const vet = b.db.vocab_collections.find(c => c.name === "Les vêtements");
   assert.ok(vet && vet.source_language === "fr", "Sammlung angelegt");
@@ -1406,8 +1406,27 @@ await scenario("Eigene Checkliste: Foto vom Themenzettel → KI-Checkliste, selb
   await go(page, "#/mathe/ck-8"); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
   await page.fill('[data-mkin="0"]', "777"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad");
   await page.click("[data-rw]"); await page.waitForSelector(".rw-pick"); await page.setInputFiles("#rw_file", { name: "heft.png", mimeType: "image/png", buffer: png });
-  await page.waitForSelector(".rw-steps"); assert.equal(b.lastAi.mode, "workcheck"); assert.ok(b.lastAi.exercise.question.includes("Nullstellen"));
+  await page.waitForSelector(".rw-steps"); assert.equal(b.lastAi.mode, "workcheck"); assert.ok(/Nullstelle/.test(b.lastAi.exercise.question), b.lastAi.exercise.question);
   assert.equal(await page.$$eval(".rw-steps li.bad", x => x.length), 1); assert.ok(await noScroll()); await shot(page, "kc-04-rechenweg");
+  await ctx.close();
+});
+
+await scenario("Klausurplan Nr. 2: 7 schriftliche Klausuren eingetragen, vorab angelegte Nr. 2 verschoben, nichts doppelt", async () => {
+  const b = new MockBackend({ packs: true });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000e2", fach: "Englisch", thema: "Klausur Nr. 2 (E5-GK4, Sopko)", nr: 2, datum: "2026-12-03", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000d2", fach: "Deutsch", thema: "Lyrik", datum: "2026-12-17", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b); await login(page);
+  await page.waitForFunction(() => (setting("packs_done", {}) || {})["klausurplan-2-ef"] && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.evaluate(() => Api.idle());
+  const kl = b.db.klausuren;
+  const of = (f, d) => kl.filter(k => k.fach === f && k.datum === d);
+  assert.equal(of("Physik", "2026-11-23").length, 1); assert.equal(of("Sport", "2026-12-08").length, 1); assert.equal(of("Erdkunde", "2026-12-16").length, 1);
+  assert.equal(of("Mathe", "2026-12-22").length, 1); assert.equal(of("Französisch", "2027-01-08").length, 1);
+  assert.ok(of("Mathe", "2026-12-22")[0].description.includes("5.–6. Stunde"));
+  const en = kl.filter(k => k.fach === "Englisch" && k.nr === 2); assert.equal(en.length, 1, "Englisch Nr. 2 nicht doppelt"); assert.equal(en[0].datum, "2026-12-10", "Datum korrigiert");
+  assert.equal(kl.filter(k => k.fach === "Deutsch" && k.datum === "2026-12-17").length, 1, "Deutsch am selben Tag schon da → nichts doppelt");
+  assert.equal(kl.filter(k => ["Chemie", "SoWi", "Philosophie"].includes(k.fach) && k.nr === 2).length, 0, "mündliche Fächer ohne Klausur");
+  assert.equal(b.db.neuigkeiten.length, 1);
   await ctx.close();
 });
 
