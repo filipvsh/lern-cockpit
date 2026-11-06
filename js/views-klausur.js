@@ -95,7 +95,7 @@ function kmStart(k) {
   const todo = !steps.length ? '' : '<div class="card km-steps"><h2>Heute für diese Klausur</h2>' + steps.map((s, i) => '<button class="km-step' + (i === 0 && s.main ? " km-main" : "") + '" data-kmgo="' + esc(s.go) + '"><span class="km-n">' + (i + 1) + '</span><span class="km-t"><b>' + esc(s.title) + '</b><span class="t-sub">' + esc(s.sub) + '</span></span>' + ICO.play + '</button>').join("") + '</div>';
   const voc = words.length ? '<div class="card"><h2>Vokabeln</h2><p class="hint" style="margin-top:0">Dein bisheriger Stand zählt – hier lernst du mit denselben Karten weiter.</p>' + stageBar(words) + '</div>' : '';
   const th = subs.length ? '<div class="card"><h2>Themen</h2>' + subs.map(st => { const m = masteryOf(st.id).score; return '<div class="km-sub"><span>' + esc(st.title) + '</span><span class="t-sub">' + (m == null ? "neu" : m + " %") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div>'; }).join("") + '</div>' : '';
-  const needCheck = !klCheck(k.id) && !isVocabTest(k) && !(/Mathe/.test(k.fach) && k.nr == 1);
+  const needCheck = !klCheck(k.id) && !isVocabTest(k);
   const ask = needCheck ? '<div class="km-ask"><div class="km-ask-h">📋 Der Termin steht – jetzt die Checkliste</div><p class="t-sub">Fotografier den Themenzettel oder tipp die Punkte ein. Claude baut dir daraus Erklärungen, Heft-Aufgaben und Übungsfragen.</p>' + kmCheckliste(k) + '</div>' : '';
   return ask + extrem + todo + '<div class="km-grid">' + voc + th + '</div>' + (typeof fachExtras === "function" ? fachExtras(k.fach, k) : '');
 }

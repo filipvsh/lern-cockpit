@@ -142,7 +142,7 @@ function dashGrades() {
 /** Termin steht, aber noch keine Checkliste → Foto oder eintippen */
 function dashChecks() {
   if (typeof klCheck !== "function") return '';
-  const ks = kmExams().filter(k => !klCheck(k.id) && !(/Mathe/.test(k.fach) && k.nr == 1) && daysUntil(k.datum) <= 35); if (!ks.length) return '';
+  const ks = kmExams().filter(k => !klCheck(k.id) && daysUntil(k.datum) <= 35); if (!ks.length) return '';
   return '<div class="card dsh-checks"><div class="dsh-l">📋 Checkliste fehlt</div><p class="t-sub" style="margin:2px 0 8px">Foto vom Themenzettel oder Punkte eintippen – Claude baut Erklärungen und Übungen.</p>' + ks.slice(0, 4).map(k => '<a class="dsh-gr" href="#/klausur/' + esc(k.id) + '?tab=checkliste"><span class="dot" style="background:' + fcol(k.fach) + '"></span><span class="dsh-et"><b>' + esc(k.fach) + '</b><span class="t-sub">Klausur in ' + plural(daysUntil(k.datum), "Tag", "Tagen") + '</span></span><span class="chev">' + ICO.chev + '</span></a>').join("") + '</div>';
 }
 /** 2 · Klausuren: Tippen öffnet die Klausur-Seite */

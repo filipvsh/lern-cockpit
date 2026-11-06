@@ -25,7 +25,7 @@ function kcFromText(text) {
 }
 /** Karte für Fach-Seite / Klausur-Start */
 function klCheckCard(k) {
-  const c = klCheck(k.id); if (!c && /Mathe/.test(k.fach) && typeof MC !== "undefined") return "";
+  const c = klCheck(k.id);
   const ok = c ? c.items.filter(i => (c.st || {})[i.nr] === "ok").length : 0;
   return '<a class="card dr-card kc-card" href="#/klausur/' + esc(k.id) + '?tab=checkliste"><span class="dr-ic">✅</span><span class="dr-tx"><b>' + (c ? "Checkliste: " + ok + " von " + c.items.length + " „Kann ich“" : "Checkliste anlegen") + '</b><span class="t-sub">' + (c ? "Erklärungen, Heft-Aufgaben, Selbsteinschätzung" : "Themenzettel fotografieren – die App baut die Checkliste") + '</span></span><span class="chev">' + ICO.chev + '</span></a>';
 }

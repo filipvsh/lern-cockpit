@@ -195,6 +195,8 @@ await scenario("Lernplan: Prüfung, Thema, Unterthema, Übung anlegen, üben, Le
   await go(page, "#/lernplan"); await page.click("#lp_new");
   await page.selectOption("#k_fach", "Mathe"); await page.fill("#k_thema", "Funktionen");
   await page.fill("#k_datum", new Date(Date.now() + 12 * 864e5).toISOString().slice(0, 10)); await page.click("#k_add");
+  // neue Prüfung → erst die Klausur-Seite mit Checkliste-Aufforderung, Themen dann im Lernplan
+  await page.waitForSelector(".km-ask"); const nk = await page.evaluate(() => ROUTE.sub); await go(page, "#/lernplan/" + nk);
   await page.waitForSelector(".topic-head");
   const exam = b.db.klausuren.find(k => k.thema === "Funktionen"); assert.ok(exam);
   const topic = b.db.topics.find(t => t.exam_id === exam.id); assert.equal(topic.title, "Funktionen");
@@ -948,7 +950,7 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   // nach der Klausur: Modus weg
   await page.evaluate(id => { const k = klById(id); k.punkte = 11; bump(); }, FK);
   await go(page, `#/klausur/${FK}`); await page.waitForSelector(".empty");
-  assert.ok((await page.textContent("#view")).includes("Diese Klausur ist geschrieben"));
+  assert.ok((await page.textContent("#view")).includes("Klausur abgehakt"));
   await go(page, "#/dashboard"); await page.waitForSelector(".dsh");
   assert.ok(!(await page.$(`.dsh-ex[href="#/klausur/${FK}"]`)), "kein Eintrag mehr im Dashboard");
   await ctx.close();
@@ -1322,7 +1324,7 @@ await scenario("Klausur geschrieben: Knopf im Klausur-Modus, Note eintragen, ver
   await page.waitForSelector(`.dsh-ex[href="#/klausur/${MK1}"]`);
   assert.ok(await page.evaluate(() => upcomingKL().some(k => /Mathe/.test(k.fach))));
   await go(page, "#/klausur/" + MK1); await page.waitForSelector("#km_written"); await shot(page, "kg-01-knopf");
-  await page.click("#km_written"); await page.waitForSelector("text=Diese Klausur ist geschrieben");
+  await page.click("#km_written"); await page.waitForSelector("text=Klausur abgehakt");
   assert.ok(await page.$('a[href="#/noten"]'), "Note eintragen angeboten"); await shot(page, "kg-02-geschrieben");
   await page.evaluate(() => Api.idle()); await page.waitForTimeout(800); await page.evaluate(() => Api.idle());
   assert.ok(b.db.einstellungen.find(x => x.key === "kl_geschrieben").value[MK1], "gespeichert");
@@ -1352,8 +1354,9 @@ await scenario("Handy: Fächer-Leiste, Fach-Seite, Fehlerheft aus Mathe und Dril
   await page.click('#mnav a[href="#/faecher"]'); await page.waitForSelector(".fa-list");
   assert.equal(await page.$eval(".fa-row b", e => e.textContent), "Französisch", "Fach mit nächster Klausur zuerst (in 5 Tagen)");
   assert.ok(await noScroll()); await shot(page, "fa-01-faecher");
-  await page.click('.fa-row[href="#/fach/Franz%C3%B6sisch"]'); await page.waitForSelector(".fa-exam-card");
-  assert.ok(await page.$('a.dr-card[href="#/drill"]'), "Grammatik-Drill auf der Fach-Seite"); assert.ok(await noScroll()); await shot(page, "fa-02-fach");
+  await page.click('.fa-row:has-text("Französisch")'); await page.waitForSelector(".km-hero");
+  assert.equal(await page.textContent(".km-hero h1"), "Französisch", "Fach mit Klausur → direkt die Klausur-Seite");
+  assert.ok(await page.$('a.dr-card[href="#/drill"]'), "Grammatik-Drill auf der Klausur-/Fach-Seite"); assert.ok(await noScroll()); await shot(page, "fa-02-fach");
   // Mathe: eine Aufgabe falsch → Fehlerheft
   await go(page, "#/mathe/ck-8"); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
   const it = await page.evaluate(() => MKR.items[MKR.i]); await page.fill('[data-mkin="0"]', "777"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad");
@@ -1383,7 +1386,7 @@ await scenario("Eigene Checkliste: Foto vom Themenzettel → KI-Checkliste, selb
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==", "base64");
   // Start-Schritt „Checkliste anlegen“
-  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-steps"); assert.ok((await page.textContent(".km-steps")).includes("Checkliste anlegen"));
+  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-steps"); assert.ok(await page.$(".km-ask .kc-file"), "Checkliste-Aufforderung oben");
   await go(page, "#/klausur/" + FK + "?tab=checkliste"); await page.waitForSelector(".kc-file"); assert.ok(await noScroll()); await shot(page, "kc-01-anlegen");
   await page.setInputFiles("#kc_files", { name: "zettel.png", mimeType: "image/png", buffer: png });
   await page.click("#kc_ai"); await page.waitForSelector(".ck-row");
@@ -1397,7 +1400,7 @@ await scenario("Eigene Checkliste: Foto vom Themenzettel → KI-Checkliste, selb
   await page.evaluate(() => Api.idle()); await page.waitForTimeout(400); await page.evaluate(() => Api.idle());
   const c = b.db.einstellungen.find(x => x.key === "checklisten").value[FK]; assert.equal(c.st["1"], "ok"); assert.ok(c.items[2].learn.length >= 1);
   // Fach-Seite zeigt die Checkliste
-  await go(page, "#/fach/Franz%C3%B6sisch"); await page.waitForSelector(".kc-card"); assert.ok((await page.textContent(".kc-card")).includes("1 von 3"));
+  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-steps"); assert.ok((await page.textContent(".km-steps")).includes("1 von 3"), "Stand der Checkliste auf der Klausur-Seite");
   // Deutsch: selbst eintippen (ohne KI)
   await go(page, "#/klausur/" + DK + "?tab=checkliste"); await page.waitForSelector("#kc_text");
   await page.fill("#kc_text", "Analyse:\n1. Metrum bestimmen\n2. Stilmittel erkennen\nSchreiben:\n3. Gedichtvergleich"); await page.click("#kc_textgo"); await page.waitForSelector(".ck-row");
