@@ -35,8 +35,8 @@ V.faecher = () => {
 /** Fach-Teile (Kurse, Fehlerheft, Vokabeln, Hausaufgaben, Noten) – auf der Fach- und der Klausur-Seite */
 function fachExtras(f, k) {
   const hj = currentHJ(); const s = fachSchnitt(f, hj); const learn = [];
-  if (/Mathe/.test(f)) learn.push(matheCard());
-  if (f === "Französisch") learn.push(drillCard());
+  if (/Mathe/.test(f) && !k) learn.push(matheCard());
+  if (f === "Französisch" && !k) learn.push(drillCard());
   const lang = FACH_LANG[f];
   if (lang && !k) { const cols = ES.collections.filter(c => !isArchived(c.id) && (c.source_language === lang)); const n = cols.reduce((a, c) => a + cardsOf(c.id).length, 0);
     learn.push('<a class="card dr-card" href="#/vokabeln"><span class="dr-ic">🗂️</span><span class="dr-tx"><b>Vokabeln</b><span class="t-sub">' + plural(cols.length, "Sammlung", "Sammlungen") + ' · ' + n + ' Wörter</span></span><span class="chev">' + ICO.chev + '</span></a>'); }
@@ -48,13 +48,43 @@ function fachExtras(f, k) {
   const nc = '<a class="card fa-grade" href="#/noten"><div><h2 style="margin:0">Noten ' + hj + '</h2><span class="t-sub">' + (s.rows.length ? plural(s.rows.length, "Eintrag", "Einträge") : "Noch keine Noten") + ' · antippen zum Eintragen</span></div>' + (s.gesamt != null ? '<span class="pt ' + ptClass(Math.round(s.gesamt)) + ' big">' + fmtPt(s.gesamt) + '</span>' : '<span class="chev">' + ICO.chev + '</span>') + '</a>';
   return '<div class="fa-extras">' + (learn.length ? '<h2 class="fa-sec">Mehr zu ' + esc(f) + '</h2>' + learn.join("") : '') + hwc + nc + '</div>';
 }
+/** Kacheln + Empfehlung für ein Fach ohne anstehende Klausur */
+function fachTiles(f) {
+  const lang = FACH_LANG[f]; const pool = lang ? langPool(lang) : []; const out = [];
+  if (pool.length) out.push({ go: "vok", ico: "🗂️", t: "Vokabeln", sub: pool.length + " Wörter · du wählst die Mischung" });
+  if (/Mathe/.test(f)) out.push({ go: "mathe", ico: "📐", t: "Mathe-Kurs", sub: "Erklärungen + Übungen" });
+  if (f === "Französisch") out.push({ go: "drill", ico: "👢", t: "Grammatik-Drill", sub: "acheter, mettre, ce/cet …" });
+  if (pool.length >= 4) out.push({ go: "spiele", ico: "🎮", t: "Spiele & Lektion", sub: "kurz zwischendurch" });
+  const errs = typeof fehlerOf === "function" ? fehlerOf(f) : []; if (errs.length) out.push({ go: "fehler", ico: "📕", t: "Fehlerheft", sub: errs.length + " Fehler üben" });
+  return out;
+}
+function fachRecommend(f) {
+  const errs = typeof fehlerOf === "function" ? fehlerOf(f) : []; const lang = FACH_LANG[f]; const pool = lang ? langPool(lang) : [];
+  if (errs.length >= 5) return { go: "fehler", title: "Fehlerheft", sub: errs.length + " Fehler warten – genau die üben" };
+  if (pool.length) { const r = vocabRecommend(vocabMixStats(pool), null); if (r) return { go: "vok:" + r.kind, title: "Vokabeln · " + VMIX[r.kind][0], sub: r.why }; }
+  if (/Mathe/.test(f)) return { go: "mathe", title: "Mathe-Kurs", sub: "Dranbleiben, damit es bis zur nächsten Klausur sitzt" };
+  return null;
+}
 V.fach = () => {
   const f = decodeURIComponent(ROUTE.sub || ""); if (!f) { location.hash = "#/faecher"; return ""; }
-  // Steht eine Klausur an, ist die Klausur-Seite die Fach-Seite (immer „Klausur-Modus“)
+  // Steht eine Klausur an, ist die Klausur-Seite die Fach-Seite – alles auf einer Seite
   const k = fachExam(f); if (k && engineReady()) { location.replace("#/klausur/" + k.id); return ""; }
-  const back = '<a class="backlink" href="#/faecher">' + ICO.back + 'Fächer</a>';
-  const head = '<div class="fa-head" style="--fc:' + fcol(f) + '"><span class="fa-big-dot"></span><h1 class="t-large">' + esc(f) + '</h1></div>';
-  const exam = '<div class="card fa-noexam"><b>Keine Klausur geplant</b><span class="t-sub">Sobald ein Termin feststeht: eintragen – dann fragt dich die App nach der Checkliste und baut alles für die Klausur.</span><a class="btn sm" href="#/lernplan">Termin eintragen</a></div>';
-  return back + head + exam + fachExtras(f, null);
+  const rec = fachRecommend(f); const tiles = fachTiles(f);
+  const head = '<a class="backlink" href="#/faecher">' + ICO.back + 'Fächer</a><div class="km-hero"><div style="min-width:0"><div class="eyebrow"><span class="dot" style="background:' + fcol(f) + ';margin-right:6px"></span>Keine Klausur geplant</div><h1 class="t-large">' + esc(f) + '</h1><div class="km-acts"><a class="btn sm" href="#/lernplan">' + ICO.plus + 'Klausur-Termin eintragen</a></div></div></div>';
+  const now = rec ? '<div class="card km-now"><button class="btn primary lg wide" data-fago="' + esc(rec.go) + '">' + ICO.play + 'Jetzt direkt lernen</button><div class="km-now-r"><span class="km-rec">Empfohlen</span> <b>' + esc(rec.title) + '</b><span class="t-sub">' + esc(rec.sub) + '</span></div></div>' : '';
+  const tl = tiles.length ? '<h2 class="fa-sec">Oder such dir aus, was du lernen willst</h2><div class="km-tiles">' + tiles.map(t => '<button class="km-tile" data-fago="' + esc(t.go) + '"><span class="km-ti">' + t.ico + '</span><b>' + esc(t.t) + '</b><span class="t-sub">' + esc(t.sub) + '</span></button>').join("") + '</div>' : '<div class="card"><p class="t-sub" style="margin:0">Für ' + esc(f) + ' gibt es noch nichts zum Üben. Sobald ein Klausur-Termin steht, legst du die Checkliste an – dann baut Claude dir alles.</p></div>';
+  return head + now + tl + fachExtras(f, null);
 };
-function bindFach() {}
+function bindFach() {
+  const f = decodeURIComponent(ROUTE.sub || ""); const lang = FACH_LANG[f];
+  document.querySelectorAll("[data-fago]").forEach(b => b.onclick = () => {
+    const [kind, arg] = b.dataset.fago.split(":");
+    if (kind === "vok" && arg) startTraining({ mode: "vocab", lang, vmix: arg, direction: vlDir() });
+    else if (kind === "vok") vocabChooser(langPool(lang), null, vmix => startTraining({ mode: "vocab", lang, vmix, direction: vlDir() }));
+    else if (kind === "mathe") location.hash = "#/mathe";
+    else if (kind === "drill") location.hash = "#/drill";
+    else if (kind === "spiele") location.hash = "#/spiele";
+    else if (kind === "fehler") location.hash = "#/fehler?fach=" + encodeURIComponent(f);
+  });
+}
+

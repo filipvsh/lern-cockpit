@@ -15,7 +15,7 @@ function kmTabs(k) {
   if (videosFor(k).length) t.push(["videos", "Videos"]);
   if (kmHasVocab(k)) t.push(["vokabeln", "Vokabeln"], ["spiele", "Spiele"]);
   if (k.fach === "Französisch") t.push(["grammatik", "Grammatik"], ["schreiben", "Schreiben"]);
-  t.push(["themen", "Aufgaben"]);
+  t.push(["themen", "Themen & Übungen"]);
   return t;
 }
 const kmTab = k => { const tabs = kmTabs(k); return tabs.some(t => t[0] === ROUTE.query.tab) ? ROUTE.query.tab : "start"; };
@@ -27,8 +27,9 @@ V.klausur = () => {
   if (!k) return pageHead("Klausur", { back: ["#/faecher", "Fächer"] }) + '<div class="card">' + emptyState("flag", "Klausur nicht gefunden", "Vielleicht wurde sie gelöscht.") + '</div>';
   if (!kmActive(k)) return pageHead(esc(k.fach), { back: ["#/faecher", "Fächer"] }) + '<div class="card">' + emptyState("check", "Klausur abgehakt", "Deine Vokabeln und dein Übungsstand bleiben erhalten." + (k.punkte == null ? " Sobald du sie zurückbekommst: Note eintragen." : ""), (k.punkte == null ? '<a class="btn primary sm" href="#/noten?neu=1">Note eintragen</a> ' : '') + '<a class="btn sm" href="#/dashboard">Zur Übersicht</a>') + '</div>';
   const tab = kmTab(k);
-  const nav = '<div class="seg dx-tabs km-tabs">' + kmTabs(k).map(([t, l]) => '<a class="' + (t === tab ? "on" : "") + '" href="#/klausur/' + esc(k.id) + '?tab=' + t + '">' + l + '</a>').join("") + '</div>';
-  return netNotice() + kmHead(k) + nav + '<div id="km_body">' + ({ start: kmStart, videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen, checkliste: kmCheckliste }[tab])(k) + '</div>';
+  if (tab !== "start") { const lbl = (kmTabs(k).find(t => t[0] === tab) || [, ""])[1];
+    return netNotice() + '<a class="backlink" href="#/klausur/' + esc(k.id) + '">' + ICO.back + esc(k.fach) + '</a><h1 class="t-large km-subh">' + esc(lbl) + '</h1><div id="km_body">' + ({ videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen, checkliste: kmCheckliste }[tab])(k) + '</div>'; }
+  return netNotice() + kmHead(k) + '<div id="km_body">' + ({ start: kmStart, videos: k2 => videoList(k2), vokabeln: kmVokabeln, spiele: kmSpiele, grammatik: kmGrammatik, schreiben: kmSchreiben, themen: kmThemen, checkliste: kmCheckliste }[tab])(k) + '</div>';
 };
 function kmHead(k) {
   const d = daysUntil(k.datum); const r = readinessOf(k);
@@ -54,6 +55,9 @@ async function markKlDone(k) { const all = Object.assign({}, setting("kl_geschri
 function kmAction(k, what) {
   const [kind, arg] = what.split(":");
   if (kind === "vocab") startTraining(kmVocabStart(k));
+  else if (kind === "vok" && arg) startTraining(Object.assign(kmVocabStart(k), { vmix: arg }));
+  else if (kind === "vok") vocabChooser(examVocab(k), daysUntil(k.datum), vmix => startTraining(Object.assign(kmVocabStart(k), { vmix })));
+  else if (kind === "fehler") location.hash = "#/fehler?fach=" + encodeURIComponent(k.fach);
   else if (kind === "topic") startTraining({ mode: "topic", subtopic_id: arg, from: "klausur" });
   else if (kind === "mixed") startTraining({ mode: "mixed", exam_id: k.id, from: "klausur" });
   else if (kind === "mock") mockModal(k);
@@ -88,16 +92,43 @@ function kmSteps(k) {
   if (kmHasVocab(k) && hasFrench("exam:" + k.id)) out.push({ go: "tab:spiele", title: "Spiele", sub: "Artikel, Pronomen, Verb-Puzzle, Hören …", main: false });
   return out;
 }
+/** Kacheln „Such's dir aus“ – je nach Fach */
+function kmTiles(k) {
+  const words = examVocab(k); const c = klCheck(k.id); const vids = videosFor(k).flatMap(x => x.videos); const subs = subsOfExam(k.id);
+  const T = (go, ico, t, sub) => ({ go, ico, t, sub });
+  const out = [];
+  if (words.length) out.push(T("vok", "🗂️", "Vokabeln", words.length + " Wörter · du wählst die Mischung"));
+  else if (KM_LANG.test(k.fach)) out.push(T("tab:vokabeln", "🗂️", "Vokabeln festlegen", "Welche Sammlungen kommen dran?"));
+  out.push(T("tab:checkliste", "✅", "Checkliste", c ? c.items.filter(i => (c.st || {})[i.nr] === "ok").length + " von " + c.items.length + " „Kann ich“" : "noch anlegen"));
+  if (/Mathe/.test(k.fach)) out.push(T("mathe", "📐", "Mathe-Kurs", "Erklärungen + Übungen"));
+  if (k.fach === "Französisch") out.push(T("drill", "👢", "Grammatik-Drill", "acheter, mettre, ce/cet …"), T("tab:grammatik", "📘", "Grammatik", "kurz erklärt"), T("tab:schreiben", "✍️", "Schreiben", "Texte mit Feedback"));
+  if (words.length >= 4) out.push(T("lesson", "🦉", "Lektion", "wie Duolingo"));
+  if (kmHasVocab(k) && words.length) out.push(T("tab:spiele", "🎮", "Spiele", "kurz zwischendurch"));
+  if (vids.length) out.push(T("tab:videos", "▶️", "Videos", vids.filter(v => videoSeen()[v.id]).length + " von " + vids.length + " gesehen"));
+  out.push(T("tab:themen", "🧩", "Themen & Übungen", subs.length ? plural(subs.length, "Thema", "Themen") : "festlegen"));
+  if (subs.length) out.push(T("mock", "📝", "Probeklausur", "unter Zeitdruck"));
+  const errs = typeof fehlerOf === "function" ? fehlerOf(k.fach) : []; if (errs.length) out.push(T("fehler", "📕", "Fehlerheft", errs.length + " Fehler üben"));
+  return out;
+}
+/** Empfehlung für „Jetzt direkt lernen“ */
+function kmRecommend(k) {
+  const words = examVocab(k);
+  const st = kmSteps(k).filter(s => s.go !== "tab:checkliste" && s.go !== "setup")[0];
+  if (st) return st;
+  if (words.length) { const r = vocabRecommend(vocabMixStats(words), daysUntil(k.datum)); if (r) return { go: "vok:" + r.kind, title: "Vokabeln · " + VMIX[r.kind][0], sub: r.why }; }
+  return null;
+}
 function kmStart(k) {
-  // Checkliste fehlt → steht schon groß oben, nicht noch einmal als Schritt
-  const steps = kmSteps(k).filter(s => !(s.go === "tab:checkliste" && !klCheck(k.id))); const words = examVocab(k); const subs = subsOfExam(k.id);
-  const extrem = typeof isExtremExam === "function" && isExtremExam(k) ? extremEntry(k) : "";
-  const todo = !steps.length ? '' : '<div class="card km-steps"><h2>Heute für diese Klausur</h2>' + steps.map((s, i) => '<button class="km-step' + (i === 0 && s.main ? " km-main" : "") + '" data-kmgo="' + esc(s.go) + '"><span class="km-n">' + (i + 1) + '</span><span class="km-t"><b>' + esc(s.title) + '</b><span class="t-sub">' + esc(s.sub) + '</span></span>' + ICO.play + '</button>').join("") + '</div>';
-  const voc = words.length ? '<div class="card"><h2>Vokabeln</h2><p class="hint" style="margin-top:0">Dein bisheriger Stand zählt – hier lernst du mit denselben Karten weiter.</p>' + stageBar(words) + '</div>' : '';
-  const th = subs.length ? '<div class="card"><h2>Themen</h2>' + subs.map(st => { const m = masteryOf(st.id).score; return '<div class="km-sub"><span>' + esc(st.title) + '</span><span class="t-sub">' + (m == null ? "neu" : m + " %") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div>'; }).join("") + '</div>' : '';
+  const words = examVocab(k); const subs = subsOfExam(k.id);
+  const rec = kmRecommend(k);
+  const now = rec ? '<div class="card km-now"><button class="btn primary lg wide" data-kmgo="' + esc(rec.go) + '">' + ICO.play + 'Jetzt direkt lernen</button><div class="km-now-r"><span class="km-rec">Empfohlen</span> <b>' + esc(rec.title) + '</b><span class="t-sub">' + esc(rec.sub || "") + '</span></div></div>' : '';
   const needCheck = !klCheck(k.id) && !isVocabTest(k);
-  const ask = needCheck ? '<div class="km-ask"><div class="km-ask-h">📋 Der Termin steht – jetzt die Checkliste</div><p class="t-sub">Fotografier den Themenzettel oder tipp die Punkte ein. Claude baut dir daraus Erklärungen, Heft-Aufgaben und Übungsfragen.</p>' + kmCheckliste(k) + '</div>' : '';
-  return ask + extrem + todo + '<div class="km-grid">' + voc + th + '</div>' + (typeof fachExtras === "function" ? fachExtras(k.fach, k) : '');
+  const ask = needCheck ? '<details class="km-ask"><summary><span class="km-ask-h">📋 Der Termin steht – jetzt die Checkliste</span><span class="t-sub">Themenzettel fotografieren oder Punkte eintippen – Claude baut Erklärungen, Heft-Aufgaben und Übungsfragen.</span><span class="btn sm primary km-ask-go">📷 Foto / ✏️ Eintippen</span></summary>' + kmCheckliste(k) + '</details>' : '';
+  const tiles = '<h2 class="fa-sec">Oder such dir aus, was du lernen willst</h2><div class="km-tiles">' + kmTiles(k).map(t => '<button class="km-tile" data-kmgo="' + esc(t.go) + '"><span class="km-ti">' + t.ico + '</span><b>' + esc(t.t) + '</b><span class="t-sub">' + esc(t.sub) + '</span></button>').join("") + '</div>';
+  const extrem = typeof isExtremExam === "function" && isExtremExam(k) ? extremEntry(k) : "";
+  const voc = words.length ? '<div class="card"><h2>Vokabeln</h2>' + stageBar(words) + '</div>' : '';
+  const th = subs.length ? '<div class="card"><h2>Themen</h2>' + subs.map(st => { const m = masteryOf(st.id).score; return '<div class="km-sub"><span>' + esc(st.title) + '</span><span class="t-sub">' + (m == null ? "neu" : m + " %") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div>'; }).join("") + '</div>' : '';
+  return now + ask + tiles + extrem + (voc || th ? '<h2 class="fa-sec">Dein Stand</h2><div class="km-grid">' + voc + th + '</div>' : '') + (typeof fachExtras === "function" ? fachExtras(k.fach, k) : '');
 }
 
 /* ---------- Vokabeln: nur die Sammlungen dieser Klausur ---------- */
