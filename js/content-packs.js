@@ -161,6 +161,29 @@ const PACKS = [
     await markKlDone(near);
     return "Mathe-Klausur als geschrieben markiert";
   } },
+  { id: "klausurplan-2-ef", label: "Klausurplan Nr. 2 eingetragen", run: async () => {
+    // Aushang „Klausur Nr. 2 · EF · 2026/27“ – nur Filips schriftliche Fächer (Kurs + Lehrkraft geprüft).
+    // Chemie, SoWi, Philosophie sind bei ihm mündlich → keine Klausur. Räume „nn“ = noch offen, Uhrzeit nicht angegeben.
+    const PLAN = [
+      ["Physik", "2026-11-23", "3.–4. Stunde"], ["Sport", "2026-12-08", "3.–4. Stunde"], ["Englisch", "2026-12-10", "3.–4. Stunde"],
+      ["Erdkunde", "2026-12-16", "3.–4. Stunde"], ["Deutsch", "2026-12-17", "3.–4. Stunde"], ["Mathe", "2026-12-22", "5.–6. Stunde"], ["Französisch", "2027-01-08", "3.–4. Stunde"]
+    ];
+    const t = todayISO(); let added = 0, moved = 0;
+    for (const [fach, datum, std] of PLAN) {
+      const desc = "Klausur Nr. 2 · " + std + " · Raum folgt (laut Aushang)";
+      if (STATE.kl.some(k => k.fach === fach && k.datum === datum)) continue;                       // schon eingetragen
+      // vorab angelegte „Nr. 2“ mit anderem Datum → nur das Datum korrigieren
+      const pre = STATE.kl.find(k => k.fach === fach && k.punkte == null && !isVocabTest(k) && k.datum >= t && (+k.nr === 2 || /nr\.?\s*2\b/i.test(k.thema || "")));
+      if (pre) { await saveKL(pre, { datum, description: pre.description || desc }); moved++; continue; }
+      const base = { fach, thema: "Klausur Nr. 2 (" + (KURSE[fach] || fach) + (LEHRER[fach] ? ", " + LEHRER[fach] : "") + ")", datum, prep: "Nicht begonnen" };
+      const ext = { nr: 2, kurs: KURSE[fach] || null, lehrer: LEHRER[fach] || null, halbjahr: hjOf(datum), dauer: 90, description: desc };
+      if (engineReady()) Object.assign(ext, { subject_id: subjectId(fach), topics_migrated: true });
+      let r; try { r = await sbInsert("klausuren", Object.assign({}, base, ext)); } catch (e) { if (e.network) throw e; r = await sbInsert("klausuren", base); }
+      const k = normKL(Object.assign({}, r, ext)); k.description = desc; STATE.kl.push(k); added++;
+    }
+    try { await sbInsert("neuigkeiten", { titel: "Klausurplan Nr. 2 (EF) ist da – " + plural(added + moved, "Klausur", "Klausuren") + " eingetragen", datum: t, quelle: "Aushang" }); } catch (e) {}
+    return added || moved ? plural(added + moved, "Klausur", "Klausuren") + " (Klausurplan Nr. 2)" : true;
+  } },
   { id: "franz-klausur", label: "Französisch-Klausur vorbereitet", run: async () => {
     const k = upcomingExam(/^Französisch$/); if (!k) return false;
     const col = ES.collections.find(c => c.name.toLowerCase() === VET_NAME.toLowerCase());
