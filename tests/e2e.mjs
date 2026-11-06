@@ -1406,7 +1406,7 @@ await scenario("Eigene Checkliste: Foto vom Themenzettel → KI-Checkliste, selb
   await go(page, "#/mathe/ck-8"); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
   await page.fill('[data-mkin="0"]', "777"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad");
   await page.click("[data-rw]"); await page.waitForSelector(".rw-pick"); await page.setInputFiles("#rw_file", { name: "heft.png", mimeType: "image/png", buffer: png });
-  await page.waitForSelector(".rw-steps"); assert.equal(b.lastAi.mode, "workcheck"); assert.ok(b.lastAi.exercise.question.includes("Nullstellen"));
+  await page.waitForSelector(".rw-steps"); assert.equal(b.lastAi.mode, "workcheck"); assert.ok(/Nullstelle/.test(b.lastAi.exercise.question), b.lastAi.exercise.question);
   assert.equal(await page.$$eval(".rw-steps li.bad", x => x.length), 1); assert.ok(await noScroll()); await shot(page, "kc-04-rechenweg");
   await ctx.close();
 });
