@@ -873,15 +873,18 @@ await scenario("Klausur-Modus: eigene Seite je Klausur, nur ihre Vokabeln, Artik
   const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   await page.waitForSelector(`.dsh-ex[href="#/klausur/${FK}"]`);
-  await page.$eval(`.dsh-ex[href="#/klausur/${FK}"]`, a => a.click()); await page.waitForSelector(".km-steps");
-  assert.deepEqual(await page.$$eval(".km-tabs a", a => a.map(x => x.textContent)), ["Start", "Checkliste", "Videos", "Vokabeln", "Spiele", "Grammatik", "Schreiben", "Aufgaben"]);
+  await page.$eval(`.dsh-ex[href="#/klausur/${FK}"]`, a => a.click()); await page.waitForSelector(".km-now");
+  // eine Seite: „Jetzt direkt lernen“ + Kacheln statt Tabs
+  assert.equal(await page.$(".km-tabs"), null, "keine Tabs mehr");
+  const tiles = await page.$$eval(".km-tile b", a => a.map(x => x.textContent)); ["Vokabeln", "Checkliste", "Grammatik-Drill", "Grammatik", "Schreiben", "Spiele", "Videos", "Themen & Übungen"].forEach(t => assert.ok(tiles.includes(t), t + " fehlt: " + tiles));
   assert.ok(await noScroll(), "Überblick ohne Querscrollen");
-  assert.ok((await page.textContent("#km_body")).includes("Dein bisheriger Stand zählt"));
+  assert.ok((await page.textContent("#km_body")).includes("Dein Stand"), "Vokabel-Stand auf der Fach-Seite");
   const sure = await page.evaluate(id => examVocab(klById(id)).filter(v => ["mid", "long"].includes(Engine.stageOf(v).key)).length, FK);
   assert.ok(sure >= 1, "gelerntes Wort zählt");
   await shot(page, "km-01-start");
   // Vokabelrunde nur mit den Wörtern der Klausur
-  await page.click('[data-kmgo="vocab"]'); await page.waitForSelector(".fx-card");
+  await page.click('.km-tile[data-kmgo="vok"]'); await page.waitForSelector(".vm-opt"); assert.ok(await page.$(".vm-opt.rec em"), "eine Mischung ist (empfohlen)");
+  await shot(page, "km-00-vokabelwahl"); await page.click('[data-vmix="mix"]'); await page.waitForSelector(".fx-card");
   const sc = await page.evaluate(() => ({ ex: TS.scope.exam_id, cols: [...new Set(TS.items.map(it => cardById(it.vocab_id).sprache))], travail: TS.items.some(it => cardById(it.vocab_id).begriff === "le travail") }));
   assert.equal(sc.ex, FK); assert.deepEqual(sc.cols, ["Unité 1"]); assert.ok(!sc.travail, "gelerntes Wort nicht von vorn");
   assert.ok((await page.getAttribute(".closebtn", "href")).startsWith("#/klausur/" + FK), "zurück zur Klausur-Seite");
@@ -1066,8 +1069,8 @@ await scenario("Mathe ohne Tippen: Videos abhaken, Graphen-Quiz, Papier-Modus; N
   // Handy-Leiste
   assert.deepEqual(await page.$$eval("#mnav a", a => a.map(x => { const c = x.cloneNode(true); c.querySelectorAll(".nbadge").forEach(n => n.remove()); return c.textContent.trim(); })), ["Start", "Fächer", "Vokabeln", "Noten"]);
   // Klausur-Modus Mathe: Start → Video zuerst
-  await go(page, "#/klausur/" + MK); await page.waitForSelector(".km-steps"); assert.ok(await noScroll());
-  assert.ok((await page.textContent(".km-step")).includes("Video: Potenzen"), "erst das Video");
+  await go(page, "#/klausur/" + MK); await page.waitForSelector(".km-now"); assert.ok(await noScroll());
+  assert.ok((await page.textContent(".km-now")).includes("Video: Potenzen"), "Empfehlung: erst das Video");
   await go(page, "#/klausur/" + MK + "?tab=videos"); await page.waitForSelector("[data-vid]"); assert.ok(await noScroll(), "Videos ohne Querscrollen");
   assert.ok(await page.$('.vid-a[href="https://www.youtube.com/watch?v=0mZzbYLarGQ"]'), "Lehrerschmidt-Video dabei");
   await shot(page, "m-01-videos");
@@ -1356,7 +1359,7 @@ await scenario("Handy: Fächer-Leiste, Fach-Seite, Fehlerheft aus Mathe und Dril
   assert.ok(await noScroll()); await shot(page, "fa-01-faecher");
   await page.click('.fa-row:has-text("Französisch")'); await page.waitForSelector(".km-hero");
   assert.equal(await page.textContent(".km-hero h1"), "Französisch", "Fach mit Klausur → direkt die Klausur-Seite");
-  assert.ok(await page.$('a.dr-card[href="#/drill"]'), "Grammatik-Drill auf der Klausur-/Fach-Seite"); assert.ok(await noScroll()); await shot(page, "fa-02-fach");
+  assert.ok(await page.$('.km-tile[data-kmgo="drill"]'), "Grammatik-Drill als Kachel auf der Fach-Seite"); assert.ok(await noScroll()); await shot(page, "fa-02-fach");
   // Mathe: eine Aufgabe falsch → Fehlerheft
   await go(page, "#/mathe/ck-8"); await page.waitForSelector("[data-mkstart]"); await page.click("[data-mkstart]"); await page.waitForSelector(".mk-q");
   const it = await page.evaluate(() => MKR.items[MKR.i]); await page.fill('[data-mkin="0"]', "777"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad");
@@ -1386,7 +1389,7 @@ await scenario("Eigene Checkliste: Foto vom Themenzettel → KI-Checkliste, selb
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==", "base64");
   // Start-Schritt „Checkliste anlegen“
-  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-steps"); assert.ok(await page.$(".km-ask .kc-file"), "Checkliste-Aufforderung oben");
+  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-ask"); assert.ok(await page.$(".km-ask .kc-file"), "Checkliste-Aufforderung oben");
   await go(page, "#/klausur/" + FK + "?tab=checkliste"); await page.waitForSelector(".kc-file"); assert.ok(await noScroll()); await shot(page, "kc-01-anlegen");
   await page.setInputFiles("#kc_files", { name: "zettel.png", mimeType: "image/png", buffer: png });
   await page.click("#kc_ai"); await page.waitForSelector(".ck-row");
@@ -1400,7 +1403,7 @@ await scenario("Eigene Checkliste: Foto vom Themenzettel → KI-Checkliste, selb
   await page.evaluate(() => Api.idle()); await page.waitForTimeout(400); await page.evaluate(() => Api.idle());
   const c = b.db.einstellungen.find(x => x.key === "checklisten").value[FK]; assert.equal(c.st["1"], "ok"); assert.ok(c.items[2].learn.length >= 1);
   // Fach-Seite zeigt die Checkliste
-  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-steps"); assert.ok((await page.textContent(".km-steps")).includes("1 von 3"), "Stand der Checkliste auf der Klausur-Seite");
+  await go(page, "#/klausur/" + FK); await page.waitForSelector(".km-tile"); assert.ok((await page.textContent('.km-tile[data-kmgo="tab:checkliste"]')).includes("1 von 3"), "Stand der Checkliste auf der Klausur-Seite");
   // Deutsch: selbst eintippen (ohne KI)
   await go(page, "#/klausur/" + DK + "?tab=checkliste"); await page.waitForSelector("#kc_text");
   await page.fill("#kc_text", "Analyse:\n1. Metrum bestimmen\n2. Stilmittel erkennen\nSchreiben:\n3. Gedichtvergleich"); await page.click("#kc_textgo"); await page.waitForSelector(".ck-row");
@@ -1464,7 +1467,7 @@ await scenario("Immer Klausur-Seite statt Klausur-Modus, Checkliste-Aufforderung
   assert.ok(await page.$(".km-ask .kc-file"), "Aufforderung: Checkliste eintippen oder Foto"); assert.ok(await page.$(".fa-extras"), "Hausaufgaben und Noten auf derselben Seite");
   assert.ok(await noScroll()); await shot(page, "st-01-klausurseite");
   // Checkliste direkt auf der Startseite der Klausur eintippen
-  await page.fill(".km-ask #kc_text", "Mechanik:\n1. Gleichförmige Bewegung\n2. Beschleunigung"); await page.click(".km-ask #kc_textgo"); await page.waitForSelector(".ck-row");
+  await page.click(".km-ask summary"); await page.fill(".km-ask #kc_text", "Mechanik:\n1. Gleichförmige Bewegung\n2. Beschleunigung"); await page.click(".km-ask #kc_textgo"); await page.waitForSelector(".ck-row");
   // Punkt bearbeiten, hinzufügen, Übungsfragen, löschen
   await page.click(".ck-row"); await page.waitForSelector("#kc_edit"); await page.click("#kc_edit"); await page.waitForSelector("#ke_learn");
   await page.fill("#ke_learn", "# Formel\nStrecke durch Zeit\n= v = s / t\n- s = 100 m, t = 20 s\n- v = 5 m/s"); await page.fill("#ke_paper", "Formel auf den Merkzettel"); await page.click("#ke_save");
@@ -1475,8 +1478,8 @@ await scenario("Immer Klausur-Seite statt Klausur-Modus, Checkliste-Aufforderung
   await go(page, "#/klausur/" + PK + "?tab=checkliste"); await page.waitForSelector("#kc_add"); await page.click("#kc_add"); await page.waitForSelector("#ke_short");
   await page.fill("#ke_short", "Kräfte"); await page.click("#ke_save"); await page.waitForSelector("#kc_del");
   await page.click("#kc_del"); await page.waitForSelector("#kc_add"); assert.equal(await page.$$eval(".ck-row", x => x.length), 2);
-  // Bearbeiten: Raum nachtragen
-  await page.click("#km_edit"); await page.waitForSelector("#ek_raum"); await page.fill("#ek_raum", "B12"); await page.click("#ek_save"); await page.waitForSelector(".km-hero"); await page.waitForTimeout(300);
+  // Bearbeiten: Raum nachtragen (Knopf oben auf der Fach-/Klausur-Seite)
+  await go(page, "#/klausur/" + PK); await page.waitForSelector("#km_edit"); await page.click("#km_edit"); await page.waitForSelector("#ek_raum"); await page.fill("#ek_raum", "B12"); await page.click("#ek_save"); await page.waitForSelector(".km-hero"); await page.waitForTimeout(300);
   assert.ok((await page.textContent(".km-hero .eyebrow")).includes("B12"));
   // Abhaken → weg → Startseite: Note eintragen
   await page.click("#km_written"); await page.waitForSelector("text=Klausur abgehakt");

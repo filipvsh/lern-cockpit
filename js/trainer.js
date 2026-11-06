@@ -71,6 +71,42 @@ function langPool(lang) {
 }
 /** Alle Karten der Sammlungen, die zu einer Klausur gehören */
 const examVocab = k => linkedCollections(k).flatMap(c => cardsOf(c.id));
+/* ---------- Vokabel-Mischungen zum Selbst-Wählen + Empfehlung ---------- */
+const VMIX = { mix: ["Gemischt", "fällige + neue + lange nicht geübte, zufällig"], due: ["Fällige wiederholen", "die jetzt dran sind"], new: ["Neue lernen", "Wörter, die du noch nie hattest"], old: ["Lange nicht geübt", "sitzt eigentlich – aber ist lange her"], all: ["Alles durchmischen", "quer durch alle gelernten Wörter"] };
+const VDAY = 864e5;
+function vocabMixStats(pool, now) {
+  now = now || Date.now();
+  const due = pool.filter(c => !Engine.isNew(c) && Engine.isDue(c, now)).length, fresh = pool.filter(Engine.isNew).length;
+  const old = pool.filter(c => !Engine.isNew(c) && !Engine.isDue(c, now) && c.last_reviewed_at && now - Date.parse(c.last_reviewed_at) >= 14 * VDAY).length;
+  return { due, new: fresh, old, all: pool.filter(c => !Engine.isNew(c)).length, mix: due + Math.min(fresh, Engine.ROUND.maxNew) + Math.min(old, 3) };
+}
+function vocabMix(pool, kind, now) {
+  const learned = pool.filter(c => !Engine.isNew(c)); const max = Engine.ROUND.maxCards;
+  if (kind === "new") return Engine.shuffle(pool.filter(Engine.isNew)).slice(0, Engine.ROUND.maxNew);
+  if (kind === "due") return Engine.shuffle(learned.filter(c => Engine.isDue(c, now))).slice(0, max);
+  if (kind === "old") return learned.filter(c => !Engine.isDue(c, now)).sort((a, b) => (Date.parse(a.last_reviewed_at || 0) || 0) - (Date.parse(b.last_reviewed_at || 0) || 0)).slice(0, 15);
+  if (kind === "all") return Engine.shuffle(learned).slice(0, max);
+  return [];
+}
+/** Was lohnt sich gerade? daysLeft = Tage bis zur Klausur (oder null) */
+function vocabRecommend(st, daysLeft) {
+  if (!st.all && !st.new) return null;
+  if (daysLeft != null && daysLeft <= 2 && st.all) return { kind: "all", why: "Kurz vor der Klausur: alles noch einmal quer durch" };
+  if (st.due >= 10) return { kind: "due", why: st.due + " Wörter sind fällig – erst die, sonst vergisst du sie" };
+  if (st.new && (daysLeft == null || daysLeft >= 3)) return { kind: "mix", why: "Fällige, ein paar neue und lange nicht geübte – gut gemischt" };
+  if (st.due) return { kind: "due", why: "Erst die fälligen Wörter" };
+  if (st.old) return { kind: "old", why: "Alles ist wiederholt – frisch die Wörter auf, die lange her sind" };
+  return st.new ? { kind: "new", why: "Neue Wörter lernen" } : { kind: "all", why: "Einmal alles durchmischen" };
+}
+/** Auswahl-Fenster: start(vmix) startet die Runde */
+function vocabChooser(pool, daysLeft, start) {
+  const st = vocabMixStats(pool); const rec = vocabRecommend(st, daysLeft);
+  if (!rec) return toast("Für dieses Fach sind noch keine Vokabeln verknüpft.", true);
+  const opts = ["mix", "due", "new", "old", "all"].filter(k => st[k] > 0);
+  openModal("Vokabeln üben", (rec ? '<div class="vm-rec">💡 ' + esc(rec.why) + '</div>' : '') + '<div class="vm-list">' + opts.map(k => '<button class="vm-opt' + (rec && rec.kind === k ? " rec" : "") + '" data-vmix="' + k + '"><span><b>' + VMIX[k][0] + (rec && rec.kind === k ? ' <em>(empfohlen)</em>' : '') + '</b><span class="t-sub">' + VMIX[k][1] + '</span></span><span class="vm-n">' + (k === "mix" ? Math.min(st.mix, Engine.ROUND.maxCards) : Math.min(st[k], k === "new" ? Engine.ROUND.maxNew : k === "old" ? 15 : Engine.ROUND.maxCards)) + '</span></button>').join("") + '</div>', "", () => {
+    document.querySelectorAll("[data-vmix]").forEach(b => b.onclick = () => { closeModal(); start(b.dataset.vmix); });
+  });
+}
 /** Themen-Gruppe aus Sammlungen mit gleichem Namensanfang (z. B. „Fahrschule · …“), in Namensreihenfolge der Gruppe */
 const GROUPS = {};   // z. B. { fahrschule: { name: "Fahrschule", re: /^Fahrschule\b/i } } – eigener Knopf im Kasten „Vokabeln lernen“
 const groupCols = g => GROUPS[g] ? activeCols().filter(c => GROUPS[g].re.test(c.name)).sort((a, b) => /extra/i.test(a.name) - /extra/i.test(b.name)) : [];
@@ -88,6 +124,8 @@ function buildSessionFromConfig(cfg) {
   if (cfg.mode === "vocab") {
     // „Vokabeln lernen“ mit Sprachwahl: bewusst gestartet → neue Wörter auch über das Tageslimit hinaus (pro Runde bleibt es bei maxNew)
     let q = Engine.buildVocabQueue(pool, { now, limit: Math.min(count, Engine.ROUND.maxCards), mode: "review", newLimit: cfg.lang || cfg.group || vk ? Engine.ROUND.maxNew : Math.min(Engine.ROUND.maxNew, newLeftToday()), refresh: setting("vokabel_auffrischen", true) !== false ? 3 : 0, shuffle: setting("zufall", true) !== false });
+    // Selbst gewählte Mischung (Fach-Seite): neu · fällig · lange her · alle
+    if (cfg.vmix && cfg.vmix !== "mix") { q = vocabMix(pool, cfg.vmix, now); label = " · " + (VMIX[cfg.vmix] || ["", ""])[0]; }
     if (!q.length || cfg.extra) {
       // Freiwillige Zusatzrunde: die Wörter, die du am ehesten vergisst
       q = pool.filter(v => !Engine.isNew(v)).map(v => [v, Engine.recallProbability(v, now)]).sort((a, b) => a[1] - b[1]).slice(0, 10).map(x => x[0]);
