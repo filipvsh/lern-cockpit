@@ -184,6 +184,15 @@ const PACKS = [
     try { await sbInsert("neuigkeiten", { titel: "Klausurplan Nr. 2 (EF) ist da – " + plural(added + moved, "Klausur", "Klausuren") + " eingetragen", datum: t, quelle: "Aushang" }); } catch (e) {}
     return added || moved ? plural(added + moved, "Klausur", "Klausuren") + " (Klausurplan Nr. 2)" : true;
   } },
+  { id: "physik-kinematik-1", label: "Physik: Checkliste + Lernplan Kinematik", run: async () => {
+    // Checkliste der Lehrkraft (TaskCards „beschleunigte Bewegung“ → Übung für die Klausur) + Lernplan bis 23.11.
+    const k = STATE.kl.filter(x => x.fach === "Physik" && !isVocabTest(x) && x.punkte == null && x.datum >= todayISO()).sort((a, b) => a.datum < b.datum ? -1 : 1)[0];
+    if (!k || typeof PHYS === "undefined") return false;
+    const old = klCheck(k.id);
+    const c = old && old.src !== "lehrer" ? Object.assign({}, old, { plan: old.plan || PHYS.PLAN }) : { title: "Checkliste Kinematik (HUBA)", fach: "Physik", src: "lehrer", items: PHYS.ITEMS, st: (old && old.st) || {}, plan: PHYS.PLAN, planDone: (old && old.planDone) || {}, d: todayISO() };
+    await klCheckSave(k.id, c);
+    return "Physik-Lernplan bis zur Klausur";
+  } },
   { id: "franz-klausur", label: "Französisch-Klausur vorbereitet", run: async () => {
     const k = upcomingExam(/^Französisch$/); if (!k) return false;
     const col = ES.collections.find(c => c.name.toLowerCase() === VET_NAME.toLowerCase());

@@ -26,10 +26,11 @@ function fehlerResolve(src, key) { const id = src + ":" + key; const list = fehl
 /** Anzeige-Name einer Gruppe */
 function fehlerGroupName(e) {
   if (e.src === "drill") { const t = DRILL.TOPICS.find(x => x.id === e.topic); return "Grammatik · " + (t ? t.short : e.topic); }
+  if (typeof PHYS !== "undefined" && e.key.startsWith("ph:")) { const p = PHYS.ITEMS.find(i => i.keys.includes(e.key)); return "Kinematik · " + (p ? p.short : "Physik"); }
   const it = typeof MC !== "undefined" && MC.ITEMS.find(i => i.keys.includes(e.key)); if (it) return "Checkliste " + it.nr + " · " + it.short;
   const t = MK.TOPICS.find(x => e.key.startsWith(x.id + ":")); return t ? t.title : "Mathe";
 }
-const fehlerGroupKey = e => e.src === "drill" ? "drill:" + e.topic : "mathe";
+const fehlerGroupKey = e => e.src === "drill" ? "drill:" + e.topic : e.fach && e.fach !== "Mathe" ? "mathe:" + e.fach : "mathe";
 const givenText = g => g === "none" ? "keine Lösung" : Array.isArray(g) ? g.filter(x => String(x || "").trim()).join(" | ") : g == null ? "" : String(g);
 
 V.fehler = () => {
@@ -48,6 +49,6 @@ function bindFehler() {
   document.querySelectorAll("[data-feok]").forEach(b => b.onclick = async () => { const list = fehlerAll().filter(x => x.id !== b.dataset.feok); fehlerStore(list); await fehlerFlush(); route(); });
   document.querySelectorAll("[data-fepractice]").forEach(b => b.onclick = () => {
     const g = b.dataset.fepractice; const es = fehlerAll().filter(e => fehlerGroupKey(e) === g);
-    if (g === "mathe") mkStart("fehler"); else drillStart(g.slice(6), es.map(e => e.key));
+    if (g === "mathe") mkStart("fehler"); else if (g.startsWith("mathe:")) mkStart("fehler:" + g.slice(6)); else drillStart(g.slice(6), es.map(e => e.key));
   });
 }
