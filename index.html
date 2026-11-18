@@ -769,6 +769,7 @@ a.fa-grade{display:flex;align-items:center;justify-content:space-between;gap:12p
 details.km-ask>summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:6px}details.km-ask>summary::-webkit-details-marker{display:none}details.km-ask[open] .km-ask-go{display:none}.km-ask-go{align-self:flex-start;margin-top:4px}details.km-ask[open]>summary{margin-bottom:10px}
 .kc-plan{max-width:760px;margin-bottom:var(--s4)}.kc-day{border-top:1px solid var(--sep);padding:6px 0}.kc-day>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;min-height:44px}.kc-day>summary::-webkit-details-marker{display:none}.kc-day.today>summary b{color:var(--accent)}.kc-day.past{opacity:.7}.kc-day>summary span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kc-task{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0 8px 4px;flex-wrap:wrap}.kc-task label{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:200px;font-size:15px;line-height:1.4;cursor:pointer}.kc-task input{width:22px;height:22px;flex:none;margin-top:1px}.kc-task.done label span{text-decoration:line-through;color:var(--text-2)}.kc-ta{display:flex;gap:6px}.kc-spoil>summary{cursor:pointer;list-style:none}
+button.mk-step{width:100%;text-align:left;font:inherit;cursor:pointer}.ph-go{flex:none;display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;align-items:center;justify-content:center}.ph-go svg{width:14px;height:14px}
 .km-now{max-width:760px;margin-bottom:var(--s4);display:grid;gap:10px}.km-now-r{display:flex;flex-direction:column;gap:2px}.km-rec{display:inline-block;align-self:flex-start;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--green);border-radius:6px;padding:2px 7px}.km-subh{margin:4px 0 var(--s4)}
 .km-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;max-width:760px;margin-bottom:var(--s4)}.km-tile{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:var(--r-lg);padding:14px;font:inherit;color:var(--text);cursor:pointer;min-height:104px;box-shadow:var(--sh-1)}.km-ti{font-size:24px}.km-tile b{font-size:15px}.km-tile .t-sub{font-size:12px;line-height:1.35}
 @media (max-width:640px){.km-tiles{grid-template-columns:1fr 1fr}}
@@ -1168,7 +1169,7 @@ html,body,button,a,input,label,summary{touch-action:manipulation}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="29";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="30";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
