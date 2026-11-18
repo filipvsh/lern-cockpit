@@ -778,7 +778,7 @@ await scenario("Inhalts-Pakete: Kleidung-Vokabeln, Englisch archiviert, leichte 
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000m1", fach: "Mathe", thema: "Graphen, lineare Funktionen", datum: day(9), themen: [{ id: "a", text: "Grafen", done: false }, { id: "b", text: "linear", done: false }], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: false });
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000f1", fach: "Französisch", thema: "Klausur Nr. 1", datum: day(12), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b); await login(page);
-  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 11 && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.waitForFunction(() => Object.keys(setting("packs_done", {}) || {}).length === 12 && !PACKS_RUNNING, null, { timeout: 15000 });
   await page.evaluate(() => Api.idle());
   const vet = b.db.vocab_collections.find(c => c.name === "Les vêtements");
   assert.ok(vet && vet.source_language === "fr", "Sammlung angelegt");
@@ -1501,6 +1501,33 @@ await scenario("Immer Klausur-Seite statt Klausur-Modus, Checkliste-Aufforderung
   // Einstellungen: Schalter
   await go(page, "#/einstellungen"); await page.waitForSelector('[data-settog="auto_weiter"]'); await page.click('[data-settog="auto_weiter"]'); await page.waitForTimeout(300);
   assert.equal(await page.evaluate(() => setting("auto_weiter", true)), false);
+  await ctx.close();
+});
+
+await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Üben je Punkt, Fehler ins Fehlerheft, Probeklausur-Lösungen", async () => {
+  const b = new MockBackend({ packs: true }); const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const PK = "11111111-aaaa-4aaa-8aaa-0000000000p9";
+  b.db.klausuren.push({ id: PK, fach: "Physik", thema: "Klausur (PH-GK2, Huba)", nr: 2, datum: day(5), themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
+  await page.waitForFunction(() => (setting("packs_done", {}) || {})["physik-kinematik-1"] && !PACKS_RUNNING, null, { timeout: 15000 });
+  await page.evaluate(() => Api.idle());
+  const c = b.db.einstellungen.find(x => x.key === "checklisten").value[PK]; assert.equal(c.items.length, 19); assert.equal(c.plan.length, 6);
+  await go(page, "#/klausur/" + PK); await page.waitForSelector(".kc-plan"); const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  assert.ok((await page.textContent(".km-now")).includes("Lernplan"), "Empfehlung kommt aus dem Lernplan"); assert.equal(await page.$(".km-ask"), null, "Checkliste ist schon da");
+  assert.ok(await noScroll()); await shot(page, "ph-01-seite");
+  // Aufgabe im Plan abhaken
+  await page.click(".kc-day[open] [data-kcplan]"); await page.waitForSelector(".kc-task.done");
+  // Punkt 11 (Anhalteweg): Erklärung + Üben
+  await go(page, "#/klausur/" + PK + "?tab=checkliste&p=11"); await page.waitForSelector(".ck-learn"); assert.ok((await page.textContent(".ck-learn")).includes("s_B = v² : (2a)"));
+  await shot(page, "ph-02-punkt"); await page.click('[data-mkstart="kc:' + PK + ':11"]'); await page.waitForSelector(".mk-q");
+  const it = await page.evaluate(() => MKR.items[MKR.i]); assert.ok(it.key.startsWith("ph:"), it.key); assert.ok(await page.$(".mk-paper"), "auf Papier rechnen");
+  await page.fill('[data-mkin="0"]', "9999"); await page.click("#mk_check"); await page.waitForSelector(".les-foot.bad"); await shot(page, "ph-03-aufgabe");
+  await page.evaluate(() => fehlerFlush()); await page.evaluate(() => Api.idle());
+  assert.equal(b.db.einstellungen.find(x => x.key === "fehlerheft").value[0].fach, "Physik");
+  await go(page, "#/fehler?fach=Physik"); await page.waitForSelector(".fe-group"); assert.ok((await page.textContent(".fe-sub")).includes("Kinematik"));
+  await page.click('[data-fepractice="mathe:Physik"]'); await page.waitForSelector(".mk-q"); assert.ok(await page.evaluate(() => MKR.items.every(x => x.key.startsWith("ph:"))));
+  // Probeklausur: Lösungen eingeklappt
+  await go(page, "#/klausur/" + PK + "?tab=checkliste&p=P"); await page.waitForSelector(".kc-spoil"); assert.ok(!(await page.$eval(".kc-spoil", d => d.open)), "Lösungen erst nach dem Schreiben");
   await ctx.close();
 });
 

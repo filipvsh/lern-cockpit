@@ -56,14 +56,30 @@ function kcItem(k, c, it) {
   return '<a class="backlink" href="' + base + '">' + ICO.back + 'Checkliste</a><div class="dr-head">' + (it.area ? '<div class="ck-area-l">' + esc(it.area) + ' · Punkt ' + esc(it.nr) + '</div>' : '<div class="ck-area-l">Punkt ' + esc(it.nr) + '</div>') + '<h1 class="t-large ck-h">' + esc(it.short) + '</h1>' + (it.title !== it.short ? '<div class="ck-quote">„' + esc(it.title) + '“</div>' : '') + '</div>' +
     '<div class="kc-tools"><button class="btn sm" id="kc_edit" data-nr="' + esc(it.nr) + '">✏️ Bearbeiten</button><button class="btn sm" id="kc_del" data-nr="' + esc(it.nr) + '">🗑 Löschen</button></div>' +
     '<div class="card ck-self"><b>Wie sicher bist du?</b><div class="seg">' + KC_ST.map(([s, ic, l]) => '<button class="' + (st === s ? "on" : "") + '" data-kcst="' + esc(it.nr) + ':' + s + '">' + ic + ' ' + l + '</button>').join("") + '</div></div>' +
-    (learn ? '<div class="card ck-learn"><h2>📖 Erklärung</h2>' + learn + '</div>' : '<div class="card ck-learn"><h2>📖 Erklärung</h2><p class="t-sub" style="margin:0 0 10px">Zu diesem Punkt gibt es noch keine Erklärung.</p><button class="btn primary" id="kc_explain" data-nr="' + esc(it.nr) + '">🤖 Von der KI erklären lassen</button><div id="kc_busy"></div></div>') +
+    ((it.keys || []).length && typeof MK !== "undefined" ? '<button class="btn primary lg wide dr-go" data-mkstart="kc:' + esc(k.id) + ':' + esc(it.nr) + '">' + ICO.play + 'Üben (10 Aufgaben)</button>' : '') +
+    (learn && it.spoiler ? '<details class="card ck-learn kc-spoil"><summary><h2 style="display:inline">📖 Lösungen</h2> <span class="t-sub">erst nach dem Schreiben aufklappen!</span></summary>' + learn + '</details>' : learn ? '<div class="card ck-learn"><h2>📖 Erklärung</h2>' + learn + '</div>' : '<div class="card ck-learn"><h2>📖 Erklärung</h2><p class="t-sub" style="margin:0 0 10px">Zu diesem Punkt gibt es noch keine Erklärung.</p><button class="btn primary" id="kc_explain" data-nr="' + esc(it.nr) + '">🤖 Von der KI erklären lassen</button><div id="kc_busy"></div></div>') +
     (paper.length ? '<div class="card ck-paper"><h2>✍️ Auf Papier / iPad</h2><ul>' + paper.map(x => '<li>' + mkMd(x) + '</li>').join("") + '</ul></div>' : '') + kcQuiz(it) +
     '<div class="ck-nav">' + (prev ? '<a class="btn" href="' + base + '&p=' + encodeURIComponent(prev.nr) + '">← ' + esc(prev.nr) + ' · ' + esc(prev.short) + '</a>' : '<span></span>') + (next ? '<a class="btn" href="' + base + '&p=' + encodeURIComponent(next.nr) + '">' + esc(next.nr) + ' · ' + esc(next.short) + ' →</a>' : '') + '</div>';
 }
 /** nach dem Anlegen: Checkliste zeigen (auch wenn sie auf dem Start-Tab angelegt wurde) */
 function kcShow(k) { const h = "#/klausur/" + k.id + "?tab=checkliste"; if (location.hash === h) route(); else location.hash = h; }
+/* ---------- Lernplan bis zur Klausur (c.plan, erledigt in c.planDone) ---------- */
+function kcPlanToday(c) { const t = todayISO(); return (c.plan || []).find(d => d.d >= t) || null; }
+function kcPlanCard(k) {
+  const c = klCheck(k.id); if (!c || !(c.plan || []).length) return "";
+  const t = todayISO(), done = c.planDone || {}; const base = "#/klausur/" + esc(k.id) + "?tab=checkliste&p=";
+  const all = c.plan.reduce((a, d) => a + d.tasks.length, 0), n = Object.keys(done).filter(x => done[x]).length;
+  return '<div class="card kc-plan"><div class="km-row-h"><h2 style="margin:0">📅 Dein Lernplan bis zur Klausur</h2><span class="t-sub">' + n + '/' + all + '</span></div>' + progBar(Math.round(n / all * 100), n === all ? "g" : "") +
+    c.plan.map(day => { const isToday = day.d === t, past = day.d < t; const dn = day.tasks.filter((_, i) => done[day.d + "|" + i]).length;
+      return '<details class="kc-day' + (isToday ? " today" : past ? " past" : "") + '"' + (isToday || (!past && day === kcPlanToday(c)) ? " open" : "") + '><summary><b>' + esc(fmtDL(day.d)) + (isToday ? " · heute" : "") + '</b><span>' + esc(day.title) + '</span><span class="t-sub">' + dn + '/' + day.tasks.length + '</span></summary>' +
+        day.tasks.map((x, i) => { const key = day.d + "|" + i;
+          return '<div class="kc-task' + (done[key] ? " done" : "") + '"><label><input type="checkbox" data-kcplan="' + esc(key) + '"' + (done[key] ? " checked" : "") + '> <span>' + mkMd(x.t) + '</span></label><span class="kc-ta">' +
+            (x.practice && x.nr ? '<button class="btn sm primary" data-mkstart="kc:' + esc(k.id) + ':' + esc(x.nr) + '">Üben</button>' : '') + (x.nr ? '<a class="btn sm" href="' + base + encodeURIComponent(x.nr) + '">Öffnen</a>' : '') + (x.fehler ? '<a class="btn sm" href="#/fehler?fach=' + encodeURIComponent(k.fach) + '">Fehlerheft</a>' : '') + '</span></div>'; }).join("") + '</details>'; }).join("") + '</div>';
+}
 function bindKmCheckliste(k) {
-  const q = id => document.getElementById(id); const busy = t => { const b = q("kc_busy"); if (b) b.innerHTML = t ? '<div class="kc-wait"><span class="spinner"></span> ' + t + '</div>' : ""; };
+  const q = id => document.getElementById(id);
+  document.querySelectorAll("[data-mkstart]").forEach(b => b.onclick = () => mkStart(b.dataset.mkstart));
+  document.querySelectorAll("[data-kcplan]").forEach(b => b.onchange = async () => { const c = Object.assign({}, klCheck(k.id)); c.planDone = Object.assign({}, c.planDone); if (b.checked) c.planDone[b.dataset.kcplan] = true; else delete c.planDone[b.dataset.kcplan]; await klCheckSave(k.id, c); if (b.checked) toast("✓ Erledigt"); route(); }); const busy = t => { const b = q("kc_busy"); if (b) b.innerHTML = t ? '<div class="kc-wait"><span class="spinner"></span> ' + t + '</div>' : ""; };
   const files = q("kc_files"), go = q("kc_ai");
   if (files) files.onchange = () => { const n = files.files.length; q("kc_fn").textContent = n ? plural(n, "Datei", "Dateien") + " gewählt" : "Fotos/PDF wählen"; go.disabled = !n; };
   if (go) go.onclick = async () => {

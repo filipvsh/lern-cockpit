@@ -644,3 +644,17 @@ test("Vokabeln: alte Wörter (≥ 14 Tage nicht gesehen) werden zum Auffrischen 
   assert.equal(sh[0].id, "w", "Falsche bleiben vorne"); assert.equal(sh.length, 6);
   assert.equal(E.buildVocabQueue(due.concat(old), { now, limit: 4, refresh: 3 }).length, 4, "Limit bleibt");
 });
+
+/* ---------- Physik Kinematik ---------- */
+const PHY = require("../js/physik.js");
+test("Physik: Checkliste der Lehrkraft (18 Punkte + Probeklausur), alle Aufgaben mit ihrer Lösung richtig", () => {
+  assert.equal(PHY.ITEMS.length, 19); assert.ok(PHY.ITEMS.filter(i => i.nr !== "P").every(i => i.keys.length && i.learn.length));
+  PHY.ITEMS.flatMap(i => i.keys).forEach(k => assert.ok(MKK.GEN[k], k));
+  let seed = 9; const rng = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  for (const k of Object.keys(PHY.G)) for (const l of [0, 1, 2]) for (let i = 0; i < 40; i++) {
+    const x = MKK.make(k, l, rng, []); const g = x.kind === "num" ? MKK.fmt(x.answer) : x.answer;
+    assert.ok(MKK.check(x, g), k + ": " + x.prompt); assert.ok(!/NaN|undefined|Infinity/.test(x.prompt + x.steps.join()), k);
+  }
+  const an = MKK.make("ph:anhalt", 0, () => 0, []); assert.ok(an.steps[0].includes("km/h ="), "erst in m/s umrechnen");
+  assert.equal(PHY.PLAN[PHY.PLAN.length - 1].d, "2026-11-23"); assert.ok(PHY.PLAN.every(d => d.tasks.every(t => !t.nr || PHY.ITEMS.some(i => i.nr === t.nr))));
+});

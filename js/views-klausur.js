@@ -45,7 +45,7 @@ function bindKlausur() {
   ({ checkliste: () => bindKmCheckliste(k), schreiben: () => bindKmSchreiben(k), vokabeln: () => bindKmVokabeln(k), spiele: () => { document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id)); bindLessonCards(); } }[kmTab(k)] || (() => {}))();
   const lk = q("km_link"); if (lk) lk.onclick = () => kmLinkModal(k);
   const ed = q("km_edit"); if (ed) ed.onclick = () => editKLModal(k);
-  if (kmTab(k) === "start" && !klCheck(k.id)) bindKmCheckliste(k);
+  if (kmTab(k) === "start") bindKmCheckliste(k);
   const wr = q("km_written"); if (wr) wr.onclick = async () => { if (!confirm(k.fach + "-Klausur abhaken? Sie verschwindet aus deinen Klausuren – bis du die Note einträgst, erinnert dich die Startseite daran.")) return; await markKlDone(k); toast("✓ " + k.fach + "-Klausur geschrieben – gut gemacht!"); location.hash = "#/klausur/" + k.id; route(); };
   bindGrammarGames("exam:" + k.id); bindVideos();
   document.querySelectorAll("[data-game]").forEach(b => b.onclick = () => startGame(b.dataset.game, "exam:" + k.id));
@@ -57,6 +57,8 @@ function kmAction(k, what) {
   if (kind === "vocab") startTraining(kmVocabStart(k));
   else if (kind === "vok" && arg) startTraining(Object.assign(kmVocabStart(k), { vmix: arg }));
   else if (kind === "vok") vocabChooser(examVocab(k), daysUntil(k.datum), vmix => startTraining(Object.assign(kmVocabStart(k), { vmix })));
+  else if (kind === "kcp") mkStart("kc:" + k.id + ":" + arg);
+  else if (kind === "kco") location.hash = "#/klausur/" + k.id + "?tab=checkliste&p=" + encodeURIComponent(arg);
   else if (kind === "fehler") location.hash = "#/fehler?fach=" + encodeURIComponent(k.fach);
   else if (kind === "topic") startTraining({ mode: "topic", subtopic_id: arg, from: "klausur" });
   else if (kind === "mixed") startTraining({ mode: "mixed", exam_id: k.id, from: "klausur" });
@@ -113,6 +115,10 @@ function kmTiles(k) {
 /** Empfehlung für „Jetzt direkt lernen“ */
 function kmRecommend(k) {
   const words = examVocab(k);
+  // Lernplan: heutige (oder nächste) offene Aufgabe zuerst
+  const c = klCheck(k.id); const day = c && kcPlanToday(c);
+  if (day) { const done = c.planDone || {}; const i = day.tasks.findIndex((x, j) => !done[day.d + "|" + j]);
+    if (i >= 0) { const x = day.tasks[i]; return { go: x.practice && x.nr ? "kcp:" + x.nr : x.nr ? "kco:" + x.nr : x.fehler ? "fehler" : "tab:checkliste", title: "Lernplan " + (day.d === todayISO() ? "heute" : fmtDL(day.d)) + ": " + day.title, sub: x.t.replace(/\*\*/g, "") }; } }
   const st = kmSteps(k).filter(s => s.go !== "tab:checkliste" && s.go !== "setup")[0];
   if (st) return st;
   if (words.length) { const r = vocabRecommend(vocabMixStats(words), daysUntil(k.datum)); if (r) return { go: "vok:" + r.kind, title: "Vokabeln · " + VMIX[r.kind][0], sub: r.why }; }
@@ -128,7 +134,7 @@ function kmStart(k) {
   const extrem = typeof isExtremExam === "function" && isExtremExam(k) ? extremEntry(k) : "";
   const voc = words.length ? '<div class="card"><h2>Vokabeln</h2>' + stageBar(words) + '</div>' : '';
   const th = subs.length ? '<div class="card"><h2>Themen</h2>' + subs.map(st => { const m = masteryOf(st.id).score; return '<div class="km-sub"><span>' + esc(st.title) + '</span><span class="t-sub">' + (m == null ? "neu" : m + " %") + '</span>' + progBar(m || 0, m == null ? "" : m >= 80 ? "g" : m >= 60 ? "" : "o") + '</div>'; }).join("") + '</div>' : '';
-  return now + ask + tiles + extrem + (voc || th ? '<h2 class="fa-sec">Dein Stand</h2><div class="km-grid">' + voc + th + '</div>' : '') + (typeof fachExtras === "function" ? fachExtras(k.fach, k) : '');
+  return now + ask + kcPlanCard(k) + tiles + extrem + (voc || th ? '<h2 class="fa-sec">Dein Stand</h2><div class="km-grid">' + voc + th + '</div>' : '') + (typeof fachExtras === "function" ? fachExtras(k.fach, k) : '');
 }
 
 /* ---------- Vokabeln: nur die Sammlungen dieser Klausur ---------- */
