@@ -1526,6 +1526,14 @@ await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Ü
   assert.equal(b.db.einstellungen.find(x => x.key === "fehlerheft").value[0].fach, "Physik");
   await go(page, "#/fehler?fach=Physik"); await page.waitForSelector(".fe-group"); assert.ok((await page.textContent(".fe-sub")).includes("Kinematik"));
   await page.click('[data-fepractice="mathe:Physik"]'); await page.waitForSelector(".mk-q"); assert.ok(await page.evaluate(() => MKR.items.every(x => x.key.startsWith("ph:"))));
+  // Physik-Training wie der Mathe-Kurs: Kachel → Bereiche → gemischt üben, Probe-Klausur mit Note, Blitz
+  await go(page, "#/klausur/" + PK); await page.waitForSelector('.km-tile[data-kmgo="physik"]'); assert.ok((await page.textContent(".km-now")).includes("10 Aufgaben"), "Empfehlung startet Übungen");
+  await page.click('.km-tile[data-kmgo="physik"]'); await page.waitForSelector('[data-mkstart="ph-all"]'); assert.equal(await page.$$eval(".mk-course .mk-step", x => x.length), 8, "7 Bereiche + Probe-Klausur"); await shot(page, "ph-04-training");
+  await page.click('[data-mkstart="ph-all"]'); await page.waitForSelector(".mk-q"); assert.equal(await page.evaluate(() => MKR.items.length), 10);
+  await go(page, "#/mathe/test?f=ph"); await page.waitForSelector("#mkt_start"); assert.ok((await page.textContent("h1")).includes("Physik")); await page.click("#mkt_start"); await page.waitForSelector(".mk-q");
+  assert.ok(await page.evaluate(() => MKT.items.every(x => x.key.startsWith("ph:")) && MKT.items.length >= 10));
+  await go(page, "#/mathe/blitz?f=ph"); await page.waitForSelector("#mkb_start"); await page.click("#mkb_start"); await page.waitForSelector(".mk-q"); assert.ok(await page.evaluate(() => MKB.it.key.startsWith("ph:")));
+  await page.evaluate(() => { clearInterval(MKB.timer); MKB = null; });
   // Probeklausur: Lösungen eingeklappt
   await go(page, "#/klausur/" + PK + "?tab=checkliste&p=P"); await page.waitForSelector(".kc-spoil"); assert.ok(!(await page.$eval(".kc-spoil", d => d.open)), "Lösungen erst nach dem Schreiben");
   await ctx.close();

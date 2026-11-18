@@ -57,6 +57,8 @@ function kmAction(k, what) {
   if (kind === "vocab") startTraining(kmVocabStart(k));
   else if (kind === "vok" && arg) startTraining(Object.assign(kmVocabStart(k), { vmix: arg }));
   else if (kind === "vok") vocabChooser(examVocab(k), daysUntil(k.datum), vmix => startTraining(Object.assign(kmVocabStart(k), { vmix })));
+  else if (kind === "physik") location.hash = "#/mathe/physik";
+  else if (kind === "physik-test") location.hash = "#/mathe/test?f=ph";
   else if (kind === "kcp") mkStart("kc:" + k.id + ":" + arg);
   else if (kind === "kco") location.hash = "#/klausur/" + k.id + "?tab=checkliste&p=" + encodeURIComponent(arg);
   else if (kind === "fehler") location.hash = "#/fehler?fach=" + encodeURIComponent(k.fach);
@@ -103,6 +105,7 @@ function kmTiles(k) {
   else if (KM_LANG.test(k.fach)) out.push(T("tab:vokabeln", "🗂️", "Vokabeln festlegen", "Welche Sammlungen kommen dran?"));
   out.push(T("tab:checkliste", "✅", "Checkliste", c ? c.items.filter(i => (c.st || {})[i.nr] === "ok").length + " von " + c.items.length + " „Kann ich“" : "noch anlegen"));
   if (/Mathe/.test(k.fach)) out.push(T("mathe", "📐", "Mathe-Kurs", "Erklärungen + Übungen"));
+  if (k.fach === "Physik" && typeof PHYS !== "undefined") out.push(T("physik", "⚡", "Üben", "Aufgaben wie in der Klausur"), T("physik-test", "📝", "Probe-Klausur", "13 Aufgaben mit Note"));
   if (k.fach === "Französisch") out.push(T("drill", "👢", "Grammatik-Drill", "acheter, mettre, ce/cet …"), T("tab:grammatik", "📘", "Grammatik", "kurz erklärt"), T("tab:schreiben", "✍️", "Schreiben", "Texte mit Feedback"));
   if (words.length >= 4) out.push(T("lesson", "🦉", "Lektion", "wie Duolingo"));
   if (kmHasVocab(k) && words.length) out.push(T("tab:spiele", "🎮", "Spiele", "kurz zwischendurch"));
@@ -118,7 +121,8 @@ function kmRecommend(k) {
   // Lernplan: heutige (oder nächste) offene Aufgabe zuerst
   const c = klCheck(k.id); const day = c && kcPlanToday(c);
   if (day) { const done = c.planDone || {}; const i = day.tasks.findIndex((x, j) => !done[day.d + "|" + j]);
-    if (i >= 0) { const x = day.tasks[i]; return { go: x.practice && x.nr ? "kcp:" + x.nr : x.nr ? "kco:" + x.nr : x.fehler ? "fehler" : "tab:checkliste", title: "Lernplan " + (day.d === todayISO() ? "heute" : fmtDL(day.d)) + ": " + day.title, sub: x.t.replace(/\*\*/g, "") }; } }
+    const pi = day.tasks.findIndex((x, j) => !done[day.d + "|" + j] && x.practice);   // Üben zuerst
+    if (i >= 0) { const x = day.tasks[pi >= 0 ? pi : i]; return { go: x.practice && x.nr ? "kcp:" + x.nr : x.nr ? "kco:" + x.nr : x.fehler ? "fehler" : "tab:checkliste", title: "Lernplan " + (day.d === todayISO() ? "heute" : fmtDL(day.d)) + ": " + day.title, sub: x.t.replace(/\*\*/g, "") + (x.practice ? " – 10 Aufgaben" : "") }; } }
   const st = kmSteps(k).filter(s => s.go !== "tab:checkliste" && s.go !== "setup")[0];
   if (st) return st;
   if (words.length) { const r = vocabRecommend(vocabMixStats(words), daysUntil(k.datum)); if (r) return { go: "vok:" + r.kind, title: "Vokabeln · " + VMIX[r.kind][0], sub: r.why }; }

@@ -656,5 +656,7 @@ test("Physik: Checkliste der Lehrkraft (18 Punkte + Probeklausur), alle Aufgaben
     assert.ok(MKK.check(x, g), k + ": " + x.prompt); assert.ok(!/NaN|undefined|Infinity/.test(x.prompt + x.steps.join()), k);
   }
   const an = MKK.make("ph:anhalt", 0, () => 0, []); assert.ok(an.steps[0].includes("km/h ="), "erst in m/s umrechnen");
+  PHY.TOPICS.flatMap(x => x.keys).concat(PHY.EXAM.flat(), PHY.BLITZ).forEach(k => assert.ok(MKK.GEN[k], k));
+  const ex = MKK.exam(Math.random, [], PHY.EXAM); assert.ok(ex.length >= 10 && ex.every(x => x.key.startsWith("ph:")));
   assert.equal(PHY.PLAN[PHY.PLAN.length - 1].d, "2026-11-23"); assert.ok(PHY.PLAN.every(d => d.tasks.every(t => !t.nr || PHY.ITEMS.some(i => i.nr === t.nr))));
 });

@@ -167,12 +167,24 @@
   ];
   /** Lernplan bis zur Klausur am 23.11.2026 (3.–4. Stunde) */
   const PLAN = [
-    { d: "2026-11-18", title: "Überblick & Grundlagen", tasks: [{ t: "Checkliste einmal ehrlich durchgehen: jeden Punkt auf ✅ / 🟡 / ❌ setzen" }, { t: "Formelzettel anlegen (Größen, Einheiten, alle Formeln)", nr: "1" }, { t: "km/h ↔ m/s üben", nr: "2", practice: true }, { t: "Durchschnitt vs. Momentan", nr: "3", practice: true }] },
+    { d: "2026-11-18", title: "Überblick & Grundlagen", tasks: [{ t: "km/h ↔ m/s üben", nr: "2", practice: true }, { t: "Durchschnitt vs. Momentan", nr: "3", practice: true }, { t: "Formelzettel anlegen (Größen, Einheiten, alle Formeln)", nr: "1" }, { t: "Checkliste einmal ehrlich durchgehen: jeden Punkt auf ✅ / 🟡 / ❌ setzen" }] },
     { d: "2026-11-19", title: "Gleichförmige Bewegung & Begegnen", tasks: [{ t: "s(t) = v·t + s₀ üben", nr: "4", practice: true }, { t: "s-t-/v-t-Diagramme (Steigung = v)", nr: "5", practice: true }, { t: "Überholen & Begegnen + TaskCards-Aufgaben Bauer A/B, Franz/Theo im Heft", nr: "12", practice: true }] },
     { d: "2026-11-20", title: "Beschleunigte Bewegung", tasks: [{ t: "Bewegungsgesetze anwenden", nr: "7", practice: true }, { t: "Formeln umstellen (t, a)", nr: "8", practice: true }, { t: "Steigung & Fläche im v-t-Diagramm", nr: "9", practice: true }, { t: "Diagramme zuordnen", nr: "10", practice: true }] },
     { d: "2026-11-21", title: "Anwendungen & Experimente", tasks: [{ t: "Anhalteweg + AB Anhalteweg (mit Lösungen) im Heft", nr: "11", practice: true }, { t: "Geneigte Ebene: s ~ t² nachweisen", nr: "13", practice: true }, { t: "Messunsicherheit, Ausgleichsgerade, Linearisierung", nr: "15", practice: true }] },
     { d: "2026-11-22", title: "Probeklausur & Schwachstellen", tasks: [{ t: "Probeklausur in 90 Min. schreiben, dann mit den Lösungen vergleichen", nr: "P" }, { t: "Fehlerheft üben – genau deine Fehler" , fehler: true }, { t: "Alle Punkte mit 🟡/❌ noch einmal üben" }, { t: "Formelzettel einmal laut durchgehen, früh schlafen 😴" }] },
     { d: "2026-11-23", title: "Klausurtag", tasks: [{ t: "Morgens 10 Min. Formelzettel anschauen – nicht mehr Neues lernen" }, { t: "Taschenrechner, Geodreieck, Bleistift einpacken" }] }
   ];
-  return { ITEMS, PLAN, G };
+  /** Trainings-Bereiche (wie der Mathe-Kurs) */
+  const TOPICS = [
+    { id: "grund", ico: "📏", title: "Einheiten & Durchschnitt", keys: ["ph:kmh2ms", "ph:ms2kmh", "ph:groessen", "ph:durch"] },
+    { id: "gleich", ico: "➡️", title: "Gleichförmige Bewegung", keys: ["ph:gf_s", "ph:gf_t", "ph:gf_v"] },
+    { id: "besch", ico: "🚀", title: "Beschleunigte Bewegung", keys: ["ph:bes_v", "ph:bes_s", "ph:umst_t", "ph:umst_a"] },
+    { id: "diag", ico: "📈", title: "Diagramme (Steigung & Fläche)", keys: ["ph:bes_a", "ph:flaeche", "ph:diagramm", "ph:gf_v"] },
+    { id: "anhalt", ico: "🛑", title: "Anhalteweg", keys: ["ph:anhalt", "ph:rest"] },
+    { id: "treff", ico: "🚗", title: "Überholen & Begegnen", keys: ["ph:begegnung", "ph:einholen", "ph:ampel"] },
+    { id: "exp", ico: "🔬", title: "Experimente & Operatoren", keys: ["ph:quot", "ph:fehler", "ph:op"] }
+  ];
+  const EXAM = [["ph:kmh2ms", "ph:durch"], ["ph:gf_s", "ph:gf_t", "ph:gf_v"], ["ph:bes_v", "ph:bes_s"], ["ph:umst_t", "ph:umst_a"], ["ph:bes_a", "ph:flaeche"], ["ph:diagramm"], ["ph:anhalt", "ph:rest"], ["ph:begegnung", "ph:einholen", "ph:ampel"], ["ph:quot"], ["ph:fehler", "ph:op"]];
+  const BLITZ = ["ph:kmh2ms", "ph:ms2kmh", "ph:groessen", "ph:gf_s", "ph:bes_v", "ph:bes_a", "ph:diagramm", "ph:umst_a"];
+  return { ITEMS, PLAN, G, TOPICS, EXAM, BLITZ };
 });
