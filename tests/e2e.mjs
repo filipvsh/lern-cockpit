@@ -1528,7 +1528,20 @@ await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Ü
   await page.click('[data-fepractice="mathe:Physik"]'); await page.waitForSelector(".mk-q"); assert.ok(await page.evaluate(() => MKR.items.every(x => x.key.startsWith("ph:"))));
   // Physik-Training wie der Mathe-Kurs: Kachel → Bereiche → gemischt üben, Probe-Klausur mit Note, Blitz
   await go(page, "#/klausur/" + PK); await page.waitForSelector('.km-tile[data-kmgo="physik"]'); assert.ok((await page.textContent(".km-now")).includes("10 Aufgaben"), "Empfehlung startet Übungen");
-  await page.click('.km-tile[data-kmgo="physik"]'); await page.waitForSelector('[data-mkstart="ph-all"]'); assert.equal(await page.$$eval(".mk-course .mk-step", x => x.length), 8, "7 Bereiche + Probe-Klausur"); await shot(page, "ph-04-training");
+  await page.click('.km-tile[data-kmgo="physik"]'); await page.waitForSelector('[data-mkstart="ph-all"]'); assert.equal(await page.$$eval(".ku-ch", x => x.length), 7, "7 Kapitel"); assert.ok(await noScroll()); await shot(page, "ph-04-kurs");
+  // Kapitel: Erklärung mit Diagrammen, Beispiel Schritt für Schritt, Labor, Videos, gelesen abhaken
+  await go(page, "#/kurs/physik?k=diag"); await page.waitForSelector(".ku-sec"); assert.ok(await page.$$eval(".ku-sec svg.phf", x => x.length) >= 5, "Diagramme"); assert.ok(await page.$(".ku-matrix"), "Übersicht s-t/v-t/a-t");
+  const ex0 = await page.$(".ku-ex"); assert.equal(await ex0.$$eval(".ku-steps li:not([hidden])", x => x.length), 0); await (await ex0.$("[data-kustep]")).click(); assert.equal(await ex0.$$eval(".ku-steps li:not([hidden])", x => x.length), 1, "ein Schritt aufgedeckt");
+  const before = await page.textContent(".ku-lab-v"); await page.$eval('[data-labk="a"]', x => { x.value = "-2"; x.dispatchEvent(new Event("input")); }); assert.notEqual(await page.textContent(".ku-lab-v"), before, "Labor rechnet live"); assert.ok((await page.textContent(".ku-lab-v")).includes("verzögert"));
+  assert.ok(await page.$$eval(".ku-side .ku-vid", x => x.length) >= 2, "Videos zum Kapitel"); assert.ok(await noScroll()); await shot(page, "ph-05-kapitel");
+  await page.check("#ku_read"); await page.evaluate(() => Api.idle()); assert.ok(b.db.einstellungen.find(x => x.key === "kurs_gelesen").value["physik:diag"]);
+  await go(page, "#/kurs/physik?k=merkblatt"); await page.waitForSelector(".ku-sheet"); assert.ok((await page.textContent(".ku-sheet")).includes("v² : (2a)")); await shot(page, "ph-06-merkblatt");
+  await go(page, "#/kurs/physik?k=videos"); await page.waitForSelector(".vid-set"); assert.equal(await page.$$eval(".vid-set", x => x.length), 7);
+  // Üben aus dem Kapitel: Aufgaben mit echtem Diagramm, zurück ins Kapitel
+  await go(page, "#/kurs/physik?k=diag"); await page.waitForSelector(".ku-side [data-mkstart]"); await page.click('.ku-side [data-mkstart="ph-diag"]'); await page.waitForSelector(".mk-q");
+  assert.ok(await page.evaluate(() => MKR.items.some(x => x.fig)), "Diagramm-Aufgaben"); assert.equal(await page.evaluate(() => mkUnit("ph-diag").back), "#/kurs/physik?k=diag");
+  await go(page, "#/mathe/physik"); await page.waitForFunction(() => location.hash === "#/kurs/physik");
+  await go(page, "#/kurs/physik"); await page.waitForSelector('[data-mkstart="ph-all"]');
   await page.click('[data-mkstart="ph-all"]'); await page.waitForSelector(".mk-q"); assert.equal(await page.evaluate(() => MKR.items.length), 10);
   await go(page, "#/mathe/test?f=ph"); await page.waitForSelector("#mkt_start"); assert.ok((await page.textContent("h1")).includes("Physik")); await page.click("#mkt_start"); await page.waitForSelector(".mk-q");
   assert.ok(await page.evaluate(() => MKT.items.every(x => x.key.startsWith("ph:")) && MKT.items.length >= 10));

@@ -660,3 +660,16 @@ test("Physik: Checkliste der Lehrkraft (18 Punkte + Probeklausur), alle Aufgaben
   const ex = MKK.exam(Math.random, [], PHY.EXAM); assert.ok(ex.length >= 10 && ex.every(x => x.key.startsWith("ph:")));
   assert.equal(PHY.PLAN[PHY.PLAN.length - 1].d, "2026-11-23"); assert.ok(PHY.PLAN.every(d => d.tasks.every(t => !t.nr || PHY.ITEMS.some(i => i.nr === t.nr))));
 });
+
+test("Physik-Lernkurs: Kapitel passen zu den Übungen, Diagramme sauber, Videos, Merkblatt", () => {
+  const PK = require("../js/physik-kurs.js");
+  assert.deepEqual(PK.CH.map(c => c.id), PHY.TOPICS.map(t => t.id), "jedes Kapitel hat seinen Übungsbereich");
+  const nrs = PK.CH.flatMap(c => c.nrs); PHY.ITEMS.filter(i => i.nr !== "P").forEach(i => assert.ok(nrs.includes(i.nr), "Checklistenpunkt " + i.nr + " in einem Kapitel"));
+  PK.CH.forEach(c => { assert.ok(c.vids.length >= 2 && c.vids.every(v => /^[\w-]{11}$/.test(v.id)), c.id + " Videos"); assert.ok(c.pit.length >= 2 && c.sec.length >= 3, c.id);
+    c.sec.forEach(s => { [s.fig].concat(s.figs || []).filter(Boolean).forEach(f => assert.ok(!/NaN|undefined/.test(PK.svg(f)), c.id + " " + s.h)); if (s.ex) assert.ok(s.ex.steps.length && s.ex.a); }); });
+  let seed = 3; const rng = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  Object.keys(PHY.G).forEach(k => { for (let i = 0; i < 25; i++) { const t = MKK.make(k, 1, rng, []); if (t.fig) assert.ok(!/NaN|undefined/.test(PK.svg(t.fig)), k); } });
+  ["ph:st_ablesen", "ph:vt_abschnitt", "ph:graphtyp", "ph:treff_diag"].forEach(k => assert.ok(MKK.make(k, 1, rng, []).fig, k + " zeigt ein Diagramm"));
+  assert.ok(PK.SHEET.length >= 6 && PK.matrix().includes("<svg"));
+  { const [lo, hi, st] = PK.axis(0, 23, 4); assert.ok(lo <= 0 && hi >= 23 && st > 0); }
+});
