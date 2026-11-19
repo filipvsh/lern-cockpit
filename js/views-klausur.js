@@ -57,7 +57,8 @@ function kmAction(k, what) {
   if (kind === "vocab") startTraining(kmVocabStart(k));
   else if (kind === "vok" && arg) startTraining(Object.assign(kmVocabStart(k), { vmix: arg }));
   else if (kind === "vok") vocabChooser(examVocab(k), daysUntil(k.datum), vmix => startTraining(Object.assign(kmVocabStart(k), { vmix })));
-  else if (kind === "physik") location.hash = "#/mathe/physik";
+  else if (kind === "physik") location.hash = "#/kurs/physik";
+  else if (kind === "physik-sheet") location.hash = "#/kurs/physik?k=merkblatt";
   else if (kind === "physik-test") location.hash = "#/mathe/test?f=ph";
   else if (kind === "kcp") mkStart("kc:" + k.id + ":" + arg);
   else if (kind === "kco") location.hash = "#/klausur/" + k.id + "?tab=checkliste&p=" + encodeURIComponent(arg);
@@ -105,7 +106,7 @@ function kmTiles(k) {
   else if (KM_LANG.test(k.fach)) out.push(T("tab:vokabeln", "🗂️", "Vokabeln festlegen", "Welche Sammlungen kommen dran?"));
   out.push(T("tab:checkliste", "✅", "Checkliste", c ? c.items.filter(i => (c.st || {})[i.nr] === "ok").length + " von " + c.items.length + " „Kann ich“" : "noch anlegen"));
   if (/Mathe/.test(k.fach)) out.push(T("mathe", "📐", "Mathe-Kurs", "Erklärungen + Übungen"));
-  if (k.fach === "Physik" && typeof PHYS !== "undefined") out.push(T("physik", "⚡", "Üben", "Aufgaben wie in der Klausur"), T("physik-test", "📝", "Probe-Klausur", "13 Aufgaben mit Note"));
+  if (k.fach === "Physik" && typeof PHYS !== "undefined") out.push(T("physik", "📚", "Lernkurs", "7 Kapitel: Erklärung, Graphen, Üben"), T("physik-sheet", "📋", "Merkblatt", "alle Formeln & Diagramme"), T("physik-test", "📝", "Probe-Klausur", "13 Aufgaben mit Note"));
   if (k.fach === "Französisch") out.push(T("drill", "👢", "Grammatik-Drill", "acheter, mettre, ce/cet …"), T("tab:grammatik", "📘", "Grammatik", "kurz erklärt"), T("tab:schreiben", "✍️", "Schreiben", "Texte mit Feedback"));
   if (words.length >= 4) out.push(T("lesson", "🦉", "Lektion", "wie Duolingo"));
   if (kmHasVocab(k) && words.length) out.push(T("tab:spiele", "🎮", "Spiele", "kurz zwischendurch"));

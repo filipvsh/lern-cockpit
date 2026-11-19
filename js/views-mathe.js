@@ -26,7 +26,7 @@ const mkPh = () => ROUTE.query.f === "ph";
 const mkQf = () => mkPh() ? "?f=ph" : "";
 function mkUnit(id) {
   if (String(id).startsWith("ph-") && typeof PHYS !== "undefined") { const t = id === "ph-all" ? { id: "all", ico: "⚡", title: "Alles gemischt", keys: [...new Set(PHYS.TOPICS.flatMap(x => x.keys))] } : PHYS.TOPICS.find(x => "ph-" + x.id === id);
-    return t && { id, keys: t.keys, title: t.title, ico: t.ico, back: "#/mathe/physik", fach: "Physik", kc: true }; }
+    return t && { id, keys: t.keys, title: t.title, ico: t.ico, back: "#/kurs/physik" + (t.id === "all" ? "" : "?k=" + t.id), fach: "Physik", kc: true }; }
   if (String(id).startsWith("kc:")) { const [, kid, nr] = id.split(":"); const k = klById(kid); const c = k && klCheck(kid); const it = c && c.items.find(i => String(i.nr) === nr);
     return it && { id, keys: (it.keys || []).filter(x => MK.GEN[x]), title: it.nr + " · " + it.short, ico: "⚡", back: "#/klausur/" + kid + "?tab=checkliste&p=" + encodeURIComponent(nr), fach: k.fach, kc: true }; }
   if (String(id).startsWith("fehler:")) { const f = id.slice(7); return { id, keys: [...new Set(fehlerAll().filter(e => e.src === "mathe" && e.fach === f).map(e => e.key))].filter(k => MK.GEN[k] || k === "graph:pick"), title: "Fehlerheft " + f, ico: "📕", back: "#/fehler?fach=" + encodeURIComponent(f), fach: f, fehler: true }; }
@@ -35,7 +35,7 @@ function mkUnit(id) {
   const t = MK.TOPICS.find(x => x.id === id); return t && { id, keys: MK.types(id), title: t.title, ico: t.ico, back: "#/mathe/" + id, topic: t };
 }
 /** Aufgaben mit echtem Rechenweg → Hinweis „auf Papier / iPad rechnen“ */
-const MK_PAPER = /^(ph:(?!groessen|diagramm|fehler|op)|ck:(npq|splq|splin|sach|table|tab2eq|lin2pts|xquad|xlin|nsq|nausk|nfactor|fval2|yint|nlin)|werte:(f|a)|gleich:|gesetze:coef|trafo:build)/;
+const MK_PAPER = /^(ph:(?!groessen|diagramm|graphtyp|fehler|op)|ck:(npq|splq|splin|sach|table|tab2eq|lin2pts|xquad|xlin|nsq|nausk|nfactor|fval2|yint|nlin)|werte:(f|a)|gleich:|gesetze:coef|trafo:build)/;
 const mkPaperHint = it => MK_PAPER.test(it.key) ? '<div class="mk-paper">✍️ <span>Rechne auf <b>Papier oder iPad</b> mit – so wie in der Klausur – und tippe dann nur das Ergebnis ein.</span></div>' : '';
 const mkMd = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 
@@ -43,7 +43,7 @@ V.mathe = () => {
   if (!engineReady()) return pageHead("Mathe-Kurs") + setupCard();
   if (ROUTE.sub === "test") return mkExam();
   if (ROUTE.sub === "blitz") return mkBlitz();
-  if (ROUTE.sub === "physik") return phHome();
+  if (ROUTE.sub === "physik") { location.replace("#/kurs/physik"); return ""; }
   if (ROUTE.query.run && MKR && MKR.topic === ROUTE.sub) return mkRun();
   if (ROUTE.sub.startsWith("ck-") && MC.item(ROUTE.sub.slice(3))) return ckPage(MC.item(ROUTE.sub.slice(3)));
   const t = mkTopic();
@@ -110,17 +110,6 @@ function ckPage(it) {
     (it.gg ? '<a class="card mk-video" href="https://www.geogebra.org/graphing" target="_blank" rel="noopener">📐 <span>GeoGebra öffnen (geogebra.org/graphing)</span></a>' : '') +
     '<div class="ck-nav">' + (prev ? '<a class="btn" href="#/mathe/ck-' + prev.nr + '">← ' + prev.nr + ' · ' + esc(prev.short) + '</a>' : '<span></span>') + (next ? '<a class="btn" href="#/mathe/ck-' + next.nr + '">' + next.nr + ' · ' + esc(next.short) + ' →</a>' : '') + '</div>';
 }
-/* ---------- Physik-Training (wie der Mathe-Kurs) ---------- */
-function phHome() {
-  const st = mkStats(); const ps = PHYS.TOPICS.map(t => MK.progressKeys(t.keys, st)); const next = ps.findIndex(p => p < MK_DONE);
-  const last = (setting("physik_tests", []) || []).slice(-1)[0]; const k = typeof fachExam === "function" ? fachExam("Physik") : null;
-  return '<a class="backlink" href="' + (k ? "#/klausur/" + esc(k.id) : "#/fach/Physik") + '">' + ICO.back + 'Physik</a>' + pageHead("⚡ Physik-Training: Kinematik", { sub: "Aufgaben wie in der Klausur – du rechnest auf Papier und tippst das Ergebnis ein. Bei Fehlern siehst du den Lösungsweg." }) + modeSeg("ma") +
-    '<button class="btn primary lg wide dr-go" data-mkstart="ph-all">' + ICO.play + 'Alles gemischt üben (10 Aufgaben)</button>' +
-    '<div class="mk-course">' + PHYS.TOPICS.map((t, i) => '<button class="card mk-step' + (ps[i] >= MK_DONE ? " done" : "") + (i === next ? " next" : "") + '" data-mkstart="ph-' + t.id + '"><span class="mk-n">' + (ps[i] >= MK_DONE ? "✓" : i + 1) + '</span><div><b>' + t.ico + ' ' + esc(t.title) + '</b>' + (i === next ? '<span class="mk-tag">Als Nächstes</span>' : '') + progBar(ps[i], ps[i] >= MK_DONE ? "g" : "") + '</div><span class="ph-go">' + ICO.play + '</span></button>').join("") +
-    '<a class="card mk-step mk-exam" href="#/mathe/test?f=ph"><span class="mk-n">📝</span><div><b>Probe-Klausur (App)</b><span class="t-sub">13 Aufgaben · ohne Hilfe · mit Note' + (last ? ' · zuletzt Note ' + last.note : '') + '</span></div><span class="chev">' + ICO.chev + '</span></a></div>' +
-    '<div class="mk-extra"><a class="card mk-x" href="#/mathe/blitz?f=ph"><span>⚡</span><div><b>Physik-Blitz</b><span class="t-sub">60 Sekunden' + (lsGet("lc_ph_blitz", null) ? ' · Rekord ' + lsGet("lc_ph_blitz", 0) : '') + '</span></div></a>' +
-    (k ? '<a class="card mk-x" href="#/klausur/' + esc(k.id) + '?tab=checkliste"><span>✅</span><div><b>Checkliste & Erklärungen</b><span class="t-sub">alle 18 Punkte + Probeklausur-Lösungen</span></div></a>' : '') + '</div>';
-}
 /** Karte für Klausur-Modus */
 function matheCard() {
   const ok = MC.ITEMS.filter(i => ckStatus()[i.nr] === "ok").length;
@@ -157,6 +146,7 @@ function curveSvg(pl) {
 }
 const mkTable = tb => '<table class="mk-tab"><tr><th>x</th>' + tb.x.map(v => '<td>' + MK.fmt(v) + '</td>').join("") + '</tr><tr><th>y</th>' + tb.y.map(v => '<td>' + MK.fmt(v) + '</td>').join("") + '</tr></table>';
 function mkQ(it) {
+  if (it.fig && typeof PK !== "undefined") return '<div class="mk-graph ph">' + PK.svg(it.fig) + '</div><div class="mk-q sm">' + esc(it.prompt) + '</div>' + (it.table ? mkTable(it.table) : '');
   if (it.plot) return '<div class="mk-graph">' + curveSvg(it.plot) + '</div><div class="mk-q sm">' + esc(it.prompt) + '</div>';
   if (it.table) return '<div class="mk-q sm">' + esc(it.prompt) + '</div>' + mkTable(it.table);
   if (it.kind === "graph") return '<div class="mk-graph">' + graphSvg(GRAPH_FUNCS.find(f => f.id === it.fid).f) + '</div><div class="mk-q sm">' + esc(it.prompt) + '</div>';
@@ -249,7 +239,7 @@ function mkEnd() {
 function mkExam() {
   if (!MKT) {
     const hist = (setting(mkPh() ? "physik_tests" : "mathe_tests", []) || []).slice(-5).reverse();
-    return '<a class="backlink" href="' + (mkPh() ? "#/mathe/physik" : "#/mathe") + '">' + ICO.back + (mkPh() ? "Physik-Training" : "Checkliste") + '</a><div class="dr-head"><h1 class="t-large">📝 Probe-Klausur' + (mkPh() ? " Physik" : "") + '</h1><div class="t-sub">Wie die echte Klausur: Aufgaben aus allen Themen, keine Tipps, kein Merkzettel. Erst am Ende siehst du die Lösungen mit Lösungsweg – und deine Note.</div></div>' +
+    return '<a class="backlink" href="' + (mkPh() ? "#/kurs/physik" : "#/mathe") + '">' + ICO.back + (mkPh() ? "Lernkurs Physik" : "Checkliste") + '</a><div class="dr-head"><h1 class="t-large">📝 Probe-Klausur' + (mkPh() ? " Physik" : "") + '</h1><div class="t-sub">Wie die echte Klausur: Aufgaben aus allen Themen, keine Tipps, kein Merkzettel. Erst am Ende siehst du die Lösungen mit Lösungsweg – und deine Note.</div></div>' +
       '<div class="card dr-rules"><div>🧮 ' + (mkPh() ? "13 Aufgaben quer durch die Kinematik (Einheiten, Gesetze, Diagramme, Anhalteweg, Einholen, s ~ t²)" : "16 Aufgaben quer durch die Checkliste (Punkte 2–10, 13)") + '</div><div>🧠 schwere Zahlen, alles aus dem Kopf</div><div>⏱ ca. 15–20 Minuten – Zettel und Stift bereitlegen</div></div>' +
       '<button class="btn primary lg wide dr-go" id="mkt_start">' + ICO.play + 'Probe-Klausur starten</button>' +
       (hist.length ? '<div class="card dr-heatc"><h2>Deine letzten Ergebnisse</h2>' + hist.map(h => '<div class="dr-hist"><span class="dr-note n' + h.note + '">' + h.note + '</span><span>' + h.pts + ' / ' + h.n + ' Punkte</span><span class="t-sub">' + fmtDL(h.d) + '</span></div>').join("") + '</div>' : '');
@@ -298,7 +288,7 @@ const mkbRec = () => mkPh() ? "lc_ph_blitz" : "lc_mk_blitz";
 function mkBlitz() {
   if (!MKB || MKB.over) {
     const best = lsGet(mkbRec(), 0);
-    return '<a class="backlink" href="' + (mkPh() ? "#/mathe/physik" : "#/mathe") + '">' + ICO.back + (mkPh() ? "Physik-Training" : "Mathe-Kurs") + '</a><div class="dr-head"><h1 class="t-large">⚡ ' + (mkPh() ? "Physik-Blitz" : "Potenz-Blitz") + '</h1><div class="t-sub">60 Sekunden: ' + (mkPh() ? "Einheiten, Formeln, Diagramme." : "Potenzgesetze, negative Exponenten, Funktionswerte.") + ' Richtig = +1, falsch = nächste Aufgabe.' + (best ? ' Rekord: ' + best : '') + '</div></div>' +
+    return '<a class="backlink" href="' + (mkPh() ? "#/kurs/physik" : "#/mathe") + '">' + ICO.back + (mkPh() ? "Lernkurs Physik" : "Mathe-Kurs") + '</a><div class="dr-head"><h1 class="t-large">⚡ ' + (mkPh() ? "Physik-Blitz" : "Potenz-Blitz") + '</h1><div class="t-sub">60 Sekunden: ' + (mkPh() ? "Einheiten, Formeln, Diagramme." : "Potenzgesetze, negative Exponenten, Funktionswerte.") + ' Richtig = +1, falsch = nächste Aufgabe.' + (best ? ' Rekord: ' + best : '') + '</div></div>' +
       (MKB && MKB.over ? '<div class="card mk-blres"><div class="mk-big">' + MKB.score + '</div><div>richtig in 60 Sekunden' + (MKB.record ? ' – <b>neuer Rekord! 🏆</b>' : '') + '</div>' + (MKB.wrong.length ? '<div class="t-sub" style="margin-top:8px">Falsch: ' + MKB.wrong.slice(0, 5).map(w => esc(w.prompt) + ' → ' + esc(MK.answerText(w))).join(" · ") + '</div>' : '') + '</div>' : '') +
       '<button class="btn primary lg wide dr-go" id="mkb_start">' + ICO.play + (MKB ? 'Nochmal' : 'Los!') + '</button>';
   }

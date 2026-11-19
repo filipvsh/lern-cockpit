@@ -1,0 +1,144 @@
+/* =====================================================================
+   LERN-COCKPIT · LERNKURS ZUR KLAUSUR (Klausur-Standard, siehe CLAUDE.md)
+   #/kurs/<id>                 Kurs-Start: Countdown, heute dran, Kapitel-Pfad,
+                               Merkblatt, Videos, Probe-Klausur, Blitz
+   #/kurs/<id>?k=<Kapitel>     Kapitel: Erklärung, Diagramme, Beispiele Schritt
+                               für Schritt, Bewegungs-Labor, typische Fehler,
+                               Videos, Üben
+   #/kurs/<id>?k=merkblatt     Merkblatt (druckbar)
+   #/kurs/<id>?k=videos        alle Videos zum Abhaken
+   Kurse liefern Daten nach dem Muster von PK.COURSE (js/physik-kurs.js).
+   Gelesen-Status in einstellungen.kurs_gelesen = { "<id>:<Kapitel>": Datum }.
+   ===================================================================== */
+const LERNKURSE = () => [typeof PK !== "undefined" ? PK.COURSE : null].filter(Boolean);
+const kursById = id => LERNKURSE().find(c => c.id === id);
+const kursRead = () => setting("kurs_gelesen", {}) || {};
+const kuMd = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+const kuProg = ch => typeof MK !== "undefined" && typeof PHYS !== "undefined" ? MK.progressKeys((PHYS.TOPICS.find(t => t.id === ch.id) || { keys: [] }).keys, mkStats()) : 0;
+const kuExam = c => typeof fachExam === "function" ? fachExam(c.fach) : null;
+
+V.kurs = () => {
+  if (!STATE.loaded) return pageHead("Lernkurs");
+  const c = kursById(ROUTE.sub || ""); if (!c) { location.hash = "#/faecher"; return ""; }
+  const k = ROUTE.query.k || "";
+  if (k === "merkblatt") return kuSheet(c);
+  if (k === "videos") return kuVideos(c);
+  const ch = c.chapters.find(x => x.id === k);
+  return ch ? kuChapter(c, ch) : kuHome(c);
+};
+
+/* ---------- Kurs-Start ---------- */
+function kuHome(c) {
+  const ex = kuExam(c); const d = ex ? daysUntil(ex.datum) : null; const rd = kursRead();
+  const ps = c.chapters.map(kuProg); const next = c.chapters.findIndex((ch, i) => !rd[c.id + ":" + ch.id] || ps[i] < MK_DONE);
+  const vids = c.chapters.flatMap(ch => ch.vids); const seen = videoSeen(); const vs = vids.filter(v => seen[v.id]).length;
+  const last = (setting("physik_tests", []) || []).slice(-1)[0];
+  const today = typeof PHYS !== "undefined" && PHYS.PLAN.find(p => p.d === todayISO());
+  const head = '<a class="backlink" href="' + (ex ? "#/klausur/" + esc(ex.id) : "#/fach/" + encodeURIComponent(c.fach)) + '">' + ICO.back + esc(c.fach) + '</a>' +
+    '<div class="ku-hero"><div><div class="eyebrow">📚 Lernkurs ' + esc(c.fach) + '</div><h1 class="t-large">' + esc(c.title) + '</h1><div class="t-sub">' + esc(c.sub) + '</div></div>' +
+    (d != null ? '<div class="ku-count"><b>' + (d <= 0 ? "heute" : d) + '</b><span>' + (d === 1 ? "Tag" : d <= 0 ? "" : "Tage") + '</span></div>' : '') + '</div>';
+  const nx = next >= 0 ? c.chapters[next] : null;
+  const go = '<div class="card ku-go">' + (nx ? '<div><span class="km-rec">Als Nächstes</span><b>Kapitel ' + (next + 1) + ': ' + esc(nx.title) + '</b><span class="t-sub">' + (rd[c.id + ":" + nx.id] ? "Erklärung gelesen – jetzt üben, bis es sitzt" : "Erst lesen und die Beispiele mitrechnen, dann üben") + '</span></div><a class="btn primary lg" href="#/kurs/' + c.id + '?k=' + nx.id + '">' + ICO.play + 'Weiterlernen</a>'
+    : '<div><span class="km-rec">Alles durch 💪</span><b>Jetzt unter Klausurbedingungen testen</b><span class="t-sub">Probe-Klausur in der App + die echte Probeklausur auf Papier</span></div><a class="btn primary lg" href="' + c.exam + '">📝 Probe-Klausur</a>') + '</div>' +
+    (today ? '<div class="card ku-today"><b>📅 Lernplan heute: ' + esc(today.title) + '</b><ul>' + today.tasks.map(t => '<li>' + mkMd(t.t) + '</li>').join("") + '</ul></div>' : '');
+  const tools = '<div class="ku-tools">' +
+    '<a class="ku-tool" href="#/kurs/' + c.id + '?k=merkblatt"><span>📋</span><b>Merkblatt</b><small>alle Formeln & Diagramme · druckbar</small></a>' +
+    '<a class="ku-tool" href="#/kurs/' + c.id + '?k=videos"><span>🎬</span><b>Videos</b><small>' + vs + ' von ' + vids.length + ' gesehen</small></a>' +
+    '<a class="ku-tool" href="' + c.exam + '"><span>📝</span><b>Probe-Klausur</b><small>ohne Hilfe, mit Note' + (last ? ' · zuletzt ' + esc(last.note) : '') + '</small></a>' +
+    '<a class="ku-tool" href="' + c.blitz + '"><span>⚡</span><b>Blitz</b><small>60 Sekunden</small></a>' +
+    (ex ? '<a class="ku-tool" href="#/klausur/' + esc(ex.id) + '?tab=checkliste"><span>✅</span><b>Checkliste</b><small>Lehrer-Liste + Probeklausur-Lösungen</small></a>' : '') +
+    (typeof fehlerOf === "function" && fehlerOf(c.fach).length ? '<a class="ku-tool" href="#/fehler?fach=' + encodeURIComponent(c.fach) + '"><span>📕</span><b>Fehlerheft</b><small>' + fehlerOf(c.fach).length + ' Fehler üben</small></a>' : '') + '</div>';
+  const path = '<h2 class="fa-sec">Kapitel</h2><div class="ku-path">' + c.chapters.map((ch, i) => { const r = !!rd[c.id + ":" + ch.id], p = ps[i], done = r && p >= MK_DONE;
+    return '<div class="card ku-ch' + (done ? " done" : "") + (i === next ? " next" : "") + '"><a class="ku-ch-main" href="#/kurs/' + c.id + '?k=' + ch.id + '"><span class="ku-n">' + (done ? "✓" : i + 1) + '</span><div class="ku-ch-tx"><b>' + ch.ico + ' ' + esc(ch.title) + '</b><span class="t-sub">' + esc(ch.goal) + '</span>' +
+      '<span class="ku-st"><span class="' + (r ? "ok" : "") + '">' + (r ? "✓ gelesen" : "○ noch nicht gelesen") + '</span><span>' + p + ' % geübt</span></span>' + progBar(p, p >= MK_DONE ? "g" : "") + '</div></a>' +
+      '<div class="ku-ch-acts"><a class="btn sm" href="#/kurs/' + c.id + '?k=' + ch.id + '">📖 Lernen</a><button class="btn sm primary" data-mkstart="' + c.unit(ch.id) + '">' + ICO.play + 'Üben</button></div></div>'; }).join("") + '</div>';
+  return head + go + tools + modeSeg("ma") + '<button class="btn lg wide dr-go" data-mkstart="' + c.all + '">' + ICO.play + 'Alles gemischt üben (10 Aufgaben)</button>' + path;
+}
+
+/* ---------- Kapitel ---------- */
+let KU_LAB = {};
+function kuSection(s, i) {
+  let h = '<section class="card ku-sec"><h2><span class="ku-sn">' + (i + 1) + '</span>' + esc(s.h) + '</h2>';
+  if (s.t) h += '<p>' + kuMd(s.t) + '</p>';
+  if (s.f) h += '<div class="ck-f ku-f">' + kuMd(s.f) + '</div>';
+  if (s.tbl) h += '<div class="ku-tw"><table class="ku-tbl"><tr>' + s.tbl[0].map(x => '<th>' + esc(x) + '</th>').join("") + '</tr>' + s.tbl.slice(1).map(r => '<tr>' + r.map((x, j) => j ? '<td>' + esc(x) + '</td>' : '<th>' + esc(x) + '</th>').join("") + '</tr>').join("") + '</table></div>';
+  if (s.matrix) h += PK.matrix();
+  if (s.fig) h += '<div class="ku-fig">' + PK.svg(s.fig) + '</div>';
+  if (s.figs) h += '<div class="ku-figs">' + s.figs.map(f => '<div class="ku-fig">' + PK.svg(f) + '</div>').join("") + '</div>';
+  if (s.lab) h += '<div class="ku-lab" data-lab=\'' + JSON.stringify(s.lab) + '\'></div>';
+  if (s.ex) h += '<div class="ku-ex"><div class="ku-exh">✏️ Beispiel – rechne erst selbst auf Papier, dann Schritt für Schritt aufdecken</div><div class="ku-exq">' + kuMd(s.ex.q) + '</div><ol class="ku-steps">' + s.ex.steps.map(x => '<li hidden>' + kuMd(x) + '</li>').join("") + '</ol><div class="ku-exa" hidden>Ergebnis: <b>' + kuMd(s.ex.a) + '</b></div><div class="ku-exb"><button class="btn sm primary" data-kustep>Nächster Schritt</button><button class="btn sm" data-kuall>Ganze Lösung</button></div></div>';
+  if (s.tip) h += '<div class="ku-tip">💡 ' + kuMd(s.tip) + '</div>';
+  return h + '</section>';
+}
+function kuChapter(c, ch) {
+  const i = c.chapters.indexOf(ch), prev = c.chapters[i - 1], next = c.chapters[i + 1]; const rd = kursRead(); const read = !!rd[c.id + ":" + ch.id]; const p = kuProg(ch);
+  const seen = videoSeen(); const ex = kuExam(c);
+  const items = typeof PHYS !== "undefined" ? PHYS.ITEMS.filter(it => ch.nrs.includes(it.nr)) : [];
+  const practice = '<div class="card ku-side-c"><h3>⚡ Üben</h3><div class="t-sub">' + p + ' % geübt' + (p >= MK_DONE ? " – sitzt ✓" : "") + '</div>' + progBar(p, p >= MK_DONE ? "g" : "") + modeSeg("ma") + '<button class="btn primary lg wide" data-mkstart="' + c.unit(ch.id) + '">' + ICO.play + '10 Aufgaben üben</button><p class="t-sub" style="margin:8px 0 0">Mit Diagrammen, Zahlen jedes Mal neu. Rechne auf Papier mit – bei Fehlern siehst du den Lösungsweg.</p></div>';
+  const vids = ch.vids.length ? '<div class="card ku-side-c"><h3>🎬 Videos zum Kapitel</h3>' + ch.vids.map(v => '<div class="ku-vid' + (seen[v.id] ? " seen" : "") + '"><a href="https://www.youtube.com/watch?v=' + esc(v.id) + '" target="_blank" rel="noopener"><img loading="lazy" onerror="this.remove()" src="https://i.ytimg.com/vi/' + esc(v.id) + '/mqdefault.jpg" alt=""><span>' + esc(v.t) + '</span></a><button class="vid-chk" data-vid="' + esc(v.id) + '" aria-label="Gesehen">' + (seen[v.id] ? "✓" : "") + '</button></div>').join("") + '</div>' : '';
+  const ck = items.length ? '<div class="card ku-side-c"><h3>✅ Punkte der Checkliste</h3><ul class="ku-ck">' + items.map(it => '<li><b>' + esc(it.nr) + '</b> ' + esc(it.title) + '</li>').join("") + '</ul>' + (ex ? '<a class="btn sm" href="#/klausur/' + esc(ex.id) + '?tab=checkliste">Checkliste öffnen</a>' : '') + '</div>' : '';
+  const paper = items.flatMap(it => it.paper || []).filter(Boolean);
+  const heft = paper.length ? '<section class="card ku-sec ku-paper"><h2>✍️ Ins Heft / aufs iPad</h2><ul>' + paper.map(x => '<li>' + mkMd(x) + '</li>').join("") + '</ul></section>' : '';
+  const pit = '<section class="card ku-sec ku-pit"><h2>⚠️ Typische Fehler in der Klausur</h2><ul>' + ch.pit.map(x => '<li>' + kuMd(x) + '</li>').join("") + '</ul></section>';
+  const doneBox = '<div class="card ku-done"><label><input type="checkbox" id="ku_read"' + (read ? " checked" : "") + '> <b>Kapitel gelesen und Beispiele mitgerechnet</b></label><button class="btn primary" data-mkstart="' + c.unit(ch.id) + '">' + ICO.play + 'Jetzt üben</button></div>';
+  const nav = '<div class="ck-nav">' + (prev ? '<a class="btn" href="#/kurs/' + c.id + '?k=' + prev.id + '">← ' + esc(prev.short) + '</a>' : '<span></span>') + (next ? '<a class="btn" href="#/kurs/' + c.id + '?k=' + next.id + '">' + esc(next.short) + ' →</a>' : '<a class="btn" href="' + c.exam + '">📝 Probe-Klausur →</a>') + '</div>';
+  return '<a class="backlink" href="#/kurs/' + c.id + '">' + ICO.back + 'Lernkurs ' + esc(c.title) + '</a>' +
+    '<div class="ku-chhead"><div class="eyebrow">Kapitel ' + (i + 1) + ' von ' + c.chapters.length + '</div><h1 class="t-large">' + ch.ico + ' ' + esc(ch.title) + '</h1><div class="ku-goal">🎯 ' + esc(ch.goal) + '</div>' +
+    '<div class="ku-toc">' + ch.sec.map((s, j) => '<a href="#" data-kutoc="' + j + '">' + (j + 1) + '. ' + esc(s.h.replace(/^🔬 /, "")) + '</a>').join("") + '<a href="#/kurs/' + c.id + '?k=merkblatt">📋 Merkblatt</a></div><button class="btn primary ku-mob" data-mkstart="' + c.unit(ch.id) + '">' + ICO.play + 'Direkt üben (' + p + ' % geübt)</button></div>' +
+    '<div class="ku-grid"><div class="ku-main">' + ch.sec.map(kuSection).join("") + pit + heft + doneBox + nav + '</div><aside class="ku-side">' + practice + vids + ck + '</aside></div>';
+}
+
+/* ---------- Bewegungs-Labor (s-t, v-t, a-t live) ---------- */
+function kuLabHtml(L) {
+  const T = 10, sF = t => 0.5 * L.a * t * t + L.v0 * t + L.s0, vF = t => L.a * t + L.v0;
+  const sv = PK.curve(sF, 0, T, 50), vv = PK.curve(vF, 0, T, 2);
+  const yr = (arr, inc0) => { const ys = arr.map(p => p[1]).concat(inc0 ? [0] : []); return PK.axis(Math.min(...ys), Math.max(...ys), 4); };
+  const sa = yr(sv, true), va = yr(vv, true), aa = PK.axis(Math.min(0, L.a, -0.5), Math.max(0, L.a, 0.5), 4);
+  const t = L.t, st = sF(t), vt = vF(t), fx = PK.fx;
+  const area = [[0, 0]].concat(PK.curve(vF, 0, t, 2)).concat([[t, 0]]);
+  const fig = (o) => '<div class="ku-fig">' + PK.svg(Object.assign({ w: 300, h: 210, x: [0, T, 2] }, o)) + '</div>';
+  return '<div class="ku-lab-v"><span>s(' + fx(t) + ' s) = ½ · ' + fx(L.a) + ' · ' + fx(t) + '² + ' + fx(L.v0) + ' · ' + fx(t) + ' + ' + fx(L.s0) + ' = <b>' + fx(st) + ' m</b></span><span>v(' + fx(t) + ' s) = ' + fx(L.a) + ' · ' + fx(t) + ' + ' + fx(L.v0) + ' = <b>' + fx(vt) + ' m/s</b> (' + fx(vt * 3.6) + ' km/h)</span><span>Bewegung: <b>' + (L.a === 0 ? (L.v0 === 0 ? "Ruhe" : "gleichförmig") : "gleichmäßig " + (L.a > 0 ? "beschleunigt" : "verzögert (bremsen)")) + '</b></span></div>' +
+    '<div class="ku-figs three">' + fig({ y: sa, yl: "s in m", title: "s-t", lines: [{ pts: sv, c: 1 }], marks: [{ x: t, y: st, c: 2 }], vlines: [{ x: t }] }) +
+    fig({ y: va, yl: "v in m/s", title: "v-t", lines: [{ pts: vv, c: 1 }], areas: t > 0 ? [{ pts: area, c: 1 }] : [], marks: [{ x: t, y: vt, c: 2 }], vlines: [{ x: t }] }) +
+    fig({ y: aa, yl: "a in m/s²", title: "a-t", lines: [{ pts: [[0, L.a], [T, L.a]], c: 1 }], marks: [{ x: t, y: L.a, c: 2 }], vlines: [{ x: t }] }) + '</div>';
+}
+const KU_SL = [["s0", "s₀", 0, 50, 5, "m"], ["v0", "v₀", -5, 20, 1, "m/s"], ["a", "a", -3, 3, 0.5, "m/s²"], ["t", "t", 0, 10, 0.5, "s"]];
+function bindKuLab(el) {
+  const L = Object.assign({ t: 4 }, JSON.parse(el.dataset.lab));
+  el.innerHTML = '<div class="ku-lab-c">' + KU_SL.map(([k, l, min, max, step, u]) => '<label class="ku-sl"><span>' + l + ' = <b data-labv="' + k + '">' + PK.fx(L[k]) + '</b> ' + u + '</span><input type="range" data-labk="' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + L[k] + '"></label>').join("") + '</div><div class="ku-lab-o"></div>';
+  const out = el.querySelector(".ku-lab-o"); const draw = () => { out.innerHTML = kuLabHtml(L); };
+  el.querySelectorAll("[data-labk]").forEach(x => x.oninput = () => { L[x.dataset.labk] = +x.value; el.querySelector('[data-labv="' + x.dataset.labk + '"]').textContent = PK.fx(+x.value); draw(); });
+  draw();
+}
+
+/* ---------- Merkblatt ---------- */
+function kuSheet(c) {
+  return '<div class="ku-noprint"><a class="backlink" href="#/kurs/' + c.id + '">' + ICO.back + 'Lernkurs ' + esc(c.title) + '</a></div>' +
+    '<div class="ku-chhead"><div class="eyebrow">📋 Merkblatt ' + esc(c.fach) + '</div><h1 class="t-large">' + esc(c.title) + ' – alles auf einen Blick</h1><div class="t-sub">' + esc(c.sub) + '</div><div class="ku-noprint" style="margin-top:10px"><button class="btn" id="ku_print">🖨️ Drucken / als PDF sichern</button></div></div>' +
+    '<section class="card ku-sec"><h2>Die drei Bewegungsarten</h2>' + c.matrix() + '</section>' +
+    '<div class="ku-sheet">' + c.sheet.map(b => '<section class="card ku-sb"><h2>' + esc(b.h) + '</h2><table class="ku-st">' + b.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table></section>').join("") + '</div>' +
+    '<section class="card ku-sec"><h2>Typische Fehler – vorher abhaken</h2><ul class="ku-pitall">' + c.chapters.flatMap(ch => ch.pit).map(x => '<li>' + kuMd(x) + '</li>').join("") + '</ul></section>';
+}
+/* ---------- Videos ---------- */
+function kuVideos(c) {
+  const seen = videoSeen(); const all = c.chapters.flatMap(ch => ch.vids);
+  return '<a class="backlink" href="#/kurs/' + c.id + '">' + ICO.back + 'Lernkurs ' + esc(c.title) + '</a>' + pageHead("🎬 Videos: " + c.title, { sub: all.filter(v => seen[v.id]).length + " von " + all.length + " gesehen · antippen öffnet YouTube, danach abhaken" }) +
+    c.chapters.map((ch, i) => '<div class="card vid-set"><div class="km-row-h"><h2 style="margin:0">' + (i + 1) + '. ' + ch.ico + ' ' + esc(ch.short) + '</h2><a class="btn sm" href="#/kurs/' + c.id + '?k=' + ch.id + '">Kapitel</a></div><div class="vid-list">' +
+      ch.vids.map((v, j) => '<div class="vid' + (seen[v.id] ? " seen" : "") + '"><a class="vid-a" href="https://www.youtube.com/watch?v=' + esc(v.id) + '" target="_blank" rel="noopener"><img loading="lazy" onerror="this.remove()" src="https://i.ytimg.com/vi/' + esc(v.id) + '/mqdefault.jpg" alt=""><span class="vid-t"><span class="vid-n">' + (j + 1) + '</span>' + esc(v.t) + '</span></a><button class="vid-chk" data-vid="' + esc(v.id) + '" aria-label="Gesehen">' + (seen[v.id] ? "✓" : "") + '</button></div>').join("") + '</div></div>').join("");
+}
+
+function bindKurs() {
+  const c = kursById(ROUTE.sub || ""); if (!c) return;
+  bindModeSeg(); bindVideos();
+  document.querySelectorAll("[data-mkstart]").forEach(b => b.onclick = () => mkStart(b.dataset.mkstart));
+  document.querySelectorAll(".ku-lab").forEach(bindKuLab);
+  document.querySelectorAll(".ku-ex").forEach(ex => {
+    const lis = [...ex.querySelectorAll(".ku-steps li")], ans = ex.querySelector(".ku-exa"), bs = ex.querySelector("[data-kustep]"), ba = ex.querySelector("[data-kuall]");
+    const fin = () => { ans.hidden = false; bs.remove(); ba.remove(); };
+    bs.onclick = () => { const n = lis.find(l => l.hidden); if (n) n.hidden = false; if (!lis.some(l => l.hidden)) fin(); };
+    ba.onclick = () => { lis.forEach(l => l.hidden = false); fin(); };
+  });
+  document.querySelectorAll("[data-kutoc]").forEach(a => a.onclick = ev => { ev.preventDefault(); const s = document.querySelectorAll(".ku-sec")[+a.dataset.kutoc]; if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); });
+  const rd = document.getElementById("ku_read"); if (rd) rd.onchange = async () => { const m = Object.assign({}, kursRead()); const key = c.id + ":" + ROUTE.query.k; if (rd.checked) { m[key] = todayISO(); addXP(10); } else delete m[key]; await setSetting("kurs_gelesen", m); if (rd.checked) toast("✓ Kapitel gelesen – jetzt üben!"); };
+  const pr = document.getElementById("ku_print"); if (pr) pr.onclick = () => window.print();
+}

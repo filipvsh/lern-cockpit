@@ -53,3 +53,5 @@ function bindVideos() {
     route();
   });
 }
+// Physik: Videos kommen aus dem Lernkurs (js/physik-kurs.js), nach Kapiteln geordnet
+if (typeof PK !== "undefined") VIDEO_SETS.push({ fach: /^Physik$/, title: "Physik: Kinematik", videos: PK.CH.flatMap(c => c.vids) });
