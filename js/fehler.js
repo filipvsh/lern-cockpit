@@ -26,6 +26,7 @@ function fehlerResolve(src, key) { const id = src + ":" + key; const list = fehl
 /** Anzeige-Name einer Gruppe */
 function fehlerGroupName(e) {
   if (e.src === "drill") { const t = DRILL.TOPICS.find(x => x.id === e.topic); return "Grammatik · " + (t ? t.short : e.topic); }
+  if (typeof LERNKURSE === "function") { for (const c of LERNKURSE()) { if (c.id === "physik") continue; const ch = c.chapters.find(x => chKeys(c, x).includes(e.key)); if (ch) return c.title + " · " + ch.short; } }
   if (typeof PHYS !== "undefined" && e.key.startsWith("ph:")) { const p = PHYS.ITEMS.find(i => i.keys.includes(e.key)); return "Kinematik · " + (p ? p.short : "Physik"); }
   const it = typeof MC !== "undefined" && MC.ITEMS.find(i => i.keys.includes(e.key)); if (it) return "Checkliste " + it.nr + " · " + it.short;
   const t = MK.TOPICS.find(x => e.key.startsWith(x.id + ":")); return t ? t.title : "Mathe";

@@ -22,11 +22,18 @@ const mkTopic = () => MK.TOPICS.find(t => t.id === ROUTE.sub);
 const MK_DONE = 80;
 const ckStatus = () => setting("mathe_check", {}) || {};
 /** Lern-Einheit: Thema des Extra-Kurses oder Punkt der Checkliste */
-const mkPh = () => ROUTE.query.f === "ph";
-const mkQf = () => mkPh() ? "?f=ph" : "";
+/** Kurs der Probe-Klausur/des Blitzes (?f=ph Physik, ?f=ek Erdkunde …) */
+const mkCo = () => ROUTE.query.f && typeof LERNKURSE === "function" ? LERNKURSE().find(c => c.qf === ROUTE.query.f) || null : null;
+const mkPh = () => !!mkCo();
+const mkQf = () => mkCo() ? "?f=" + mkCo().qf : "";
 function mkUnit(id) {
-  if (String(id).startsWith("crash:") && typeof PHYS !== "undefined") { const t = PHYS.TOPICS.find(x => x.id === id.slice(6)); const ch = typeof PK !== "undefined" && PK.CH.find(x => x.id === id.slice(6));
-    return t && { id, keys: t.keys, title: "Crashkurs · " + (ch ? ch.short : t.title), ico: "🚀", back: "#/kurs/physik?k=crash", fach: "Physik", kc: true, crash: t.id, n: 8 }; }
+  if (String(id).startsWith("crash:") && typeof kursById === "function") { const ps = id.split(":"); const cid = ps.length > 2 ? ps[1] : "physik", chid = ps[ps.length - 1]; const c = kursById(cid); const ch = c && c.chapters.find(x => x.id === chid);
+    return ch && { id, keys: chKeys(c, ch), title: "Crashkurs · " + ch.short, ico: "🚀", back: "#/kurs/" + cid + "?k=crash", fach: c.fach, kc: true, crash: chid, cid, n: 8 }; }
+  if (String(id).startsWith("ku:") && typeof kursById === "function") { const [, cid, what] = id.split(":"); const c = kursById(cid); if (!c) return null;
+    if (what === "all") return { id, keys: [...new Set(c.chapters.flatMap(ch => chKeys(c, ch)))], title: "Alles gemischt", ico: "⚡", back: "#/kurs/" + cid, fach: c.fach, kc: true };
+    if (what === "begriffe") return { id, keys: c.chapters.map(ch => c.termKey(ch.id)), title: "Fachbegriffe-Trainer", ico: "🔤", back: "#/kurs/" + cid + "?k=begriffe", fach: c.fach, kc: true };
+    if (what.startsWith("beg-")) { const ch = c.chapters.find(x => x.id === what.slice(4)); return ch && { id, keys: [c.termKey(ch.id)], title: "Fachbegriffe · " + ch.short, ico: "🔤", back: "#/kurs/" + cid + "?k=" + ch.id, fach: c.fach, kc: true }; }
+    const ch = c.chapters.find(x => x.id === what); return ch && { id, keys: chKeys(c, ch), title: ch.title, ico: ch.ico, back: "#/kurs/" + cid + "?k=" + ch.id, fach: c.fach, kc: true }; }
   if (String(id).startsWith("ph-") && typeof PHYS !== "undefined") { const t = id === "ph-all" ? { id: "all", ico: "⚡", title: "Alles gemischt", keys: [...new Set(PHYS.TOPICS.flatMap(x => x.keys))] } : PHYS.TOPICS.find(x => "ph-" + x.id === id);
     return t && { id, keys: t.keys, title: t.title, ico: t.ico, back: "#/kurs/physik" + (t.id === "all" ? "" : "?k=" + t.id), fach: "Physik", kc: true }; }
   if (String(id).startsWith("kc:")) { const [, kid, nr] = id.split(":"); const k = klById(kid); const c = k && klCheck(kid); const it = c && c.items.find(i => String(i.nr) === nr);
@@ -152,7 +159,7 @@ function mkQ(it) {
   if (it.plot) return '<div class="mk-graph">' + curveSvg(it.plot) + '</div><div class="mk-q sm">' + esc(it.prompt) + '</div>';
   if (it.table) return '<div class="mk-q sm">' + esc(it.prompt) + '</div>' + mkTable(it.table);
   if (it.kind === "graph") return '<div class="mk-graph">' + graphSvg(GRAPH_FUNCS.find(f => f.id === it.fid).f) + '</div><div class="mk-q sm">' + esc(it.prompt) + '</div>';
-  return '<div class="mk-q">' + esc(it.prompt) + '</div>';
+  return '<div class="mk-q' + (it.kind === "word" || it.prompt.length > 90 ? " sm" : "") + '">' + esc(it.prompt).replace(/\n/g, "<br>") + '</div>';
 }
 /** Eingabe je Art; ui.given hält den Stand; done: schon geprüft */
 function mkInput(it, ui, done) {
@@ -164,17 +171,18 @@ function mkInput(it, ui, done) {
   if (it.kind === "num") return '<div class="mk-ask">' + esc(it.ask || "Ergebnis") + '</div>' + inp(0, typeof ui.given === "string" ? ui.given : "", "z. B. 4 oder 0,5") + keys;
   if (it.kind === "pair") return it.labels ? '<div class="mk-pair">' + it.labels.map((l, k) => '<label><span>' + esc(l) + '</span>' + inp(k, g[k]) + '</label>').join("") + '</div>' + keys
     : '<div class="mk-pair pt"><span class="mk-br">(</span>' + inp(0, g[0], "x") + '<span class="mk-br">|</span>' + inp(1, g[1], "y") + '<span class="mk-br">)</span></div>' + keys;
+  if (it.kind === "word") return '<div class="mk-ask">' + esc(it.ask || "Fachbegriff") + '</div><input class="answer-input mk-in mk-word" data-mkin="0" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Fachbegriff eintippen" value="' + esc(typeof ui.given === "string" ? ui.given : "") + '"' + ro + '>';
   if (it.kind === "text") return '<div class="mk-ask">' + esc(it.ask || "Eingabe") + '</div><input class="answer-input mk-in mk-txt" data-mkin="0" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="z. B. x^2+1" value="' + esc(typeof ui.given === "string" ? ui.given : "") + '"' + ro + '>' +
     (done ? '' : '<div class="mk-keys">' + ["^", "(", ")", "/", "sqrt(", "-"].map(k => '<button data-mkkey="' + k + '">' + k + '</button>').join("") + '</div>');
   if (it.kind === "nums") return '<div class="mk-pair"><label><span>x₁ =</span>' + inp(0, ui.given === "none" ? "" : g[0]) + '</label><label><span>x₂ =</span>' + inp(1, ui.given === "none" ? "" : g[1]) + '</label></div>' +
     '<div class="mk-none"><button class="btn sm' + (ui.given === "none" ? " primary" : "") + '" data-mknone' + dis + '>keine Lösung</button><span class="t-sub">Nur eine Lösung? Zweites Feld leer lassen.</span></div>' + keys;
   return "";
 }
-const mkFilled = (it, g) => it.kind === "chip" || it.kind === "graph" ? g != null : it.kind === "num" || it.kind === "text" ? !!String(g || "").trim() : it.kind === "nums" ? g === "none" || (Array.isArray(g) && g.some(x => String(x || "").trim())) : Array.isArray(g) && g.filter(x => String(x || "").trim()).length === it.answer.length;
+const mkFilled = (it, g) => it.kind === "chip" || it.kind === "graph" ? g != null : it.kind === "num" || it.kind === "text" || it.kind === "word" ? !!String(g || "").trim() : it.kind === "nums" ? g === "none" || (Array.isArray(g) && g.some(x => String(x || "").trim())) : Array.isArray(g) && g.filter(x => String(x || "").trim()).length === it.answer.length;
 /** Eingaben verdrahten; onChange(given), onEnter() */
 function bindMkInput(it, ui, onChange, onEnter) {
   let last = null;
-  const read = () => { const vals = [...document.querySelectorAll("[data-mkin]")].map(x => x.value); ui.given = it.kind === "num" || it.kind === "text" ? vals[0] : vals; onChange(); };
+  const read = () => { const vals = [...document.querySelectorAll("[data-mkin]")].map(x => x.value); ui.given = it.kind === "num" || it.kind === "text" || it.kind === "word" ? vals[0] : vals; onChange(); };
   document.querySelectorAll("[data-mkin]").forEach(x => { x.onfocus = () => { last = x; ui.f = +x.dataset.mkin; }; x.oninput = () => { if (ui.given === "none") ui.given = []; read(); }; x.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const nx = document.querySelector('[data-mkin="' + (+x.dataset.mkin + 1) + '"]'); if (nx && !nx.value) nx.focus(); else onEnter(); } }; });
   // nach einem Neuzeichnen im selben Feld weiterschreiben (nicht ins erste springen)
   const first = document.querySelector("[data-mkin]:not([readonly])");
@@ -231,13 +239,13 @@ function mkEnd() {
   const R = MKR; const t = mkUnit(R.topic); const acc = Math.round(R.right / R.total * 100); const p = MK.progressKeys(t.keys, mkStats());
   const nu = t.id === "fehler" || t.kc || t.fehler ? null : t.item ? (n => n && { id: "ck-" + n.nr, ico: "✅", title: n.nr + " · " + n.short })(MC.ITEMS.slice(MC.ITEMS.indexOf(t.item) + 1).find(x => x.keys.length)) : (n => n && { id: n.id, ico: n.ico, title: n.title })(MK.TOPICS[MK.TOPICS.indexOf(t.topic) + 1]);
   const nxt = nu;
-  if (t.crash) { if (!R.crashSaved) { R.crashSaved = true; crSave("physik", t.crash, R.right, R.total); }
-    const ch = PK.CH.findIndex(x => x.id === t.crash), nx = PK.CH[ch + 1];
+  if (t.crash) { const co = kursById(t.cid); const chs = co.chapters; if (!R.crashSaved) { R.crashSaved = true; crSave(t.cid, t.crash, R.right, R.total); }
+    const ch = chs.findIndex(x => x.id === t.crash), nx = chs[ch + 1];
     return '<div class="les les-done"><div class="les-trophy">' + (acc >= 80 ? "🎉" : acc >= 60 ? "👍" : "💪") + '</div><h1 class="fx-title">Block ' + (ch + 1) + ' geschafft!</h1>' +
-      '<div class="les-stats"><div><b>' + R.right + '/' + R.total + '</b><span>richtig</span></div><div><b>' + (ch + 1) + '/' + PK.CH.length + '</b><span>Blöcke</span></div></div>' +
+      '<div class="les-stats"><div><b>' + R.right + '/' + R.total + '</b><span>richtig</span></div><div><b>' + (ch + 1) + '/' + chs.length + '</b><span>Blöcke</span></div></div>' +
       (acc < 60 ? '<div class="card tight mk-nextc">Das sitzt noch nicht ganz. Schau dir die Lösungswege an und mach <b>noch eine Runde</b> – dauert 8 Minuten und lohnt sich.</div>' : '<div class="card tight mk-nextc">✓ Gut! ' + (nx ? 'Weiter mit <b>' + nx.ico + ' ' + esc(nx.short) + '</b>.' : 'Jetzt das Finale: <b>Probe-Klausur</b>.') + '</div>') +
-      '<div class="les-endbtn">' + (acc < 60 ? '<button class="btn primary lg" id="mk_again">Noch eine Runde</button>' : '<button class="btn lg" id="mk_again">Noch eine Runde</button>') +
-      '<a class="btn' + (acc < 60 ? "" : " primary") + ' lg" id="cr_cont" href="' + (nx ? "#/kurs/physik?k=crash&s=" + nx.id + "&p=0" : "#/mathe/test?f=ph") + '">' + (nx ? "Weiter im Crashkurs" : "📝 Probe-Klausur") + '</a></div></div>'; }
+'<div class="les-endbtn">' + (acc < 60 ? '<button class="btn primary lg" id="mk_again">Noch eine Runde</button>' : '<button class="btn lg" id="mk_again">Noch eine Runde</button>') +
+      '<a class="btn' + (acc < 60 ? "" : " primary") + ' lg" id="cr_cont" href="' + (nx ? "#/kurs/" + t.cid + "?k=crash&s=" + nx.id + "&p=0" : co.exam) + '">' + (nx ? "Weiter im Crashkurs" : "📝 Probe-Klausur") + '</a></div></div>'; }
   return '<div class="les les-done"><div class="les-trophy">' + (acc === 100 ? "🏆" : acc >= 70 ? "🎉" : "💪") + '</div><h1 class="fx-title">' + (acc === 100 ? "Alles richtig!" : "Runde geschafft!") + '</h1>' +
     '<div class="les-stats"><div><b>+' + R.xp + '</b><span>XP</span></div><div><b>' + R.right + '/' + R.total + '</b><span>ohne Hilfe richtig</span></div><div><b>' + p + ' %</b><span>' + esc(t.title.split(",")[0]) + '</span></div></div>' +
     (p >= MK_DONE && t.item && ckStatus()[t.item.nr] !== "ok" ? '<div class="card tight mk-nextc">Sitzt! Markiere Punkt ' + t.item.nr + ' auf der Checkliste als <b>✅ Kann ich</b>.</div>' : '') + (p >= MK_DONE && nxt ? '<div class="card tight mk-nextc">✓ Das sitzt! Weiter mit <b>' + nxt.ico + ' ' + esc(nxt.title) + '</b></div>' : p >= MK_DONE ? '<div class="card tight mk-nextc">✓ Alle Schritte geschafft? Dann jetzt die <b>Probe-Klausur</b>.</div>' : '') +
@@ -247,9 +255,9 @@ function mkEnd() {
 /* ---------- Probe-Klausur ---------- */
 function mkExam() {
   if (!MKT) {
-    const hist = (setting(mkPh() ? "physik_tests" : "mathe_tests", []) || []).slice(-5).reverse();
-    return '<a class="backlink" href="' + (mkPh() ? "#/kurs/physik" : "#/mathe") + '">' + ICO.back + (mkPh() ? "Lernkurs Physik" : "Checkliste") + '</a><div class="dr-head"><h1 class="t-large">📝 Probe-Klausur' + (mkPh() ? " Physik" : "") + '</h1><div class="t-sub">Wie die echte Klausur: Aufgaben aus allen Themen, keine Tipps, kein Merkzettel. Erst am Ende siehst du die Lösungen mit Lösungsweg – und deine Note.</div></div>' +
-      '<div class="card dr-rules"><div>🧮 ' + (mkPh() ? "13 Aufgaben quer durch die Kinematik (Einheiten, Gesetze, Diagramme, Anhalteweg, Einholen, s ~ t²)" : "16 Aufgaben quer durch die Checkliste (Punkte 2–10, 13)") + '</div><div>🧠 schwere Zahlen, alles aus dem Kopf</div><div>⏱ ca. 15–20 Minuten – Zettel und Stift bereitlegen</div></div>' +
+    const co = mkCo(); const hist = (setting(co ? co.testsKey : "mathe_tests", []) || []).slice(-5).reverse();
+    return '<a class="backlink" href="' + (mkCo() ? "#/kurs/" + mkCo().id : "#/mathe") + '">' + ICO.back + (mkCo() ? "Lernkurs " + mkCo().fach : "Checkliste") + '</a><div class="dr-head"><h1 class="t-large">📝 Probe-Klausur' + (mkCo() ? " " + mkCo().fach : "") + '</h1><div class="t-sub">Wie die echte Klausur: Aufgaben aus allen Themen, keine Tipps, kein Merkzettel. Erst am Ende siehst du die Lösungen mit Lösungsweg – und deine Note.</div></div>' +
+      '<div class="card dr-rules"><div>🧮 ' + (mkCo() ? mkCo().examDesc : "16 Aufgaben quer durch die Checkliste (Punkte 2–10, 13)") + '</div><div>🧠 schwere Zahlen, alles aus dem Kopf</div><div>⏱ ca. 15–20 Minuten – Zettel und Stift bereitlegen</div></div>' +
       '<button class="btn primary lg wide dr-go" id="mkt_start">' + ICO.play + 'Probe-Klausur starten</button>' +
       (hist.length ? '<div class="card dr-heatc"><h2>Deine letzten Ergebnisse</h2>' + hist.map(h => '<div class="dr-hist"><span class="dr-note n' + h.note + '">' + h.note + '</span><span>' + h.pts + ' / ' + h.n + ' Punkte</span><span class="t-sub">' + fmtDL(h.d) + '</span></div>').join("") + '</div>' : '');
   }
@@ -265,11 +273,11 @@ function mkExamEnd() {
     '<div class="les-stats"><div><b>' + R.pts + '/' + R.n + '</b><span>Punkte</span></div><div><b>' + R.pct + ' %</b><span>richtig</span></div><div><b>+' + R.xp + '</b><span>XP</span></div></div>' +
     '<div class="card tight dr-res">' + MKT.items.map((it, k) => { const ok = R.res[k];
       return '<div class="dr-ri ' + (ok ? "ok" : "wrong") + '"><span class="dr-rk">' + (ok ? "✓" : "✗") + '</span><div><div>' + esc(it.prompt) + ' → <b>' + esc(MK.answerText(it)) + '</b></div>' + (ok ? '' : '<div class="t-sub">' + esc(it.steps.join(" · ")) + '</div>') + '</div></div>'; }).join("") + '</div>' +
-    '<div class="les-endbtn"><button class="btn primary lg" id="mkt_again">Neue Probe-Klausur</button><a class="btn lg" href="#/mathe">Zur Checkliste</a></div></div>';
+    '<div class="les-endbtn"><button class="btn primary lg" id="mkt_again">Neue Probe-Klausur</button><a class="btn lg" href="' + (MKT.co ? "#/kurs/" + MKT.co : "#/mathe") + '">' + (MKT.co ? "Zum Lernkurs" : "Zur Checkliste") + '</a></div></div>';
 }
 function bindMkExam() {
   const q = id => document.getElementById(id);
-  const fresh = () => { MKT = { ph: mkPh(), items: MK.exam(Math.random, GRAPH_FUNCS, mkPh() ? PHYS.EXAM : MC.EXAM_CK), i: 0, ui: [], done: false }; route(); };
+  const fresh = () => { MKT = { co: mkCo() ? mkCo().id : null, items: MK.exam(Math.random, GRAPH_FUNCS, mkCo() ? mkCo().examKeys : MC.EXAM_CK), i: 0, ui: [], done: false }; route(); };
   const st = q("mkt_start"); if (st) st.onclick = fresh;
   const ag = q("mkt_again"); if (ag) ag.onclick = fresh;
   const quit = q("mkt_quit"); if (quit) quit.onclick = e => { e.preventDefault(); if (!MKT.ui.some(u => u && u.given != null) || confirm("Probe-Klausur abbrechen?")) { MKT = null; route(); } };
@@ -284,20 +292,20 @@ function bindMkExam() {
     if (open && !confirm(plural(open, "Aufgabe ist", "Aufgaben sind") + " noch leer – trotzdem abgeben?")) return;
     const res = MKT.items.map((x, k) => MK.check(x, (MKT.ui[k] || {}).given));
     const pts = res.filter(Boolean).length, n = res.length, pct = Math.round(pts / n * 100), note = MK.grade(pct), xp = 10 + pts * 2;
-    let s = mkStats(); MKT.items.forEach((x, k) => { s = MK.learn(s, x.key, res[k]); if (!res[k]) { const g = (MKT.ui[k] || {}).given; fehlerAdd({ src: "mathe", key: x.key, fach: "Mathe", prompt: x.prompt, answer: MK.answerText(x), given: x.opts && typeof g === "number" ? x.opts[g] : givenText(g) }); } }); await fehlerFlush(); STATE.settings.mathe_kurs = s; await setSetting("mathe_kurs", s);
-    const tk = MKT.ph ? "physik_tests" : "mathe_tests"; await setSetting(tk, (setting(tk, []) || []).concat([{ d: todayISO(), note, pts, n }]).slice(-20));
+    let s = mkStats(); MKT.items.forEach((x, k) => { s = MK.learn(s, x.key, res[k]); if (!res[k]) { const g = (MKT.ui[k] || {}).given; fehlerAdd({ src: "mathe", key: x.key, fach: MKT.co ? kursById(MKT.co).fach : "Mathe", prompt: x.prompt, answer: MK.answerText(x), given: x.opts && typeof g === "number" ? x.opts[g] : givenText(g) }); } }); await fehlerFlush(); STATE.settings.mathe_kurs = s; await setSetting("mathe_kurs", s);
+    const tk = MKT.co ? kursById(MKT.co).testsKey : "mathe_tests"; await setSetting(tk, (setting(tk, []) || []).concat([{ d: todayISO(), note, pts, n }]).slice(-20));
     MKT.result = { res, pts, n, pct, note, xp }; MKT.done = true; addXP(xp); route();
   };
 }
 
 /* ---------- Potenz-Blitz: 60 Sekunden ---------- */
 const MKB_KEYS = ["gesetze:mul", "gesetze:div", "gesetze:pow", "gesetze:zero", "negativ:frac", "negativ:pow", "negativ:mix", "negativ:half", "werte:f", "eigen:sym", "gleich:odd"];
-const mkbNew = () => { const ks = mkPh() ? PHYS.BLITZ : MKB_KEYS; return MK.make(ks[Math.floor(Math.random() * ks.length)], Math.min(1, mkLvl()), Math.random, GRAPH_FUNCS); };
-const mkbRec = () => mkPh() ? "lc_ph_blitz" : "lc_mk_blitz";
+const mkbNew = () => { const ks = mkCo() ? mkCo().blitzKeys : MKB_KEYS; return MK.make(ks[Math.floor(Math.random() * ks.length)], Math.min(1, mkLvl()), Math.random, GRAPH_FUNCS); };
+const mkbRec = () => mkCo() ? mkCo().blitzRec : "lc_mk_blitz";
 function mkBlitz() {
   if (!MKB || MKB.over) {
     const best = lsGet(mkbRec(), 0);
-    return '<a class="backlink" href="' + (mkPh() ? "#/kurs/physik" : "#/mathe") + '">' + ICO.back + (mkPh() ? "Lernkurs Physik" : "Mathe-Kurs") + '</a><div class="dr-head"><h1 class="t-large">⚡ ' + (mkPh() ? "Physik-Blitz" : "Potenz-Blitz") + '</h1><div class="t-sub">60 Sekunden: ' + (mkPh() ? "Einheiten, Formeln, Diagramme." : "Potenzgesetze, negative Exponenten, Funktionswerte.") + ' Richtig = +1, falsch = nächste Aufgabe.' + (best ? ' Rekord: ' + best : '') + '</div></div>' +
+    return '<a class="backlink" href="' + (mkCo() ? "#/kurs/" + mkCo().id : "#/mathe") + '">' + ICO.back + (mkCo() ? "Lernkurs " + mkCo().fach : "Mathe-Kurs") + '</a><div class="dr-head"><h1 class="t-large">⚡ ' + (mkCo() ? mkCo().fach + "-Blitz" : "Potenz-Blitz") + '</h1><div class="t-sub">60 Sekunden: ' + (mkCo() ? mkCo().blitzDesc : "Potenzgesetze, negative Exponenten, Funktionswerte.") + ' Richtig = +1, falsch = nächste Aufgabe.' + (best ? ' Rekord: ' + best : '') + '</div></div>' +
       (MKB && MKB.over ? '<div class="card mk-blres"><div class="mk-big">' + MKB.score + '</div><div>richtig in 60 Sekunden' + (MKB.record ? ' – <b>neuer Rekord! 🏆</b>' : '') + '</div>' + (MKB.wrong.length ? '<div class="t-sub" style="margin-top:8px">Falsch: ' + MKB.wrong.slice(0, 5).map(w => esc(w.prompt) + ' → ' + esc(MK.answerText(w))).join(" · ") + '</div>' : '') + '</div>' : '') +
       '<button class="btn primary lg wide dr-go" id="mkb_start">' + ICO.play + (MKB ? 'Nochmal' : 'Los!') + '</button>';
   }

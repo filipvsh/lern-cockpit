@@ -1527,8 +1527,8 @@ await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Ü
   await go(page, "#/fehler?fach=Physik"); await page.waitForSelector(".fe-group"); assert.ok((await page.textContent(".fe-sub")).includes("Kinematik"));
   await page.click('[data-fepractice="mathe:Physik"]'); await page.waitForSelector(".mk-q"); assert.ok(await page.evaluate(() => MKR.items.every(x => x.key.startsWith("ph:"))));
   // Physik-Training wie der Mathe-Kurs: Kachel → Bereiche → gemischt üben, Probe-Klausur mit Note, Blitz
-  await go(page, "#/klausur/" + PK); await page.waitForSelector('.km-tile[data-kmgo="physik"]'); assert.ok(/10 Aufgaben|8 Aufgaben/.test(await page.textContent(".km-now")), "Empfehlung startet Übungen");
-  await page.click('.km-tile[data-kmgo="physik"]'); await page.waitForSelector('[data-mkstart="ph-all"]'); assert.equal(await page.$$eval(".ku-ch", x => x.length), 7, "7 Kapitel"); assert.ok(await noScroll()); await shot(page, "ph-04-kurs");
+  await go(page, "#/klausur/" + PK); await page.waitForSelector('.km-tile[data-kmgo="kurs:physik"]'); assert.ok(/10 Aufgaben|8 Aufgaben/.test(await page.textContent(".km-now")), "Empfehlung startet Übungen");
+  await page.click('.km-tile[data-kmgo="kurs:physik"]'); await page.waitForSelector('[data-mkstart="ph-all"]'); assert.equal(await page.$$eval(".ku-ch", x => x.length), 7, "7 Kapitel"); assert.ok(await noScroll()); await shot(page, "ph-04-kurs");
   // Kapitel: Erklärung mit Diagrammen, Beispiel Schritt für Schritt, Labor, Videos, gelesen abhaken
   await go(page, "#/kurs/physik?k=diag"); await page.waitForSelector(".ku-sec"); assert.ok(await page.$$eval(".ku-sec svg.phf", x => x.length) >= 5, "Diagramme"); assert.ok(await page.$(".ku-matrix"), "Übersicht s-t/v-t/a-t");
   const ex0 = await page.$(".ku-ex"); assert.equal(await ex0.$$eval(".ku-steps li:not([hidden])", x => x.length), 0); await (await ex0.$("[data-kustep]")).click(); assert.equal(await ex0.$$eval(".ku-steps li:not([hidden])", x => x.length), 1, "ein Schritt aufgedeckt");
@@ -1558,6 +1558,32 @@ await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Ü
   // Probeklausur: Lösungen eingeklappt
   await go(page, "#/klausur/" + PK + "?tab=checkliste&p=P"); await page.waitForSelector(".kc-spoil"); assert.ok(!(await page.$eval(".kc-spoil", d => d.open)), "Lösungen erst nach dem Schreiben");
   await ctx.close();
+});
+
+await scenario("Erdkunde-Lernkurs Naturrisiken: Kacheln, Lernplan, Kapitel mit Skizzen, Fachbegriffe eintippen, Probe-Klausur", async () => {
+  const b = new MockBackend({ packs: true });
+  const { ctx, page } = await open(b, { viewport: { width: 1280, height: 860 } }); await login(page);
+  await page.waitForFunction(() => typeof upcomingKL === "function" && upcomingKL().some(k => k.fach === "Erdkunde"), null, { timeout: 15000 }); const ek = await page.evaluate(() => upcomingKL().find(k => k.fach === "Erdkunde").id);
+  await go(page, "#/klausur/" + ek); await page.waitForSelector('.km-tile[data-kmgo="kurs:erdkunde"]');
+  assert.ok(await page.$('.km-tile[data-kmgo="kurs-terms:erdkunde"]'), "Kachel Fachbegriffe"); assert.ok(/Lernplan/.test(await page.textContent(".km-now")), "Empfehlung aus dem Lernplan");
+  await page.click('.km-tile[data-kmgo="kurs:erdkunde"]'); await page.waitForSelector(".ku-path"); assert.equal(await page.$$eval(".ku-ch", x => x.length), 6);
+  assert.ok(await page.$(".ku-today .ku-tgo"), "Lernplan mit Sprung-Knöpfen");
+  await go(page, "#/kurs/erdkunde?k=grenzen"); await page.waitForSelector(".ku-terms"); assert.ok(await page.$("svg.eks"), "Skizze"); assert.ok((await page.textContent(".ku-terms")).includes("Subduktion"));
+  await go(page, "#/kurs/erdkunde?k=beben"); await page.waitForSelector(".ku-lab-v"); const v0 = await page.textContent(".ku-lab-v");
+  await page.$eval('[data-labk="b"]', x => { x.value = "7"; x.dispatchEvent(new Event("input")); }); assert.ok((await page.textContent(".ku-lab-v")).includes("10-mal") && v0 !== await page.textContent(".ku-lab-v"), "Magnituden-Rechner");
+  // Fachbegriffe eintippen
+  await go(page, "#/kurs/erdkunde?k=begriffe"); await page.waitForSelector('[data-mkstart="ku:erdkunde:begriffe"]'); await page.click('[data-mkstart="ku:erdkunde:begriffe"]'); await page.waitForSelector(".mk-word");
+  const it = await page.evaluate(() => MKR.items[MKR.i]); assert.equal(it.kind, "word");
+  await page.fill(".mk-word", it.answer[0].toLowerCase()); await page.click("#mk_check"); await page.waitForSelector(".les-foot.good, .les-foot.ok, .les-foot:not(.bad)");
+  assert.equal(await page.evaluate(() => MKR.right), 1, "klein geschrieben zählt");
+  await page.evaluate(() => { MKR = null; });
+  // Crashkurs-Einheit und Probe-Klausur
+  assert.equal(await page.evaluate(() => mkUnit("crash:erdkunde:vulkane").back), "#/kurs/erdkunde?k=crash");
+  await go(page, "#/mathe/test?f=ek"); await page.waitForSelector("#mkt_start"); assert.ok((await page.textContent("h1")).includes("Erdkunde")); await page.click("#mkt_start"); await page.waitForSelector(".mk-q");
+  assert.ok(await page.evaluate(() => MKT.items.length >= 12 && MKT.items.every(x => x.key.startsWith("ek:"))));
+  await page.evaluate(() => { MKT = null; });
+  await go(page, "#/kurs/erdkunde?k=merkblatt"); await page.waitForSelector(".ku-az"); assert.ok(await page.$$eval(".ku-az div", x => x.length) >= 60, "Fachbegriffe A–Z");
+  await shot(page, "ek-01-merkblatt"); await ctx.close();
 });
 
 await browser.close();

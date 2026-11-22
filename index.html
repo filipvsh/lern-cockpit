@@ -1156,6 +1156,17 @@ html,body,button,a,input,label,summary{touch-action:manipulation}
 .ku-tool{display:flex;flex-direction:column;gap:2px;padding:14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--sh-1)}.ku-tool span{font-size:24px}.ku-tool small{color:var(--text-2);font-size:12px;line-height:1.35}.ku-tool:hover{border-color:var(--accent-weak-2)}
 a.ku-crash-card{display:flex;align-items:center;gap:14px;margin:12px 0;color:var(--text);text-decoration:none;border:1.5px solid #F59E0B;background:linear-gradient(180deg,#FFFBEB,#fff)}.ku-crash-card>div{flex:1;display:flex;flex-direction:column;gap:4px}.ku-crash-card b{font-size:17px}.ku-cc-ic{font-size:30px}.ku-crash-card .chev{flex:none;width:18px;height:18px;color:var(--text-3)}.ku-crash-card .chev svg{width:18px;height:18px}
 .les.ku-crash{max-width:860px;padding-bottom:110px}.ku-crash .les-body .ku-sec{box-shadow:none;border:1px solid var(--line)}.ku-crash .eyebrow{margin:4px 0 8px}.ku-merke h3{margin:14px 0 4px;font-size:15px}.ku-merke .ku-st{margin-bottom:8px}.ku-merke ul{padding-left:20px;line-height:1.6}
+.eks{width:100%;height:auto;display:block;background:#fff}.ku-ill{max-width:640px;padding:6px}.eks text{font-family:var(--font)}.eks .e-t{font-size:12px;font-weight:700;fill:#1D1D1F}.eks .e-s{font-size:10.5px;fill:#555}.eks .e-h{font-size:12px;font-weight:700;fill:#1D1D1F}
+.eks .e-man{fill:#F6B36B}.eks .e-ak{fill:#E8623A}.eks .e-ik{fill:#C0392B}.eks .e-kr{fill:none;stroke:#7A5230;stroke-width:5}.eks .e-ast{fill:none;stroke:#E59A4A;stroke-width:9;opacity:.6}.eks .e-l,.eks .e-l2{stroke:#555;stroke-width:1}
+.eks .e-oz{fill:#5B7FBF;stroke:#2F4E86}.eks .e-ko{fill:#A8865A;stroke:#6E5232}.eks .e-mag{fill:none;stroke:#E8623A;stroke-width:3}.eks .e-magf{fill:#E8623A;opacity:.85}.eks .e-vul{fill:#8B5A2B}.eks .e-ar{stroke:#1D1D1F;stroke-width:2.2}.eks .e-arh{fill:#1D1D1F}.eks .e-fl{stroke:#C0392B;stroke-width:2.5;stroke-dasharray:6 4;fill:none}
+.eks .e-gr{fill:#E9D8C0}.eks .e-wv{fill:none;stroke:#C0392B;stroke-width:1.4;opacity:.55}.eks .e-star{fill:#C0392B}.eks .e-epi{fill:#2D5BD7}.eks .e-dash{stroke:#2D5BD7;stroke-dasharray:4 3}.eks .e-house{fill:#888}
+.eks .e-sv{fill:#8B6B4A}.eks .e-sl{fill:#8B6B4A}.eks .e-sa{fill:#B9A58E}.eks .e-ash{fill:#999;opacity:.7}.eks .e-b1{fill:#EEF3FF;stroke:#2D5BD7}.eks .e-b2{fill:#FFF3E0;stroke:#D97706}.eks .e-b3{fill:#FDECEC;stroke:#C0392B}.eks .e-op{font-size:26px;font-weight:700;fill:#555}.eks .e-op2{font-size:14px;font-weight:700;fill:#C0392B}.eks .e-ring{fill:none;stroke:#C9D3E6;stroke-width:14}
+.ku-sfigs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}.ku-sfigs .ku-ill{max-width:none;margin:0}
+.ku-tasks{margin:6px 0 0;padding-left:20px;line-height:1.7}.ku-tgo{font:inherit;font-size:13px;font-weight:600;color:var(--accent);background:var(--accent-weak);border:0;border-radius:999px;padding:2px 10px;margin-left:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.ku-plan{margin-top:10px}.ku-plan summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:14px}.ku-pd{margin-top:10px;padding-left:10px;border-left:3px solid var(--line-2)}.ku-pd.today{border-color:var(--accent)}.ku-pd.past{opacity:.55}
+.ku-gl th{width:34%;font-weight:700}.ku-az{columns:2;column-gap:20px;font-size:13.5px;line-height:1.45}.ku-az div{break-inside:avoid;margin-bottom:5px}@media (max-width:640px){.ku-az{columns:1}}
+.ku-bars{display:flex;flex-direction:column;gap:6px;margin:6px 0}.ku-bars div{display:flex;align-items:center;gap:8px;font-size:13px}.ku-bars span{width:70px}.ku-bars i{display:block;height:14px;border-radius:7px;background:var(--accent)}.ku-bars i.e{background:#D97706}
+.mk-word{font-size:20px}
 .ku-path{display:flex;flex-direction:column;gap:10px}
 .ku-ch{display:flex;align-items:center;gap:12px;padding:14px 16px}.ku-ch.next{border:1.5px solid var(--accent)}.ku-ch.done{background:#F6FBF7}
 .ku-ch-main{display:flex;gap:14px;align-items:flex-start;flex:1;min-width:0;color:var(--text);text-decoration:none}
@@ -1217,13 +1228,14 @@ a.ku-crash-card{display:flex;align-items:center;gap:14px;margin:12px 0;color:var
 <script src="js/mathe-check.js"></script>
 <script src="js/physik.js"></script>
 <script src="js/physik-kurs.js"></script>
+<script src="js/erdkunde.js"></script>
 <script src="js/fr-check.js"></script>
 <script src="js/api.js"></script>
 <script>
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="32";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="33";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";

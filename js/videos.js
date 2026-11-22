@@ -55,3 +55,4 @@ function bindVideos() {
 }
 // Physik: Videos kommen aus dem Lernkurs (js/physik-kurs.js), nach Kapiteln geordnet
 if (typeof PK !== "undefined") VIDEO_SETS.push({ fach: /^Physik$/, title: "Physik: Kinematik", videos: PK.CH.flatMap(c => c.vids) });
+if (typeof EK !== "undefined") VIDEO_SETS.push({ fach: /^Erdkunde$/, title: "Erdkunde: Naturrisiken", videos: EK.CH.flatMap(c => c.vids) });

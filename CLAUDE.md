@@ -27,7 +27,13 @@ Filip lernt am MacBook und am Handy. Eine Liste mit Aufgaben reicht nicht. Jede 
 6. Verknüpft mit der Klausur-Seite (`kmTiles`): Kacheln „Lernkurs“, „Merkblatt“, „Probe-Klausur“.
 
 Quellen: Checkliste/Material der Lehrkraft (Foto, PDF, TaskCards-Board), sonst Lehrplan EF NRW.
-Neuen Kurs in `LERNKURSE()` (views-kurs.js) eintragen, Videos zusätzlich in `VIDEO_SETS` (videos.js).
+Vorlage für Lernfächer (nicht Rechnen): `js/erdkunde.js` – Kapitel mit `terms` (Fachbegriffe, werden
+**eingetippt**, Kind `word`), `quiz`, Skizzen (`svg`), Generatoren pro Kapitel, `plan` ab sofort bis zur Klausur
+(Aufgaben mit `ch`/`unit`/`begriffe`/`exam`/`crash` werden zu Sprung-Knöpfen). **Früh anfangen**: Plan startet,
+sobald der Termin bekannt ist; Vorabend = Crashkurs.
+Neuen Kurs in `LERNKURSE()` (views-kurs.js) eintragen (Felder: id, fach, qf, exam/blitz-Links, unit(), all,
+termKey(), examKeys, blitzKeys, testsKey, crSheet …). Klausur-Kacheln, Empfehlung, Fehlerheft, Probe-Klausur
+(`#/mathe/test?f=<qf>`) und Crashkurs funktionieren dann automatisch. Videos zusätzlich in `VIDEO_SETS` (videos.js).
 
 ## Technik
 
