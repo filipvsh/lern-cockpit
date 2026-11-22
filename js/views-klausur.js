@@ -58,6 +58,7 @@ function kmAction(k, what) {
   else if (kind === "vok" && arg) startTraining(Object.assign(kmVocabStart(k), { vmix: arg }));
   else if (kind === "vok") vocabChooser(examVocab(k), daysUntil(k.datum), vmix => startTraining(Object.assign(kmVocabStart(k), { vmix })));
   else if (kind === "physik") location.hash = "#/kurs/physik";
+  else if (kind === "physik-crash") location.hash = "#/kurs/physik?k=crash";
   else if (kind === "physik-sheet") location.hash = "#/kurs/physik?k=merkblatt";
   else if (kind === "physik-test") location.hash = "#/mathe/test?f=ph";
   else if (kind === "kcp") mkStart("kc:" + k.id + ":" + arg);
@@ -106,7 +107,7 @@ function kmTiles(k) {
   else if (KM_LANG.test(k.fach)) out.push(T("tab:vokabeln", "🗂️", "Vokabeln festlegen", "Welche Sammlungen kommen dran?"));
   out.push(T("tab:checkliste", "✅", "Checkliste", c ? c.items.filter(i => (c.st || {})[i.nr] === "ok").length + " von " + c.items.length + " „Kann ich“" : "noch anlegen"));
   if (/Mathe/.test(k.fach)) out.push(T("mathe", "📐", "Mathe-Kurs", "Erklärungen + Übungen"));
-  if (k.fach === "Physik" && typeof PHYS !== "undefined") out.push(T("physik", "📚", "Lernkurs", "7 Kapitel: Erklärung, Graphen, Üben"), T("physik-sheet", "📋", "Merkblatt", "alle Formeln & Diagramme"), T("physik-test", "📝", "Probe-Klausur", "13 Aufgaben mit Note"));
+  if (k.fach === "Physik" && typeof PHYS !== "undefined") out.push(T("physik-crash", "🚀", "Crashkurs", "alles in ca. 2 Std.: Input → Abfrage"), T("physik", "📚", "Lernkurs", "7 Kapitel: Erklärung, Graphen, Üben"), T("physik-sheet", "📋", "Merkblatt", "alle Formeln & Diagramme"), T("physik-test", "📝", "Probe-Klausur", "13 Aufgaben mit Note"));
   if (k.fach === "Französisch") out.push(T("drill", "👢", "Grammatik-Drill", "acheter, mettre, ce/cet …"), T("tab:grammatik", "📘", "Grammatik", "kurz erklärt"), T("tab:schreiben", "✍️", "Schreiben", "Texte mit Feedback"));
   if (words.length >= 4) out.push(T("lesson", "🦉", "Lektion", "wie Duolingo"));
   if (kmHasVocab(k) && words.length) out.push(T("tab:spiele", "🎮", "Spiele", "kurz zwischendurch"));
@@ -119,6 +120,9 @@ function kmTiles(k) {
 /** Empfehlung für „Jetzt direkt lernen“ */
 function kmRecommend(k) {
   const words = examVocab(k);
+  // Letzter Abend vor der Physik-Klausur: Crashkurs (Input → Abfrage, ca. 2 Std.)
+  if (k.fach === "Physik" && typeof PK !== "undefined" && daysUntil(k.datum) <= 1 && daysUntil(k.datum) >= 0) { const st = crState(PK.COURSE); const nx = PK.CH.find(x => !st[x.id]);
+    return { go: "physik-crash", title: nx ? "Crashkurs: alles an einem Abend" : "Probe-Klausur", sub: nx ? "Block " + (PK.CH.indexOf(nx) + 1) + " von " + PK.CH.length + ": " + nx.short + " – kurz Input, dann 8 Aufgaben" : "Crashkurs geschafft – jetzt testen, dann schlafen", ...(nx ? {} : { go: "physik-test" }) }; }
   // Lernplan: heutige (oder nächste) offene Aufgabe zuerst
   const c = klCheck(k.id); const day = c && kcPlanToday(c);
   if (day) { const done = c.planDone || {}; const i = day.tasks.findIndex((x, j) => !done[day.d + "|" + j]);
