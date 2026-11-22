@@ -1154,6 +1154,8 @@ html,body,button,a,input,label,summary{touch-action:manipulation}
 .ku-today ul{margin:6px 0 0;padding-left:20px;line-height:1.6}
 .ku-tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin:14px 0}
 .ku-tool{display:flex;flex-direction:column;gap:2px;padding:14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--sh-1)}.ku-tool span{font-size:24px}.ku-tool small{color:var(--text-2);font-size:12px;line-height:1.35}.ku-tool:hover{border-color:var(--accent-weak-2)}
+a.ku-crash-card{display:flex;align-items:center;gap:14px;margin:12px 0;color:var(--text);text-decoration:none;border:1.5px solid #F59E0B;background:linear-gradient(180deg,#FFFBEB,#fff)}.ku-crash-card>div{flex:1;display:flex;flex-direction:column;gap:4px}.ku-crash-card b{font-size:17px}.ku-cc-ic{font-size:30px}.ku-crash-card .chev{flex:none;width:18px;height:18px;color:var(--text-3)}.ku-crash-card .chev svg{width:18px;height:18px}
+.les.ku-crash{max-width:860px;padding-bottom:110px}.ku-crash .les-body .ku-sec{box-shadow:none;border:1px solid var(--line)}.ku-crash .eyebrow{margin:4px 0 8px}.ku-merke h3{margin:14px 0 4px;font-size:15px}.ku-merke .ku-st{margin-bottom:8px}.ku-merke ul{padding-left:20px;line-height:1.6}
 .ku-path{display:flex;flex-direction:column;gap:10px}
 .ku-ch{display:flex;align-items:center;gap:12px;padding:14px 16px}.ku-ch.next{border:1.5px solid var(--accent)}.ku-ch.done{background:#F6FBF7}
 .ku-ch-main{display:flex;gap:14px;align-items:flex-start;flex:1;min-width:0;color:var(--text);text-decoration:none}
@@ -1221,7 +1223,7 @@ html,body,button,a,input,label,summary{touch-action:manipulation}
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="31";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="32";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";

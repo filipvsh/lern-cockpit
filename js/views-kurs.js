@@ -23,6 +23,7 @@ V.kurs = () => {
   const k = ROUTE.query.k || "";
   if (k === "merkblatt") return kuSheet(c);
   if (k === "videos") return kuVideos(c);
+  if (k === "crash") return crView(c);
   const ch = c.chapters.find(x => x.id === k);
   return ch ? kuChapter(c, ch) : kuHome(c);
 };
@@ -41,6 +42,8 @@ function kuHome(c) {
   const go = '<div class="card ku-go">' + (nx ? '<div><span class="km-rec">Als Nächstes</span><b>Kapitel ' + (next + 1) + ': ' + esc(nx.title) + '</b><span class="t-sub">' + (rd[c.id + ":" + nx.id] ? "Erklärung gelesen – jetzt üben, bis es sitzt" : "Erst lesen und die Beispiele mitrechnen, dann üben") + '</span></div><a class="btn primary lg" href="#/kurs/' + c.id + '?k=' + nx.id + '">' + ICO.play + 'Weiterlernen</a>'
     : '<div><span class="km-rec">Alles durch 💪</span><b>Jetzt unter Klausurbedingungen testen</b><span class="t-sub">Probe-Klausur in der App + die echte Probeklausur auf Papier</span></div><a class="btn primary lg" href="' + c.exam + '">📝 Probe-Klausur</a>') + '</div>' +
     (today ? '<div class="card ku-today"><b>📅 Lernplan heute: ' + esc(today.title) + '</b><ul>' + today.tasks.map(t => '<li>' + mkMd(t.t) + '</li>').join("") + '</ul></div>' : '');
+  const cr = crState(c); const crDone = c.chapters.filter(ch => cr[ch.id]).length;
+  const crash = '<a class="card ku-crash-card" href="#/kurs/' + c.id + '?k=crash"><span class="ku-cc-ic">🚀</span><div><b>Crashkurs – alles an einem Abend (ca. 2 Std.)</b><span class="t-sub">' + (crDone ? crDone + ' von ' + c.chapters.length + ' Blöcken geschafft – weitermachen' : '7 Blöcke: kurz Input, dann sofort abgefragt. Am Ende Probe-Klausur.') + '</span>' + progBar(Math.round(crDone / c.chapters.length * 100), crDone === c.chapters.length ? "g" : "") + '</div><span class="chev">' + ICO.chev + '</span></a>';
   const tools = '<div class="ku-tools">' +
     '<a class="ku-tool" href="#/kurs/' + c.id + '?k=merkblatt"><span>📋</span><b>Merkblatt</b><small>alle Formeln & Diagramme · druckbar</small></a>' +
     '<a class="ku-tool" href="#/kurs/' + c.id + '?k=videos"><span>🎬</span><b>Videos</b><small>' + vs + ' von ' + vids.length + ' gesehen</small></a>' +
@@ -52,7 +55,7 @@ function kuHome(c) {
     return '<div class="card ku-ch' + (done ? " done" : "") + (i === next ? " next" : "") + '"><a class="ku-ch-main" href="#/kurs/' + c.id + '?k=' + ch.id + '"><span class="ku-n">' + (done ? "✓" : i + 1) + '</span><div class="ku-ch-tx"><b>' + ch.ico + ' ' + esc(ch.title) + '</b><span class="t-sub">' + esc(ch.goal) + '</span>' +
       '<span class="ku-st"><span class="' + (r ? "ok" : "") + '">' + (r ? "✓ gelesen" : "○ noch nicht gelesen") + '</span><span>' + p + ' % geübt</span></span>' + progBar(p, p >= MK_DONE ? "g" : "") + '</div></a>' +
       '<div class="ku-ch-acts"><a class="btn sm" href="#/kurs/' + c.id + '?k=' + ch.id + '">📖 Lernen</a><button class="btn sm primary" data-mkstart="' + c.unit(ch.id) + '">' + ICO.play + 'Üben</button></div></div>'; }).join("") + '</div>';
-  return head + go + tools + modeSeg("ma") + '<button class="btn lg wide dr-go" data-mkstart="' + c.all + '">' + ICO.play + 'Alles gemischt üben (10 Aufgaben)</button>' + path;
+  return head + (d != null && d <= 2 ? crash + go : go + crash) + tools + modeSeg("ma") + '<button class="btn lg wide dr-go" data-mkstart="' + c.all + '">' + ICO.play + 'Alles gemischt üben (10 Aufgaben)</button>' + path;
 }
 
 /* ---------- Kapitel ---------- */
@@ -127,9 +130,50 @@ function kuVideos(c) {
       ch.vids.map((v, j) => '<div class="vid' + (seen[v.id] ? " seen" : "") + '"><a class="vid-a" href="https://www.youtube.com/watch?v=' + esc(v.id) + '" target="_blank" rel="noopener"><img loading="lazy" onerror="this.remove()" src="https://i.ytimg.com/vi/' + esc(v.id) + '/mqdefault.jpg" alt=""><span class="vid-t"><span class="vid-n">' + (j + 1) + '</span>' + esc(v.t) + '</span></a><button class="vid-chk" data-vid="' + esc(v.id) + '" aria-label="Gesehen">' + (seen[v.id] ? "✓" : "") + '</button></div>').join("") + '</div></div>').join("");
 }
 
+/* ---------- Crashkurs: Input → Abfrage, Block für Block (ca. 2 Std.) ----------
+   #/kurs/<id>?k=crash              Übersicht + Weitermachen
+   #/kurs/<id>?k=crash&s=<Kap>&p=N  Input-Karte N des Kapitels (letzte = Merke-Karte)
+   Abfrage: mkStart("crash:<Kap>") – 8 Aufgaben, Ergebnis in einstellungen.kurs_crash */
+const CR_SHEET = { grund: [0], gleich: [1], besch: [2], diag: [3], anhalt: [4], treff: [5], exp: [6, 7] };
+const crState = c => ((setting("kurs_crash", {}) || {})[c.id]) || {};
+async function crSave(cid, ch, r, n) { const all = Object.assign({}, setting("kurs_crash", {}) || {}); const m = Object.assign({}, all[cid] || {}); const old = m[ch];
+  m[ch] = { r: Math.max(r, old ? old.r : 0), n, d: todayISO() }; all[cid] = m; await setSetting("kurs_crash", all); }
+const crSecs = ch => ch.sec.filter(s => !s.lab);
+const crMin = ch => Math.round(crSecs(ch).length * 1.5) + 9;
+function crView(c) {
+  const s = ROUTE.query.s; const ch = s && c.chapters.find(x => x.id === s);
+  if (ch) return crCard(c, ch, Math.max(0, +ROUTE.query.p || 0));
+  const st = crState(c); const i0 = c.chapters.findIndex(x => !st[x.id]); const left = c.chapters.filter(x => !st[x.id]).reduce((a, x) => a + crMin(x), 0) + 20;
+  const next = i0 >= 0 ? c.chapters[i0] : null;
+  return '<a class="backlink" href="#/kurs/' + c.id + '">' + ICO.back + 'Lernkurs ' + esc(c.title) + '</a>' +
+    '<div class="ku-chhead"><div class="eyebrow">🚀 Crashkurs ' + esc(c.fach) + '</div><h1 class="t-large">Alles an einem Abend</h1><div class="ku-goal">So läuft es: <b>Input</b> (kurze Karten mit Formel, Graph und Beispiel – Beispiel erst selbst probieren) → <b>Merke-Karte</b> → sofort <b>8 Aufgaben</b> zum Abfragen. Das 7-mal, dann die <b>Probe-Klausur</b>. Du kannst jederzeit Pause machen – der Stand bleibt gespeichert.</div></div>' +
+    '<div class="card ku-go"><div><span class="km-rec">' + (next ? "Noch ca. " + left + " Min." : "Fertig 💪") + '</span><b>' + (next ? "Block " + (i0 + 1) + ": " + esc(next.title) : "Jetzt die Probe-Klausur") + '</b><span class="t-sub">' + (next ? "Leg Papier, Stift und Taschenrechner bereit." : "13 Aufgaben ohne Hilfe, mit Note – wie morgen.") + '</span></div>' +
+    (next ? '<a class="btn primary lg" id="cr_go" href="#/kurs/' + c.id + '?k=crash&s=' + next.id + '&p=0">' + ICO.play + (Object.keys(st).length ? "Weitermachen" : "Los geht's") + '</a>' : '<a class="btn primary lg" href="' + c.exam + '">📝 Probe-Klausur</a>') + '</div>' +
+    '<div class="ku-path">' + c.chapters.map((x, i) => { const r = st[x.id]; const pc = r ? Math.round(r.r / r.n * 100) : null;
+      return '<div class="card ku-ch' + (r ? " done" : "") + (i === i0 ? " next" : "") + '"><a class="ku-ch-main" href="#/kurs/' + c.id + '?k=crash&s=' + x.id + '&p=0"><span class="ku-n">' + (r ? "✓" : i + 1) + '</span><div class="ku-ch-tx"><b>' + x.ico + ' ' + esc(x.title) + '</b><span class="t-sub">' + (r ? r.r + " von " + r.n + " richtig" + (pc < 60 ? " – lieber nochmal abfragen" : "") : "ca. " + crMin(x) + " Min. · " + crSecs(x).length + " Input-Karten + 8 Aufgaben") + '</span></div></a>' +
+        (r ? '<button class="btn sm' + (pc < 60 ? " primary" : "") + '" data-mkstart="crash:' + x.id + '">Nochmal abfragen</button>' : '') + '</div>'; }).join("") +
+    '<div class="card ku-ch' + (next ? "" : " next") + '"><a class="ku-ch-main" href="' + c.exam + '"><span class="ku-n">📝</span><div class="ku-ch-tx"><b>Finale: Probe-Klausur</b><span class="t-sub">ca. 20 Min. · danach Spickzettel/Merkblatt einmal durchlesen und schlafen 😴</span></div></a></div></div>';
+}
+function crCard(c, ch, p) {
+  const secs = crSecs(ch); const n = secs.length + 1; p = Math.min(p, n - 1); const ci = c.chapters.indexOf(ch);
+  const base = "#/kurs/" + c.id + "?k=crash&s=" + ch.id + "&p=";
+  const total = c.chapters.reduce((a, x) => a + crSecs(x).length + 2, 0); const done = c.chapters.slice(0, ci).reduce((a, x) => a + crSecs(x).length + 2, 0) + p;
+  let body;
+  if (p < secs.length) body = '<div class="eyebrow">Block ' + (ci + 1) + ' · ' + esc(ch.short) + ' · Karte ' + (p + 1) + ' von ' + n + '</div>' + kuSection(secs[p], p);
+  else body = '<div class="eyebrow">Block ' + (ci + 1) + ' · ' + esc(ch.short) + ' · Merke</div><section class="card ku-sec ku-merke"><h2>🧠 Das musst du aus diesem Block können</h2>' +
+    (CR_SHEET[ch.id] || []).map(j => c.sheet[j]).filter(Boolean).map(b => '<table class="ku-st">' + b.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table>').join("") +
+    '<h3>⚠️ Nicht reinfallen</h3><ul>' + ch.pit.map(x => '<li>' + kuMd(x) + '</li>').join("") + '</ul><p class="t-sub">Lies das einmal laut, dann schließ kurz die Augen und sag die Formeln auswendig auf. Jetzt kommen 8 Aufgaben – Papier bereit!</p></section>';
+  const last = p === n - 1;
+  return '<div class="les ku-crash"><div class="les-top"><a class="closebtn" href="#/kurs/' + c.id + '?k=crash" aria-label="Pause">' + ICO.x + '</a><div class="les-prog"><i style="width:' + Math.round(done / total * 100) + '%"></i></div><span class="les-combo dim">' + (ci + 1) + '/' + c.chapters.length + '</span></div>' +
+    '<div class="les-body">' + body + '</div>' +
+    '<div class="les-foot">' + (p > 0 ? '<a class="btn lg" href="' + base + (p - 1) + '">Zurück</a>' : '<span></span>') +
+    (last ? '<button class="btn primary lg" id="cr_quiz" data-mkstart="crash:' + ch.id + '">Jetzt abfragen (8 Aufgaben)</button>' : '<a class="btn primary lg" id="cr_next" href="' + base + (p + 1) + '">Verstanden – weiter</a>') + '</div></div>';
+}
+
 function bindKurs() {
   const c = kursById(ROUTE.sub || ""); if (!c) return;
   bindModeSeg(); bindVideos();
+  if (ROUTE.query.k === "crash" && ROUTE.query.s) document.body.classList.add("focus");
   document.querySelectorAll("[data-mkstart]").forEach(b => b.onclick = () => mkStart(b.dataset.mkstart));
   document.querySelectorAll(".ku-lab").forEach(bindKuLab);
   document.querySelectorAll(".ku-ex").forEach(ex => {

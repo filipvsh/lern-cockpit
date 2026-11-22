@@ -25,6 +25,8 @@ const ckStatus = () => setting("mathe_check", {}) || {};
 const mkPh = () => ROUTE.query.f === "ph";
 const mkQf = () => mkPh() ? "?f=ph" : "";
 function mkUnit(id) {
+  if (String(id).startsWith("crash:") && typeof PHYS !== "undefined") { const t = PHYS.TOPICS.find(x => x.id === id.slice(6)); const ch = typeof PK !== "undefined" && PK.CH.find(x => x.id === id.slice(6));
+    return t && { id, keys: t.keys, title: "Crashkurs · " + (ch ? ch.short : t.title), ico: "🚀", back: "#/kurs/physik?k=crash", fach: "Physik", kc: true, crash: t.id, n: 8 }; }
   if (String(id).startsWith("ph-") && typeof PHYS !== "undefined") { const t = id === "ph-all" ? { id: "all", ico: "⚡", title: "Alles gemischt", keys: [...new Set(PHYS.TOPICS.flatMap(x => x.keys))] } : PHYS.TOPICS.find(x => "ph-" + x.id === id);
     return t && { id, keys: t.keys, title: t.title, ico: t.ico, back: "#/kurs/physik" + (t.id === "all" ? "" : "?k=" + t.id), fach: "Physik", kc: true }; }
   if (String(id).startsWith("kc:")) { const [, kid, nr] = id.split(":"); const k = klById(kid); const c = k && klCheck(kid); const it = c && c.items.find(i => String(i.nr) === nr);
@@ -64,7 +66,7 @@ function bindMathe() {
 function mkStart(topic) {
   const u = mkUnit(topic); if (!u || !u.keys.length) return;
   const fe = topic === "fehler" || !!u.fehler;
-  MKR = { topic, fach: u.fach || "Mathe", fehler: fe, items: MK.roundKeys(u.keys, mkStats(), mkLvl(), fe ? Math.min(10, Math.max(5, u.keys.length * 2)) : 10, Math.random, GRAPH_FUNCS), i: 0, right: 0, ui: {}, retries: {}, wrong: [], done: false, mode: lernModus("ma") };
+  MKR = { topic, fach: u.fach || "Mathe", fehler: fe, items: MK.roundKeys(u.keys, mkStats(), mkLvl(), fe ? Math.min(10, Math.max(5, u.keys.length * 2)) : u.n || 10, Math.random, GRAPH_FUNCS), i: 0, right: 0, ui: {}, retries: {}, wrong: [], done: false, mode: lernModus("ma") };
   MKR.total = MKR.items.length;
   const h = "#/mathe/" + topic + "?run=1"; if (location.hash === h) route(); else location.hash = h;
 }
@@ -229,6 +231,13 @@ function mkEnd() {
   const R = MKR; const t = mkUnit(R.topic); const acc = Math.round(R.right / R.total * 100); const p = MK.progressKeys(t.keys, mkStats());
   const nu = t.id === "fehler" || t.kc || t.fehler ? null : t.item ? (n => n && { id: "ck-" + n.nr, ico: "✅", title: n.nr + " · " + n.short })(MC.ITEMS.slice(MC.ITEMS.indexOf(t.item) + 1).find(x => x.keys.length)) : (n => n && { id: n.id, ico: n.ico, title: n.title })(MK.TOPICS[MK.TOPICS.indexOf(t.topic) + 1]);
   const nxt = nu;
+  if (t.crash) { if (!R.crashSaved) { R.crashSaved = true; crSave("physik", t.crash, R.right, R.total); }
+    const ch = PK.CH.findIndex(x => x.id === t.crash), nx = PK.CH[ch + 1];
+    return '<div class="les les-done"><div class="les-trophy">' + (acc >= 80 ? "🎉" : acc >= 60 ? "👍" : "💪") + '</div><h1 class="fx-title">Block ' + (ch + 1) + ' geschafft!</h1>' +
+      '<div class="les-stats"><div><b>' + R.right + '/' + R.total + '</b><span>richtig</span></div><div><b>' + (ch + 1) + '/' + PK.CH.length + '</b><span>Blöcke</span></div></div>' +
+      (acc < 60 ? '<div class="card tight mk-nextc">Das sitzt noch nicht ganz. Schau dir die Lösungswege an und mach <b>noch eine Runde</b> – dauert 8 Minuten und lohnt sich.</div>' : '<div class="card tight mk-nextc">✓ Gut! ' + (nx ? 'Weiter mit <b>' + nx.ico + ' ' + esc(nx.short) + '</b>.' : 'Jetzt das Finale: <b>Probe-Klausur</b>.') + '</div>') +
+      '<div class="les-endbtn">' + (acc < 60 ? '<button class="btn primary lg" id="mk_again">Noch eine Runde</button>' : '<button class="btn lg" id="mk_again">Noch eine Runde</button>') +
+      '<a class="btn' + (acc < 60 ? "" : " primary") + ' lg" id="cr_cont" href="' + (nx ? "#/kurs/physik?k=crash&s=" + nx.id + "&p=0" : "#/mathe/test?f=ph") + '">' + (nx ? "Weiter im Crashkurs" : "📝 Probe-Klausur") + '</a></div></div>'; }
   return '<div class="les les-done"><div class="les-trophy">' + (acc === 100 ? "🏆" : acc >= 70 ? "🎉" : "💪") + '</div><h1 class="fx-title">' + (acc === 100 ? "Alles richtig!" : "Runde geschafft!") + '</h1>' +
     '<div class="les-stats"><div><b>+' + R.xp + '</b><span>XP</span></div><div><b>' + R.right + '/' + R.total + '</b><span>ohne Hilfe richtig</span></div><div><b>' + p + ' %</b><span>' + esc(t.title.split(",")[0]) + '</span></div></div>' +
     (p >= MK_DONE && t.item && ckStatus()[t.item.nr] !== "ok" ? '<div class="card tight mk-nextc">Sitzt! Markiere Punkt ' + t.item.nr + ' auf der Checkliste als <b>✅ Kann ich</b>.</div>' : '') + (p >= MK_DONE && nxt ? '<div class="card tight mk-nextc">✓ Das sitzt! Weiter mit <b>' + nxt.ico + ' ' + esc(nxt.title) + '</b></div>' : p >= MK_DONE ? '<div class="card tight mk-nextc">✓ Alle Schritte geschafft? Dann jetzt die <b>Probe-Klausur</b>.</div>' : '') +

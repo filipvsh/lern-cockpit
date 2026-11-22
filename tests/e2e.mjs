@@ -1438,8 +1438,8 @@ await scenario("Klausurplan Nr. 2: 7 schriftliche Klausuren eingetragen, vorab a
 
 await scenario("Klausuren in mündlichen Fächern (Chemie, SoWi) werden ausgeblendet, nicht gelöscht", async () => {
   const b = new MockBackend();
-  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000c2", fach: "Chemie", thema: "Klausur Nr. 2 (CH-GK2)", datum: "2026-11-20", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
-  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000s2", fach: "SoWi", thema: "Klausur Nr. 2 (SW-GK1)", datum: "2026-12-02", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000c2", fach: "Chemie", thema: "Klausur Nr. 2 (CH-GK2)", datum: "2027-11-20", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
+  b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000s2", fach: "SoWi", thema: "Klausur Nr. 2 (SW-GK1)", datum: "2027-12-02", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   b.db.klausuren.push({ id: "11111111-aaaa-4aaa-8aaa-0000000000p2", fach: "Physik", thema: "Klausur Nr. 2 (PH-GK2)", datum: "2026-11-23", themen: [], material: [], mitnehmen: [], punkte: null, vokabel_lektionen: [], topics_migrated: true });
   const { ctx, page } = await open(b, { viewport: { width: 390, height: 844 } }); await login(page);
   const up = await page.evaluate(() => upcomingKL().map(k => k.fach));
@@ -1513,7 +1513,7 @@ await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Ü
   await page.evaluate(() => Api.idle());
   const c = b.db.einstellungen.find(x => x.key === "checklisten").value[PK]; assert.equal(c.items.length, 19); assert.equal(c.plan.length, 6);
   await go(page, "#/klausur/" + PK); await page.waitForSelector(".kc-plan"); const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
-  assert.ok((await page.textContent(".km-now")).includes("Lernplan"), "Empfehlung kommt aus dem Lernplan"); assert.equal(await page.$(".km-ask"), null, "Checkliste ist schon da");
+  assert.ok(/Lernplan|Crashkurs/.test(await page.textContent(".km-now")), "Empfehlung: Lernplan bzw. am Vorabend Crashkurs"); assert.equal(await page.$(".km-ask"), null, "Checkliste ist schon da");
   assert.ok(await noScroll()); await shot(page, "ph-01-seite");
   // Aufgabe im Plan abhaken
   await page.click(".kc-day[open] [data-kcplan]"); await page.waitForSelector(".kc-task.done");
@@ -1527,7 +1527,7 @@ await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Ü
   await go(page, "#/fehler?fach=Physik"); await page.waitForSelector(".fe-group"); assert.ok((await page.textContent(".fe-sub")).includes("Kinematik"));
   await page.click('[data-fepractice="mathe:Physik"]'); await page.waitForSelector(".mk-q"); assert.ok(await page.evaluate(() => MKR.items.every(x => x.key.startsWith("ph:"))));
   // Physik-Training wie der Mathe-Kurs: Kachel → Bereiche → gemischt üben, Probe-Klausur mit Note, Blitz
-  await go(page, "#/klausur/" + PK); await page.waitForSelector('.km-tile[data-kmgo="physik"]'); assert.ok((await page.textContent(".km-now")).includes("10 Aufgaben"), "Empfehlung startet Übungen");
+  await go(page, "#/klausur/" + PK); await page.waitForSelector('.km-tile[data-kmgo="physik"]'); assert.ok(/10 Aufgaben|8 Aufgaben/.test(await page.textContent(".km-now")), "Empfehlung startet Übungen");
   await page.click('.km-tile[data-kmgo="physik"]'); await page.waitForSelector('[data-mkstart="ph-all"]'); assert.equal(await page.$$eval(".ku-ch", x => x.length), 7, "7 Kapitel"); assert.ok(await noScroll()); await shot(page, "ph-04-kurs");
   // Kapitel: Erklärung mit Diagrammen, Beispiel Schritt für Schritt, Labor, Videos, gelesen abhaken
   await go(page, "#/kurs/physik?k=diag"); await page.waitForSelector(".ku-sec"); assert.ok(await page.$$eval(".ku-sec svg.phf", x => x.length) >= 5, "Diagramme"); assert.ok(await page.$(".ku-matrix"), "Übersicht s-t/v-t/a-t");
@@ -1540,6 +1540,14 @@ await scenario("Physik-Lernplan: Checkliste Kinematik + Plan bis zur Klausur, Ü
   // Üben aus dem Kapitel: Aufgaben mit echtem Diagramm, zurück ins Kapitel
   await go(page, "#/kurs/physik?k=diag"); await page.waitForSelector(".ku-side [data-mkstart]"); await page.click('.ku-side [data-mkstart="ph-diag"]'); await page.waitForSelector(".mk-q");
   assert.ok(await page.evaluate(() => MKR.items.some(x => x.fig)), "Diagramm-Aufgaben"); assert.equal(await page.evaluate(() => mkUnit("ph-diag").back), "#/kurs/physik?k=diag");
+  // Crashkurs: Input-Karten → Merke → 8 Aufgaben, Ergebnis gespeichert, weiter zum nächsten Block
+  await go(page, "#/kurs/physik?k=crash"); await page.waitForSelector("#cr_go"); await page.click("#cr_go"); await page.waitForSelector(".ku-crash");
+  assert.ok(await page.evaluate(() => document.body.classList.contains("focus")), "Fokus-Modus"); await shot(page, "ph-07-crash-karte");
+  while (await page.$("#cr_next")) { await page.click("#cr_next"); await page.waitForTimeout(150); }
+  assert.ok(await page.$(".ku-merke"), "Merke-Karte"); await page.click("#cr_quiz"); await page.waitForSelector(".mk-q");
+  assert.equal(await page.evaluate(() => MKR.items.length), 8); assert.equal(await page.evaluate(() => mkUnit("crash:grund").back), "#/kurs/physik?k=crash");
+  await page.evaluate(() => { MKR.right = 7; MKR.xp = 0; MKR.done = true; route(); }); await page.waitForSelector("#cr_cont"); await page.evaluate(() => Api.idle());
+  assert.equal(b.db.einstellungen.find(x => x.key === "kurs_crash").value.physik.grund.r, 7); assert.ok((await page.getAttribute("#cr_cont", "href")).includes("s=gleich"), "weiter mit Block 2");
   await go(page, "#/mathe/physik"); await page.waitForFunction(() => location.hash === "#/kurs/physik");
   await go(page, "#/kurs/physik"); await page.waitForSelector('[data-mkstart="ph-all"]');
   await page.click('[data-mkstart="ph-all"]'); await page.waitForSelector(".mk-q"); assert.equal(await page.evaluate(() => MKR.items.length), 10);
