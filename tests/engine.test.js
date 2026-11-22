@@ -673,3 +673,21 @@ test("Physik-Lernkurs: Kapitel passen zu den Übungen, Diagramme sauber, Videos,
   assert.ok(PK.SHEET.length >= 6 && PK.matrix().includes("<svg"));
   { const [lo, hi, st] = PK.axis(0, 23, 4); assert.ok(lo <= 0 && hi >= 23 && st > 0); }
 });
+
+test("Erdkunde-Lernkurs Naturrisiken: Fachbegriffe eintippen, Generatoren, Plan, Videos", () => {
+  const EK = require("../js/erdkunde.js");
+  assert.ok(EK.wordOk(["Hypozentrum", "Erdbebenherd"], "hypozentrm"), "ein Tippfehler ok");
+  assert.ok(EK.wordOk(["P-Welle", "Primärwelle"], "primaerwelle") && EK.wordOk(["Subduktion"], " SUBDUKTION "));
+  assert.ok(!EK.wordOk(["Lava"], "Lama"), "kurze Wörter exakt"); assert.ok(!EK.wordOk(["Magma"], ""));
+  let seed = 11; const rng = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  const keys = new Set(EK.CH.flatMap(c => c.keys).concat(EK.EXAM.flat(), EK.BLITZ));
+  keys.forEach(k => { assert.ok(MKK.GEN[k], k); for (let i = 0; i < 30; i++) { const t = MKK.make(k, i % 3, rng, []);
+    const g = t.kind === "chip" ? t.answer : t.kind === "word" ? t.answer[0] : String(t.answer).replace(".", ",");
+    assert.ok(MKK.check(t, g), k + " richtig erkannt"); if (t.kind === "chip") assert.equal(new Set(t.opts).size, t.opts.length, k + " keine doppelten Optionen"); } });
+  const w = MKK.make("ek:beg_beben", 0, rng, []); assert.equal(w.kind, "word"); assert.ok(/beginnt mit/.test(w.ask), "Leicht: Anfangsbuchstabe als Hilfe");
+  assert.equal(MKK.answerText(w), w.answer[0]);
+  assert.ok(EK.CH.every(c => c.terms.length >= 8 && c.vids.length >= 2 && c.vids.every(v => /^[\w-]{11}$/.test(v.id)) && c.pit.length >= 2));
+  assert.equal(EK.PLAN[EK.PLAN.length - 1].d, "2026-12-16"); assert.ok(EK.PLAN[0].d <= "2026-11-23", "Start früh");
+  assert.ok(EK.PLAN.every(d => d.tasks.every(t => !t.ch && !t.unit || EK.CH.some(c => c.id === (t.ch || t.unit)))));
+  Object.values(EK.svgs).forEach(s => assert.ok(s.startsWith("<svg") && !/NaN|undefined/.test(s)));
+});
