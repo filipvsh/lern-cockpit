@@ -5,8 +5,8 @@ Wer am Cockpit arbeitet oder für Filip lernt, liest zuerst dieses Dokument.
 
 ## 1. Cockpit-Bezug (immer)
 
-- Cockpit live: https://precious-tarsier-d3ff5d.netlify.app · Dashboard: https://filipvsh.github.io/lern-cockpit/#/dashboard
-- Repo: `filipvsh/lern-cockpit` (öffentlich!). Deploy: Push auf `main` → Netlify.
+- Cockpit live: https://filipvsh.github.io/lern-cockpit/#/dashboard (GitHub Pages). Daten: Supabase. **Netlify ist alt und wird nicht mehr genutzt.**
+- Repo: `filipvsh/lern-cockpit` (öffentlich!). Deploy: Push auf `main` → GitHub Pages.
 - Im Projekt „Schule“ gilt: Jede Lernhilfe, jeder Plan, jede Klausur hat einen Platz im Cockpit. Erst dort nachsehen
   (Klausurtermine, Lernplan, Noten, Material), dann antworten. Neue Lerninhalte gehören ins Cockpit, nicht nur in den Chat.
 - Das Repo ist öffentlich: **keine** Klausurtexte, Scans, privaten Daten, Schlüssel oder Noten-Details einchecken.
