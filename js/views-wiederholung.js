@@ -53,7 +53,7 @@ function wdEntry(e) {
     '<div class="wd-body">' + (f.was ? "<h4>Was passiert ist</h4><p>" + wdNl(f.was) + "</p>" : "") + (f.richtig ? "<h4>So geht es richtig</h4><p>" + wdNl(f.richtig) + "</p>" : "") + (f.tipp ? '<h4>Merke dir</h4><p class="wd-tip">' + wdNl(f.tipp) + "</p>" : "") +
     '<div class="wd-btns"><button class="btn sm' + (f.status === 1 ? " primary" : "") + '" data-wdst="' + esc(e.id + "|" + f.id + "|1") + '">✓ Verstanden</button><button class="btn sm' + (f.status === 2 ? " primary" : "") + '" data-wdst="' + esc(e.id + "|" + f.id + "|2") + '">↻ Nochmal üben</button><button class="btn sm" data-wdst="' + esc(e.id + "|" + f.id + "|0") + '">Zurücksetzen</button></div></div></details>').join("");
   const th = (e.themen || []).map((t, ti) => '<div class="card wd-t"><h2>' + esc(t.titel) + "</h2>" + (t.text ? "<p>" + wdNl(t.text) + "</p>" : "") +
-    ((t.videos || []).length ? "<h4>Videos</h4>" + t.videos.map((v, vi) => '<label class="wd-v"><input type="checkbox" data-wdv="' + esc(e.id + "|" + ti + "|" + vi) + '"' + (v.done ? " checked" : "") + '><a href="https://www.youtube.com/watch?v=' + encodeURIComponent(v.id) + '" target="_blank" rel="noopener">' + esc(v.t || "Video") + "</a></label>").join("") : "") +
+    ((t.videos || []).length ? "<h4>Videos</h4>" + t.videos.map((v, vi) => '<label class="wd-v"><input type="checkbox" data-wdv="' + esc(e.id + "|" + ti + "|" + vi) + '"' + (v.done ? " checked" : "") + '><a href="' + (v.id ? "https://www.youtube.com/watch?v=" + encodeURIComponent(v.id) : "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.q || v.t || "")) + '" target="_blank" rel="noopener">' + esc(v.t || "Video") + (v.id ? "" : " 🔎") + "</a></label>").join("") : "") +
     ((t.links || []).length ? "<h4>Zum Nachlesen</h4>" + t.links.map(l => '<div class="wd-v"><a href="' + esc(l.u) + '" target="_blank" rel="noopener">' + esc(l.t || l.u) + "</a></div>").join("") : "") + "</div>").join("");
   return netNotice() + head + kpi + (fs.length ? '<div class="section">' + sectionHead("Fehlerliste") + fl + "</div>" : "") + (th ? '<div class="section">' + sectionHead("Erklärungen und Videos") + th + "</div>" : "");
 }
@@ -85,7 +85,7 @@ function wdImportModal() {
           x.fehler.forEach((f, i) => { f.id = f.id || "f" + (i + 1); f.status = f.status || 0; });
           const old = d.entries.find(o => o.id === x.id);
           if (old) x.fehler.forEach(f => { const of_ = (old.fehler || []).find(o => o.id === f.id); if (of_ && of_.status) f.status = of_.status; });
-          (x.themen || []).forEach((t, ti) => (t.videos || []).forEach((v, vi) => { const ov = old && old.themen && old.themen[ti] && old.themen[ti].videos && old.themen[ti].videos[vi]; if (ov && ov.id === v.id && ov.done) v.done = true; }));
+          (x.themen || []).forEach((t, ti) => (t.videos || []).forEach((v, vi) => { const ov = old && old.themen && old.themen[ti] && old.themen[ti].videos && old.themen[ti].videos[vi]; if (ov && (ov.id || ov.q) === (v.id || v.q) && ov.done) v.done = true; }));
           const i = d.entries.findIndex(o => o.id === x.id); if (i >= 0) d.entries[i] = x; else d.entries.push(x);
         }));
         toast(list.length + (list.length === 1 ? " Analyse gespeichert" : " Analysen gespeichert"));
