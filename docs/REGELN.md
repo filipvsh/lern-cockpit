@@ -52,9 +52,10 @@ Technik und Aufbau eines Lernkurses: `CLAUDE.md`, Abschnitt „Klausur-Standard�
 1. Filip lädt die Arbeit unter **Wiederholung → Klausur hochladen** hoch (Titel beginnt mit „Klausur“) und schickt sie im Projekt „Schule“.
 2. Claude analysiert: pro Fehler Aufgabe, Thema, was passiert ist, wie es richtig geht, Merksatz, Fehlerart
    (Flüchtigkeit · Wissenslücke · Verständnis · Zeit · Operator verfehlt). Dazu Erklärungen und 2–3 verifizierte Videos je Thema.
-3. Claude gibt die Analyse als **JSON** (Format unten). Filip fügt es unter **Wiederholung → Analyse einfügen** ein.
-4. Lern-Modus: Fehler einzeln, erst selbst lösen, aufdecken, „Verstanden“ oder „Nochmal“.
-5. Note wird sofort in den Noten-Reiter eingetragen (siehe 6.).
+3. **Immer dazu: eine Musterlösung (1+)** – die komplette Arbeit so, wie sie nach dem Erwartungshorizont volle Punktzahl bekäme (jede Teilaufgabe, ausformuliert, mit Ansätzen/Zitaten/Zeilen). Feld `muster` im JSON.
+4. Claude gibt die Analyse als **JSON** (Format unten). Am schnellsten trägt Claude es selbst ein (über Filips Chrome im offenen Cockpit-Tab → setSetting). Sonst fügt Filip es unter **Wiederholung → Analyse einfügen** ein.
+5. Lern-Modus: Fehler einzeln, erst selbst lösen, aufdecken, „Verstanden“ oder „Nochmal“.
+6. Note wird sofort in den Noten-Reiter eingetragen (siehe 6.).
 
 ```json
 {
@@ -62,6 +63,9 @@ Technik und Aufbau eines Lernkurses: `CLAUDE.md`, Abschnitt „Klausur-Standard�
   "fazit": "2–3 Sätze: Woran lag es, was zuerst üben.",
   "fehler": [
     { "id": "f1", "aufgabe": "Aufgabe 3b", "thema": "Ableitung", "was": "Was passiert ist.", "richtig": "So geht es richtig, Schritt für Schritt.", "tipp": "Merksatz." }
+  ],
+  "muster": [
+    { "aufgabe": "Aufgabe 1", "text": "Komplette 1+-Lösung dieser Teilaufgabe, Zeilenumbrüche mit \\n." }
   ],
   "themen": [
     { "titel": "Ableitungsregeln", "text": "Kurze Erklärung.", "videos": [{ "t": "Titel (Kanal)", "id": "YOUTUBE_ID" }], "links": [{ "t": "Nachlesen", "u": "https://…" }] }

@@ -55,7 +55,9 @@ function wdEntry(e) {
   const th = (e.themen || []).map((t, ti) => '<div class="card wd-t"><h2>' + esc(t.titel) + "</h2>" + (t.text ? "<p>" + wdNl(t.text) + "</p>" : "") +
     ((t.videos || []).length ? "<h4>Videos</h4>" + t.videos.map((v, vi) => '<label class="wd-v"><input type="checkbox" data-wdv="' + esc(e.id + "|" + ti + "|" + vi) + '"' + (v.done ? " checked" : "") + '><a href="' + (v.id ? "https://www.youtube.com/watch?v=" + encodeURIComponent(v.id) : "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.q || v.t || "")) + '" target="_blank" rel="noopener">' + esc(v.t || "Video") + (v.id ? "" : " 🔎") + "</a></label>").join("") : "") +
     ((t.links || []).length ? "<h4>Zum Nachlesen</h4>" + t.links.map(l => '<div class="wd-v"><a href="' + esc(l.u) + '" target="_blank" rel="noopener">' + esc(l.t || l.u) + "</a></div>").join("") : "") + "</div>").join("");
-  return netNotice() + head + kpi + (fs.length ? '<div class="section">' + sectionHead("Fehlerliste") + fl + "</div>" : "") + (th ? '<div class="section">' + sectionHead("Erklärungen und Videos") + th + "</div>" : "");
+  const mu = (e.muster || []).map(m => '<details class="card wd-f wd-mu"><summary><span class="wd-st s1">★</span><b>' + esc(m.aufgabe || "") + '</b></summary><div class="wd-body wd-mtext">' + wdNl(m.text) + "</div></details>").join("");
+  const muHtml = mu ? '<div class="section">' + sectionHead("Musterlösung (1+)") + '<p class="hint" style="margin:-4px 0 10px">So hätte eine Arbeit mit voller Punktzahl nach dem Erwartungshorizont ausgesehen. Erst selbst versuchen, dann vergleichen.</p>' + mu + "</div>" : "";
+  return netNotice() + head + kpi + (fs.length ? '<div class="section">' + sectionHead("Fehlerliste") + fl + "</div>" : "") + muHtml + (th ? '<div class="section">' + sectionHead("Erklärungen und Videos") + th + "</div>" : "");
 }
 
 /* ---------- Lern-Modus: Fehler einzeln ---------- */
