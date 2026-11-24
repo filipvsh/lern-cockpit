@@ -75,8 +75,12 @@ svg{display:block}
 .app{display:flex;min-height:100vh;min-height:100dvh}
 .side{width:var(--side-w);flex:0 0 auto;position:sticky;top:0;height:100vh;height:100dvh;padding:var(--s5) var(--s3) var(--s4);display:flex;flex-direction:column;gap:2px;overflow-y:auto;border-right:1px solid var(--line);background:var(--bg)}
 .brand{display:flex;align-items:center;gap:10px;padding:4px 10px 20px;text-decoration:none}
-.brand .logo{width:30px;height:30px;border-radius:9px;background:var(--text);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-.brand .logo svg{width:16px;height:16px}
+.brand .logo{width:48px;height:48px;color:var(--text);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.brand .logo svg{width:48px;height:48px;display:block}
+.wd-card{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;margin-bottom:10px}.wd-main{flex:1;min-width:0}.wd-main b{display:block}.wd-bar{height:6px;border-radius:3px;background:rgba(0,0,0,.08);margin-top:8px;overflow:hidden}.wd-bar i{display:block;height:100%;background:var(--accent)}
+.wd-f{margin-bottom:8px}.wd-f summary{display:flex;align-items:center;gap:8px;cursor:pointer}.wd-st{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;background:rgba(0,0,0,.07);flex:0 0 auto}.wd-st.s1{background:#34c759;color:#fff}.wd-st.s2{background:#ff9500;color:#fff}
+.wd-body h4,.wd-t h4,.wd-fc h4{margin:14px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-2)}.wd-tip{background:rgba(255,204,0,.16);padding:8px 10px;border-radius:10px}.wd-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.wd-v{display:flex;align-items:center;gap:8px;padding:6px 0}.wd-fc{margin-top:12px}.wd-prog{margin:8px 0 4px}.wd-how{margin-top:var(--s5)}
 .brand b{display:block;font-size:15px;font-weight:600;letter-spacing:-.015em}
 .brand small{display:block;font-size:12px;color:var(--text-2);margin-top:-1px}
 .nav{display:flex;flex-direction:column;gap:2px}
@@ -1206,8 +1210,10 @@ a.ku-crash-card{display:flex;align-items:center;gap:14px;margin:12px 0;color:var
 <body>
 <div class="app">
   <aside class="side" aria-label="Hauptnavigation">
-    <a class="brand" href="#/dashboard"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6l8 12"/><path d="M8 13h8"/></svg></div><div><b>Lern-Cockpit</b><small>Filip · EF</small></div></a>
+    <a class="brand" href="#/dashboard"><div class="logo" id="brandLogo" title="Tippen für das nächste Logo"></div><div><b>Lern-Cockpit</b><small>Filip · EF</small></div></a>
     <nav class="nav" id="nav"></nav>
+    <div class="navgrp sep-only" id="navgrp1">Werkzeuge</div>
+    <nav class="nav secondary" id="navT"></nav>
     <div class="navgrp sep-only" id="navgrp2">Schule</div>
     <nav class="nav secondary" id="nav2"></nav>
     <div class="side-foot"><nav class="nav secondary" id="nav3"></nav><div class="sync" id="syncNote"></div></div>
@@ -1231,11 +1237,12 @@ a.ku-crash-card{display:flex;align-items:center;gap:14px;margin:12px 0;color:var
 <script src="js/erdkunde.js"></script>
 <script src="js/fr-check.js"></script>
 <script src="js/api.js"></script>
+<script src="js/logos.js"></script>
 <script>
 /* =====================================================================
    LERN-COCKPIT · Core (Schulorganisation, gemeinsame Helfer)
    ===================================================================== */
-const APP_VERSION="33";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
+const APP_VERSION="34";   // bei jedem Update erhöhen – gleich wie CACHE in sw.js (Test prüft das), unten auf der Startseite sichtbar
 /* ---------- SUPABASE ---------- */
 const SB_URL="https://tafksekafwihvrwxxzdh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhZmtzZWthZndpaHZyd3h4emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYxNjAsImV4cCI6MjEwMzk0MjE2MH0.25GTHOHZikQAIKkk7SCtBLHyc3fX9KWMNC6RBFJ0dXQ";
@@ -1447,10 +1454,10 @@ const ICO={
  spiele:svgI('<rect x="3" y="7.5" width="18" height="10" rx="5"/><path d="M8 10.5v4M6 12.5h4"/><circle cx="15.5" cy="11.5" r=".9" fill="currentColor"/><circle cx="17.5" cy="13.5" r=".9" fill="currentColor"/>'),
  link:svgI('<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>')
 };
-const NAV_MAIN=["dashboard","faecher","vokabeln","lernplan","trainer","material","spiele","ki","fortschritt"];
+const NAV_MAIN=["dashboard","faecher","vokabeln","lernplan","wiederholung"];const NAV_TOOLS=["trainer","material","spiele","ki","fortschritt"];
 const NAV_SCHOOL=["aufgaben","stundenplan","noten","info"];
-const TITLES={faecher:"Fächer",fach:"Fach",fehler:"Fehlerheft",drill:"Französisch-Kurs",mathe:"Mathe-Checkliste",dashboard:"Dashboard",vokabeln:"Vokabeln",lernplan:"Lernplan",klausur:"Lernplan",trainer:"Trainer",material:"Material",spiele:"Spiele",ki:"KI",fortschritt:"Fortschritt",aufgaben:"Aufgaben",noten:"Noten",stundenplan:"Stundenplan",info:"Infos",ernaehrung:"Ernährung",einstellungen:"Einstellungen"};
-const SUBTITLES={aufgaben:"Hausaufgaben und To-dos an einem Ort.",noten:"Punkte, Schnitt und Verlauf pro Halbjahr.",stundenplan:"Deine Woche. Tippe auf eine Stunde für Details.",info:"Termine, Neuigkeiten und alles rund um die Schule.",ernaehrung:"Dein Plan für einen Schultag.",einstellungen:"Tagesziel, Erinnerungen und Datenbank."};
+const TITLES={faecher:"Fächer",fach:"Fach",fehler:"Fehlerheft",wiederholung:"Wiederholung",drill:"Französisch-Kurs",mathe:"Mathe-Checkliste",dashboard:"Dashboard",vokabeln:"Vokabeln",lernplan:"Lernplan",klausur:"Lernplan",trainer:"Trainer",material:"Material",spiele:"Spiele",ki:"KI",fortschritt:"Fortschritt",aufgaben:"Aufgaben",noten:"Noten",stundenplan:"Stundenplan",info:"Infos",ernaehrung:"Ernährung",einstellungen:"Einstellungen"};
+const SUBTITLES={wiederholung:"Arbeiten nachbereiten und Fehler verstehen.",aufgaben:"Hausaufgaben und To-dos an einem Ort.",noten:"Punkte, Schnitt und Verlauf pro Halbjahr.",stundenplan:"Deine Woche. Tippe auf eine Stunde für Details.",info:"Termine, Neuigkeiten und alles rund um die Schule.",ernaehrung:"Dein Plan für einen Schultag.",einstellungen:"Tagesziel, Erinnerungen und Datenbank."};
 function navBadge(name){if(!STATE.loaded)return "";
  if(name==="aufgaben"){const n=openHW().filter(h=>h.faellig&&daysUntil(h.faellig)<=1).length;return n?'<span class="nbadge'+(openHW().some(h=>h.faellig&&daysUntil(h.faellig)<0)?" hot":"")+'">'+n+'</span>':""}
  if(name==="lernplan"){const k=upcomingKL()[0];if(k&&daysUntil(k.datum)<=7)return '<span class="nbadge">'+daysUntil(k.datum)+' T</span>';return ""}
@@ -1459,16 +1466,20 @@ function navBadge(name){if(!STATE.loaded)return "";
  if(name==="info"){const n=unreadNews().length;return n?'<span class="nbadge">'+n+'</span>':""}
  return ""}
 function navLink(n,active){return '<a href="#/'+n+'" class="'+(n===active?"on":"")+'" title="'+TITLES[n]+'"'+(n===active?' aria-current="page"':'')+'><span class="navico">'+ICO[n]+'</span><span class="navlbl">'+TITLES[n]+'</span>'+navBadge(n)+'</a>';}
-if(!ICO.drill)ICO.drill=ICO.pen;if(!ICO.faecher)ICO.faecher=svgI('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7M8 11h7"/>');if(!ICO.fehler)ICO.fehler=ICO.x;if(!ICO.mathe)ICO.mathe=ICO.fortschritt;
+if(!ICO.wiederholung)ICO.wiederholung=svgI('<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>');if(!ICO.drill)ICO.drill=ICO.pen;if(!ICO.faecher)ICO.faecher=svgI('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7M8 11h7"/>');if(!ICO.fehler)ICO.fehler=ICO.x;if(!ICO.mathe)ICO.mathe=ICO.fortschritt;
+let LOGO_I=null;
+function paintLogo(){const el=document.getElementById("brandLogo");if(!el||typeof LOGOS==="undefined")return;if(LOGO_I===null)LOGO_I=LOGOS.today();el.innerHTML=LOGOS.svg(LOGO_I,48);if(!el.dataset.b){el.dataset.b=1;el.onclick=e=>{e.preventDefault();LOGO_I=(LOGO_I+1)%LOGOS.count;paintLogo();toast("Logo "+(LOGO_I+1)+"/"+LOGOS.count+" · "+LOGOS.names[LOGO_I]);};}}
 function renderNav(active){
+ paintLogo();
  document.getElementById("nav").innerHTML=NAV_MAIN.map(n=>navLink(n,active)).join("");
+ document.getElementById("navT").innerHTML=NAV_TOOLS.map(n=>navLink(n,active)).join("");
  document.getElementById("nav2").innerHTML=NAV_SCHOOL.map(n=>navLink(n,active)).join("");
  document.getElementById("nav3").innerHTML=navLink("einstellungen",active);
  const m=["dashboard","faecher","vokabeln","noten"];const FA=["faecher","fach","klausur","lernplan","mathe","drill","fehler"];const inMore=!m.includes(active)&&!FA.includes(active);const ML={dashboard:"Start"};
  const mb=n=>{const b=n==="faecher"?navBadge("lernplan"):navBadge(n);return b};
  document.getElementById("mnav").innerHTML=m.map(n=>'<a href="#/'+n+'" class="'+(n===active||(n==="faecher"&&FA.includes(active))?"on":"")+'"><span class="navico">'+ICO[n]+'</span>'+(ML[n]||TITLES[n])+mb(n)+'</a>').join("")+'<button id="moreBtn" class="'+(inMore?"on":"")+'"><span class="navico">'+ICO.mehr+'</span>Mehr</button>';
  document.getElementById("moreBtn").onclick=()=>{const it=n=>'<a href="#/'+n+'"><span class="navico">'+ICO[n]+'</span>'+TITLES[n]+navBadge(n)+'</a>';
-  openSheet('<div class="sl">'+["fehler","lernplan","trainer","spiele","material","fortschritt","ki"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.filter(n=>n!=="noten").map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
+  openSheet('<div class="sl">'+["fehler","wiederholung","lernplan","trainer","spiele","material","fortschritt","ki"].map(it).join("")+'</div><div class="sgh">Schule</div><div class="sl">'+NAV_SCHOOL.filter(n=>n!=="noten").map(it).join("")+'</div><div class="sgh">&nbsp;</div><div class="sl">'+["einstellungen","ernaehrung"].map(it).join("")+'</div>');};
  const sn=document.getElementById("syncNote");if(sn)sn.innerHTML=STATE.dbReady?'Synchronisiert'+(STATE.syncedAt?' · '+new Date(STATE.syncedAt).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):''):(STATE.loaded?'<span style="color:var(--orange)">Datenbank-Update ausstehend</span>':'');}
 /* ---------- MODAL / SHEET / TOAST ---------- */
 function openModal(title,body,foot,onMount){closeModal();const o=document.getElementById("overlay");o.innerHTML='<div class="mbg" id="mbg"><div class="modal" role="dialog"><div class="mh"><h3>'+title+'</h3><button class="xbtn" id="mclose">✕</button></div><div class="mb">'+body+'</div>'+(foot?'<div class="mf">'+foot+'</div>':'')+'</div></div>';
@@ -1761,6 +1772,7 @@ if(!location.hash)location.hash="#/dashboard";
 <script src="js/fehler.js"></script>
 <script src="js/views-checkliste.js"></script>
 <script src="js/views-kurs.js"></script>
+<script src="js/views-wiederholung.js"></script>
 <script src="js/motivation.js"></script>
 <script src="js/push.js"></script>
 <script src="js/content-packs.js"></script>

@@ -1,5 +1,7 @@
 # Lern-Cockpit – Hinweise für Claude
 
+**Zuerst `docs/REGELN.md` lesen** (Regelbuch: Cockpit-Bezug, Checkliste vor jedem Lernplan, Lernplan-Bausteine, Wiederholung nach Klausuren, Noten). Das Regelbuch gilt immer.
+
 Lern-SPA von Filip (EF, Gesamtschule Hattingen). Vanilla JS, kein Build-Schritt, Supabase-Backend (nur anon key).
 Antworten an Filip auf Deutsch, kurz, mit Hinweis „unten auf der Startseite muss Version N stehen“.
 
@@ -34,6 +36,12 @@ sobald der Termin bekannt ist; Vorabend = Crashkurs.
 Neuen Kurs in `LERNKURSE()` (views-kurs.js) eintragen (Felder: id, fach, qf, exam/blitz-Links, unit(), all,
 termKey(), examKeys, blitzKeys, testsKey, crSheet …). Klausur-Kacheln, Empfehlung, Fehlerheft, Probe-Klausur
 (`#/mathe/test?f=<qf>`) und Crashkurs funktionieren dann automatisch. Videos zusätzlich in `VIDEO_SETS` (videos.js).
+
+## Wiederholung, Noten, Logos
+
+- Reiter **Wiederholung** (`js/views-wiederholung.js`, Route `#/wiederholung`): Klausur-Archiv über Material, Fehleranalyse (Format in `docs/REGELN.md`), Lern-Modus. Daten in Einstellung `wiederholung`.
+- Noten: Punkte 0–15; einmalige Einträge über Content-Packs (`klausurnoten-1124`).
+- Logo oben links: `js/logos.js` (50 Motive, täglich wechselnd).
 
 ## Technik
 

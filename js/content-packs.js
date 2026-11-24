@@ -220,6 +220,25 @@ const PACKS = [
     ]);
     return "Texte, Hörverstehen, Grammatik";
   } }
+  ,
+  { id: "klausurnoten-1124", label: "Klausurnoten eingetragen", run: async () => {
+    // Noten aus den zuletzt zurückbekommenen Arbeiten (Nov 2026): Punkte 0–15, 4- = 4, 3 = 8, 2 = 11
+    if (!STATE.loaded) return false;
+    const want = [["Französisch", 11, "Note 2"], ["Deutsch", 8, "Note 3"], ["Englisch", 8, "Note 3 (aus dem Gedächtnis – bitte prüfen)"], ["Mathe", 4, "Note 4-"]];
+    let n = 0;
+    for (const [fach, punkte, txt] of want) {
+      const k = STATE.kl.filter(x => x.fach === fach && x.datum && x.datum <= todayISO() && x.punkte == null && daysUntil(x.datum) >= -30).sort((a, b) => a.datum < b.datum ? 1 : -1)[0] || null;
+      if (!k && STATE.noten.some(x => x.fach === fach && x.art === "klausur" && x.datum >= "2026-11-01")) continue;     // gibt es schon
+      const row = { fach, art: "klausur", halbjahr: "EF.1", quartal: quartalOf(k ? k.datum : todayISO()), punkte, gewicht: 1, datum: k ? k.datum : todayISO(), notiz: txt, klausur_id: k ? k.id : null };
+      try {
+        if (k) await saveKL(k, { punkte, prep: "Erledigt" });
+        if (STATE.v2.noten) { const r = await sbInsert("noten", row); STATE.noten.push({ ...row, id: r.id }); }
+        else { STATE.noten.push({ ...row, id: uid() }); lsSet("lc_noten", STATE.noten); }
+        n++;
+      } catch (e) { console.warn("Note", fach, e); return false; }
+    }
+    return n + " Noten";
+  } }
 ];
 
 let PACKS_RUNNING = false;

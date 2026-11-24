@@ -457,8 +457,8 @@ function bindTrainer() {
    ===================================================================== */
 const ROUTE = { name: "dashboard", sub: "", id: "", query: {} };
 const ALIASES = { klausuren: "lernplan", statistik: "fortschritt" };
-const OWN_HEADER = ["dashboard", "vokabeln", "lernplan", "trainer", "material", "spiele", "extrem", "klausur", "lektion", "drill", "mathe", "faecher", "fach", "fehler", "kurs", "ki", "fortschritt", "auth"];
-const ENGINE_FREE = ["aufgaben", "stundenplan", "noten", "info", "ernaehrung", "einstellungen"];
+const OWN_HEADER = ["wiederholung", "dashboard", "vokabeln", "lernplan", "trainer", "material", "spiele", "extrem", "klausur", "lektion", "drill", "mathe", "faecher", "fach", "fehler", "kurs", "ki", "fortschritt", "auth"];
+const ENGINE_FREE = ["wiederholung", "aufgaben", "stundenplan", "noten", "info", "ernaehrung", "einstellungen"];
 function parseRoute() {
   let h = location.hash.replace(/^#\/?/, ""); const qi = h.indexOf("?"); let q = {};
   if (qi >= 0) { new URLSearchParams(h.slice(qi + 1)).forEach((v, k) => q[k] = v); h = h.slice(0, qi); }
@@ -495,7 +495,7 @@ function route() {
   if (enter && !ROUTE.query.keep) window.scrollTo({ top: 0 });
 }
 function bindPage(name) {
-  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, klausur: bindKlausur, lektion: bindLektion, drill: bindDrill, mathe: bindMathe, fach: bindFach, fehler: bindFehler, kurs: bindKurs, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: bindMotivation }[name];
+  const b = { auth: bindAuth, dashboard: bindDashboard, aufgaben: bindAufgaben, lernplan: bindLernplan, noten: bindNoten, vokabeln: bindVokabeln, stundenplan: bindStundenplan, info: bindInfo, trainer: bindTrainer, material: bindMaterial, spiele: bindSpiele, extrem: bindExtrem, klausur: bindKlausur, lektion: bindLektion, drill: bindDrill, mathe: bindMathe, fach: bindFach, fehler: bindFehler, kurs: bindKurs, ki: bindKI, einstellungen: bindEinstellungen, fortschritt: bindMotivation, wiederholung: bindWiederholung }[name];
   if (b) b();
 }
 window.addEventListener("hashchange", () => { closeModal(); const prev = ROUTE.name + "/" + ROUTE.sub; parseRoute(); if (ROUTE.name + "/" + ROUTE.sub !== prev) VOK_FILTER = ""; route(); });

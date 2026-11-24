@@ -51,14 +51,14 @@ function uploadModal(preset) {
   preset = preset || {};
   const fachs = ["Allgemein"].concat(FACHER);
   openModal("PDF oder Bild hochladen", '<div class="form"><label class="fld">Datei<input id="up_file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp"></label>' +
-    '<label class="fld">Titel<input id="up_title" placeholder="z. B. Struktur einer Analyse" maxlength="120"></label>' +
+    '<label class="fld">Titel<input id="up_title" value="'+esc(preset.title||"")+'" placeholder="z. B. Struktur einer Analyse" maxlength="120"></label>' +
     '<div class="form c2"><label class="fld">Fach<select id="up_fach">' + fachs.map(f => '<option' + (f === (preset.fach || "Allgemein") ? " selected" : "") + '>' + esc(f) + '</option>').join("") + '</select></label>' +
     '<label class="fld">Zu einer Prüfung (optional)<select id="up_exam"><option value="">—</option>' + upcomingKL().map(k => '<option value="' + esc(k.id) + '"' + (String(preset.exam_ref) === String(k.id) ? " selected" : "") + '>' + esc(k.fach + " · " + (isVocabTest(k) ? vtName(k) : klTitle(k))) + '</option>').join("") + '</select></label></div>' +
     '<p class="hint">PDF, PNG, JPG oder WebP, höchstens 25 MB. Fotos vom Heft gehen auch.</p></div>',
     '<button class="btn" id="up_cancel">Abbrechen</button><button class="btn primary" id="up_go" disabled>Hochladen</button>', () => {
       const q = id => document.getElementById(id);
       q("up_cancel").onclick = closeModal;
-      q("up_file").onchange = () => { const f = q("up_file").files[0]; q("up_go").disabled = !f; if (f && !q("up_title").value) q("up_title").value = f.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " "); };
+      q("up_file").onchange = () => { const f = q("up_file").files[0]; q("up_go").disabled = !f; if (f && (!q("up_title").value || q("up_title").value === (preset.title || ""))) q("up_title").value = (preset.title || "") + f.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " "); };
       q("up_go").onclick = async () => {
         const f = q("up_file").files[0]; if (!f) return;
         if (f.size > 25 * 1024 * 1024) { toast("Die Datei ist zu groß (höchstens 25 MB).", true); return; }
