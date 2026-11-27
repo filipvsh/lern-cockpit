@@ -1566,7 +1566,7 @@ await scenario("Erdkunde-Lernkurs Naturrisiken: Kacheln, Lernplan, Kapitel mit S
   await page.waitForFunction(() => typeof upcomingKL === "function" && upcomingKL().some(k => k.fach === "Erdkunde"), null, { timeout: 15000 }); const ek = await page.evaluate(() => upcomingKL().find(k => k.fach === "Erdkunde").id);
   await go(page, "#/klausur/" + ek); await page.waitForSelector('.km-tile[data-kmgo="kurs:erdkunde"]');
   assert.ok(await page.$('.km-tile[data-kmgo="kurs-terms:erdkunde"]'), "Kachel Fachbegriffe"); assert.ok(/Lernplan/.test(await page.textContent(".km-now")), "Empfehlung aus dem Lernplan");
-  await page.click('.km-tile[data-kmgo="kurs:erdkunde"]'); await page.waitForSelector(".ku-path"); assert.equal(await page.$$eval(".ku-ch", x => x.length), 6);
+  await page.click('.km-tile[data-kmgo="kurs:erdkunde"]'); await page.waitForSelector(".ku-path"); assert.equal(await page.$$eval(".ku-ch", x => x.length), 7);
   assert.ok(await page.$(".ku-today .ku-tgo"), "Lernplan mit Sprung-Knöpfen");
   await go(page, "#/kurs/erdkunde?k=grenzen"); await page.waitForSelector(".ku-terms"); assert.ok(await page.$("svg.eks"), "Skizze"); assert.ok((await page.textContent(".ku-terms")).includes("Subduktion"));
   await go(page, "#/kurs/erdkunde?k=beben"); await page.waitForSelector(".ku-lab-v"); const v0 = await page.textContent(".ku-lab-v");
